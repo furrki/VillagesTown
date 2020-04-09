@@ -14,6 +14,10 @@
 		FB27EAFB243FDEC00052F909 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = FB27EAF9243FDEC00052F909 /* Main.storyboard */; };
 		FB27EB07243FDEC10052F909 /* VillagesTownTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB27EB06243FDEC10052F909 /* VillagesTownTests.swift */; };
 		FB27EB12243FDEC10052F909 /* VillagesTownUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB27EB11243FDEC10052F909 /* VillagesTownUITests.swift */; };
+		FB27EB22243FDF380052F909 /* Village.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB27EB21243FDF380052F909 /* Village.swift */; };
+		FB27EB26243FE05A0052F909 /* Resource.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB27EB25243FE05A0052F909 /* Resource.swift */; };
+		FBC8BD63243FE6AF00DC64CD /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC8BD62243FE6AF00DC64CD /* Constants.swift */; };
+		FBC8BD65243FEB7900DC64CD /* ResourceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC8BD64243FEB7900DC64CD /* ResourceManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -48,6 +52,10 @@
 		FB27EB0D243FDEC10052F909 /* VillagesTownUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VillagesTownUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FB27EB11243FDEC10052F909 /* VillagesTownUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VillagesTownUITests.swift; sourceTree = "<group>"; };
 		FB27EB13243FDEC10052F909 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		FB27EB21243FDF380052F909 /* Village.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Village.swift; sourceTree = "<group>"; };
+		FB27EB25243FE05A0052F909 /* Resource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Resource.swift; sourceTree = "<group>"; };
+		FBC8BD62243FE6AF00DC64CD /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
+		FBC8BD64243FEB7900DC64CD /* ResourceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -98,6 +106,9 @@
 		FB27EAEF243FDEBD0052F909 /* VillagesTown */ = {
 			isa = PBXGroup;
 			children = (
+				FBC8BD61243FE6A500DC64CD /* Constants */,
+				FB27EB20243FDF160052F909 /* Engines */,
+				FB27EB1F243FDF0C0052F909 /* Data */,
 				FB27EAF0243FDEBD0052F909 /* AppDelegate.swift */,
 				FB27EAF2243FDEBD0052F909 /* ContentView.swift */,
 				FB27EAF4243FDEC00052F909 /* Assets.xcassets */,
@@ -133,6 +144,47 @@
 				FB27EB13243FDEC10052F909 /* Info.plist */,
 			);
 			path = VillagesTownUITests;
+			sourceTree = "<group>";
+		};
+		FB27EB1F243FDF0C0052F909 /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				FB27EB24243FDF4C0052F909 /* Resource */,
+				FB27EB23243FDF3E0052F909 /* Entity */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		FB27EB20243FDF160052F909 /* Engines */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Engines;
+			sourceTree = "<group>";
+		};
+		FB27EB23243FDF3E0052F909 /* Entity */ = {
+			isa = PBXGroup;
+			children = (
+				FB27EB21243FDF380052F909 /* Village.swift */,
+			);
+			path = Entity;
+			sourceTree = "<group>";
+		};
+		FB27EB24243FDF4C0052F909 /* Resource */ = {
+			isa = PBXGroup;
+			children = (
+				FB27EB25243FE05A0052F909 /* Resource.swift */,
+				FBC8BD64243FEB7900DC64CD /* ResourceManager.swift */,
+			);
+			path = Resource;
+			sourceTree = "<group>";
+		};
+		FBC8BD61243FE6A500DC64CD /* Constants */ = {
+			isa = PBXGroup;
+			children = (
+				FBC8BD62243FE6AF00DC64CD /* Constants.swift */,
+			);
+			path = Constants;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -266,6 +318,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FBC8BD63243FE6AF00DC64CD /* Constants.swift in Sources */,
+				FBC8BD65243FEB7900DC64CD /* ResourceManager.swift in Sources */,
+				FB27EB22243FDF380052F909 /* Village.swift in Sources */,
+				FB27EB26243FE05A0052F909 /* Resource.swift in Sources */,
 				FB27EAF3243FDEBD0052F909 /* ContentView.swift in Sources */,
 				FB27EAF1243FDEBD0052F909 /* AppDelegate.swift in Sources */,
 			);
