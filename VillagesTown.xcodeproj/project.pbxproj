@@ -18,6 +18,7 @@
 		FB27EB26243FE05A0052F909 /* Resource.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB27EB25243FE05A0052F909 /* Resource.swift */; };
 		FBC8BD63243FE6AF00DC64CD /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC8BD62243FE6AF00DC64CD /* Constants.swift */; };
 		FBC8BD65243FEB7900DC64CD /* ResourceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC8BD64243FEB7900DC64CD /* ResourceManager.swift */; };
+		FBC8BD67243FEDCC00DC64CD /* Village+Enums.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC8BD66243FEDCC00DC64CD /* Village+Enums.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,6 +57,7 @@
 		FB27EB25243FE05A0052F909 /* Resource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Resource.swift; sourceTree = "<group>"; };
 		FBC8BD62243FE6AF00DC64CD /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		FBC8BD64243FEB7900DC64CD /* ResourceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceManager.swift; sourceTree = "<group>"; };
+		FBC8BD66243FEDCC00DC64CD /* Village+Enums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Village+Enums.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -166,6 +168,7 @@
 			isa = PBXGroup;
 			children = (
 				FB27EB21243FDF380052F909 /* Village.swift */,
+				FBC8BD66243FEDCC00DC64CD /* Village+Enums.swift */,
 			);
 			path = Entity;
 			sourceTree = "<group>";
@@ -321,6 +324,7 @@
 				FBC8BD63243FE6AF00DC64CD /* Constants.swift in Sources */,
 				FBC8BD65243FEB7900DC64CD /* ResourceManager.swift in Sources */,
 				FB27EB22243FDF380052F909 /* Village.swift in Sources */,
+				FBC8BD67243FEDCC00DC64CD /* Village+Enums.swift in Sources */,
 				FB27EB26243FE05A0052F909 /* Resource.swift in Sources */,
 				FB27EAF3243FDEBD0052F909 /* ContentView.swift in Sources */,
 				FB27EAF1243FDEBD0052F909 /* AppDelegate.swift in Sources */,
