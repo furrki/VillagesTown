@@ -19,6 +19,9 @@
 		FBC8BD63243FE6AF00DC64CD /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC8BD62243FE6AF00DC64CD /* Constants.swift */; };
 		FBC8BD65243FEB7900DC64CD /* ResourceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC8BD64243FEB7900DC64CD /* ResourceManager.swift */; };
 		FBC8BD67243FEDCC00DC64CD /* Village+Enums.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC8BD66243FEDCC00DC64CD /* Village+Enums.swift */; };
+		FBC8BD6A243FEEA600DC64CD /* GameManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC8BD69243FEEA600DC64CD /* GameManager.swift */; };
+		FBC8BD6C243FEF3100DC64CD /* Nationality.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC8BD6B243FEF3100DC64CD /* Nationality.swift */; };
+		FBC8BD6E243FF0E300DC64CD /* Map.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC8BD6D243FF0E300DC64CD /* Map.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -58,6 +61,9 @@
 		FBC8BD62243FE6AF00DC64CD /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		FBC8BD64243FEB7900DC64CD /* ResourceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceManager.swift; sourceTree = "<group>"; };
 		FBC8BD66243FEDCC00DC64CD /* Village+Enums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Village+Enums.swift"; sourceTree = "<group>"; };
+		FBC8BD69243FEEA600DC64CD /* GameManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameManager.swift; sourceTree = "<group>"; };
+		FBC8BD6B243FEF3100DC64CD /* Nationality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Nationality.swift; sourceTree = "<group>"; };
+		FBC8BD6D243FF0E300DC64CD /* Map.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Map.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -151,8 +157,11 @@
 		FB27EB1F243FDF0C0052F909 /* Data */ = {
 			isa = PBXGroup;
 			children = (
+				FBC8BD68243FEE8900DC64CD /* Managers */,
 				FB27EB24243FDF4C0052F909 /* Resource */,
 				FB27EB23243FDF3E0052F909 /* Entity */,
+				FBC8BD6B243FEF3100DC64CD /* Nationality.swift */,
+				FBC8BD6D243FF0E300DC64CD /* Map.swift */,
 			);
 			path = Data;
 			sourceTree = "<group>";
@@ -160,6 +169,7 @@
 		FB27EB20243FDF160052F909 /* Engines */ = {
 			isa = PBXGroup;
 			children = (
+				FBC8BD69243FEEA600DC64CD /* GameManager.swift */,
 			);
 			path = Engines;
 			sourceTree = "<group>";
@@ -177,7 +187,6 @@
 			isa = PBXGroup;
 			children = (
 				FB27EB25243FE05A0052F909 /* Resource.swift */,
-				FBC8BD64243FEB7900DC64CD /* ResourceManager.swift */,
 			);
 			path = Resource;
 			sourceTree = "<group>";
@@ -188,6 +197,14 @@
 				FBC8BD62243FE6AF00DC64CD /* Constants.swift */,
 			);
 			path = Constants;
+			sourceTree = "<group>";
+		};
+		FBC8BD68243FEE8900DC64CD /* Managers */ = {
+			isa = PBXGroup;
+			children = (
+				FBC8BD64243FEB7900DC64CD /* ResourceManager.swift */,
+			);
+			path = Managers;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -321,9 +338,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FBC8BD6E243FF0E300DC64CD /* Map.swift in Sources */,
 				FBC8BD63243FE6AF00DC64CD /* Constants.swift in Sources */,
+				FBC8BD6A243FEEA600DC64CD /* GameManager.swift in Sources */,
 				FBC8BD65243FEB7900DC64CD /* ResourceManager.swift in Sources */,
 				FB27EB22243FDF380052F909 /* Village.swift in Sources */,
+				FBC8BD6C243FEF3100DC64CD /* Nationality.swift in Sources */,
 				FBC8BD67243FEDCC00DC64CD /* Village+Enums.swift in Sources */,
 				FB27EB26243FE05A0052F909 /* Resource.swift in Sources */,
 				FB27EAF3243FDEBD0052F909 /* ContentView.swift in Sources */,

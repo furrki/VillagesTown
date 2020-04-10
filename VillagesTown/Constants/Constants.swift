@@ -10,4 +10,5 @@ import Foundation
 
 struct Constants {
     static let villageStartCash: Double = 1000.0
+    static let villageStartPopulation: Int = 100
 }

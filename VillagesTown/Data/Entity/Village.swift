@@ -11,12 +11,15 @@ import CoreGraphics
 class Village {
 
     // MARK: - Properties
+    let name: String
     let coordinates: CGPoint
     var level: Level = .village
     private var resourceManager: ResourceManager = ResourceManager()
     private(set) var money: Double = Constants.villageStartCash
+    private(set) var population: Int = Constants.villageStartPopulation
     
-    init(coordinates: CGPoint) {
+    init(name: String, coordinates: CGPoint) {
+        self.name = name
         self.coordinates = coordinates
     }
     
