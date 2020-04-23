@@ -16,8 +16,12 @@
 		FB27EB12243FDEC10052F909 /* VillagesTownUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB27EB11243FDEC10052F909 /* VillagesTownUITests.swift */; };
 		FB27EB22243FDF380052F909 /* Village.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB27EB21243FDF380052F909 /* Village.swift */; };
 		FB27EB26243FE05A0052F909 /* Resource.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB27EB25243FE05A0052F909 /* Resource.swift */; };
+		FB3768D0244226A100551312 /* Building.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB3768CF244226A100551312 /* Building.swift */; };
+		FB3E4FDC24511129000869EB /* ResourceHolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB3E4FDB24511129000869EB /* ResourceHolder.swift */; };
+		FB48B06824431CEB00F530E7 /* TurnEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB48B06724431CEB00F530E7 /* TurnEngine.swift */; };
+		FB48B06A24431D9900F530E7 /* ResourcesManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB48B06924431D9900F530E7 /* ResourcesManagerTests.swift */; };
+		FB48B06C244377AD00F530E7 /* BuildingProductionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB48B06B244377AD00F530E7 /* BuildingProductionEngine.swift */; };
 		FBC8BD63243FE6AF00DC64CD /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC8BD62243FE6AF00DC64CD /* Constants.swift */; };
-		FBC8BD65243FEB7900DC64CD /* ResourceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC8BD64243FEB7900DC64CD /* ResourceManager.swift */; };
 		FBC8BD67243FEDCC00DC64CD /* Village+Enums.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC8BD66243FEDCC00DC64CD /* Village+Enums.swift */; };
 		FBC8BD6A243FEEA600DC64CD /* GameManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC8BD69243FEEA600DC64CD /* GameManager.swift */; };
 		FBC8BD6C243FEF3100DC64CD /* Nationality.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC8BD6B243FEF3100DC64CD /* Nationality.swift */; };
@@ -58,8 +62,12 @@
 		FB27EB13243FDEC10052F909 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		FB27EB21243FDF380052F909 /* Village.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Village.swift; sourceTree = "<group>"; };
 		FB27EB25243FE05A0052F909 /* Resource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Resource.swift; sourceTree = "<group>"; };
+		FB3768CF244226A100551312 /* Building.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Building.swift; sourceTree = "<group>"; };
+		FB3E4FDB24511129000869EB /* ResourceHolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceHolder.swift; sourceTree = "<group>"; };
+		FB48B06724431CEB00F530E7 /* TurnEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TurnEngine.swift; sourceTree = "<group>"; };
+		FB48B06924431D9900F530E7 /* ResourcesManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourcesManagerTests.swift; sourceTree = "<group>"; };
+		FB48B06B244377AD00F530E7 /* BuildingProductionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildingProductionEngine.swift; sourceTree = "<group>"; };
 		FBC8BD62243FE6AF00DC64CD /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
-		FBC8BD64243FEB7900DC64CD /* ResourceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceManager.swift; sourceTree = "<group>"; };
 		FBC8BD66243FEDCC00DC64CD /* Village+Enums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Village+Enums.swift"; sourceTree = "<group>"; };
 		FBC8BD69243FEEA600DC64CD /* GameManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameManager.swift; sourceTree = "<group>"; };
 		FBC8BD6B243FEF3100DC64CD /* Nationality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Nationality.swift; sourceTree = "<group>"; };
@@ -139,6 +147,7 @@
 		FB27EB05243FDEC10052F909 /* VillagesTownTests */ = {
 			isa = PBXGroup;
 			children = (
+				FB48B06924431D9900F530E7 /* ResourcesManagerTests.swift */,
 				FB27EB06243FDEC10052F909 /* VillagesTownTests.swift */,
 				FB27EB08243FDEC10052F909 /* Info.plist */,
 			);
@@ -162,6 +171,7 @@
 				FB27EB23243FDF3E0052F909 /* Entity */,
 				FBC8BD6B243FEF3100DC64CD /* Nationality.swift */,
 				FBC8BD6D243FF0E300DC64CD /* Map.swift */,
+				FB3768CF244226A100551312 /* Building.swift */,
 			);
 			path = Data;
 			sourceTree = "<group>";
@@ -170,6 +180,8 @@
 			isa = PBXGroup;
 			children = (
 				FBC8BD69243FEEA600DC64CD /* GameManager.swift */,
+				FB48B06724431CEB00F530E7 /* TurnEngine.swift */,
+				FB48B06B244377AD00F530E7 /* BuildingProductionEngine.swift */,
 			);
 			path = Engines;
 			sourceTree = "<group>";
@@ -202,7 +214,7 @@
 		FBC8BD68243FEE8900DC64CD /* Managers */ = {
 			isa = PBXGroup;
 			children = (
-				FBC8BD64243FEB7900DC64CD /* ResourceManager.swift */,
+				FB3E4FDB24511129000869EB /* ResourceHolder.swift */,
 			);
 			path = Managers;
 			sourceTree = "<group>";
@@ -340,14 +352,17 @@
 			files = (
 				FBC8BD6E243FF0E300DC64CD /* Map.swift in Sources */,
 				FBC8BD63243FE6AF00DC64CD /* Constants.swift in Sources */,
+				FB48B06824431CEB00F530E7 /* TurnEngine.swift in Sources */,
 				FBC8BD6A243FEEA600DC64CD /* GameManager.swift in Sources */,
-				FBC8BD65243FEB7900DC64CD /* ResourceManager.swift in Sources */,
+				FB3768D0244226A100551312 /* Building.swift in Sources */,
 				FB27EB22243FDF380052F909 /* Village.swift in Sources */,
 				FBC8BD6C243FEF3100DC64CD /* Nationality.swift in Sources */,
 				FBC8BD67243FEDCC00DC64CD /* Village+Enums.swift in Sources */,
 				FB27EB26243FE05A0052F909 /* Resource.swift in Sources */,
 				FB27EAF3243FDEBD0052F909 /* ContentView.swift in Sources */,
+				FB3E4FDC24511129000869EB /* ResourceHolder.swift in Sources */,
 				FB27EAF1243FDEBD0052F909 /* AppDelegate.swift in Sources */,
+				FB48B06C244377AD00F530E7 /* BuildingProductionEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -356,6 +371,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FB27EB07243FDEC10052F909 /* VillagesTownTests.swift in Sources */,
+				FB48B06A24431D9900F530E7 /* ResourcesManagerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

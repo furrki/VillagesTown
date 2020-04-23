@@ -8,19 +8,20 @@
 
 import CoreGraphics
 
-class Village {
-
+struct Village: ResourceHolder {
     // MARK: - Properties
     let name: String
     let coordinates: CGPoint
     var level: Level = .village
-    private var resourceManager: ResourceManager = ResourceManager()
+    var buildings: [Building] = []
+    var resources: [Resource : Int] = [:]
     private(set) var money: Double = Constants.villageStartCash
     private(set) var population: Int = Constants.villageStartPopulation
     
     init(name: String, coordinates: CGPoint) {
         self.name = name
         self.coordinates = coordinates
+        self.buildings = Building.all
     }
     
     // MARK: - Methods

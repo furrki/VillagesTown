@@ -11,6 +11,7 @@ import Foundation
 class GameManager {
     // MARK: - Properties
     var map: Map
+    let turnEngine: TurnEngine = TurnEngine()
     
     // MARK: - Initializers
     init() {
