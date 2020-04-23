@@ -8,14 +8,15 @@
 
 import CoreGraphics
 
-struct Village: ResourceHolder {
+struct Village: Entity, ResourceHolder, TreasuryHolder {
     // MARK: - Properties
     let name: String
-    let coordinates: CGPoint
+    let isMovable: Bool = false
+    var coordinates: CGPoint
     var level: Level = .village
     var buildings: [Building] = []
     var resources: [Resource : Int] = [:]
-    private(set) var money: Double = Constants.villageStartCash
+    var money: Double = Constants.villageStartCash
     private(set) var population: Int = Constants.villageStartPopulation
     
     init(name: String, coordinates: CGPoint) {

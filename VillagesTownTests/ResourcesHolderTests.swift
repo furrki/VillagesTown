@@ -10,15 +10,7 @@ import XCTest
 @testable import VillagesTown
 
 class ResourcesHolderTests: XCTestCase {
-
     var village: Village = Village(name: "Age of Empires", coordinates: CGPoint.zero)
-    override func setUp() {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-    }
-
-    override func tearDown() {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
 
     func testAddSubstract() {
         XCTAssertEqual(village.resources, [:])

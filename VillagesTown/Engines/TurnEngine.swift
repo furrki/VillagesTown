@@ -9,13 +9,13 @@
 import Foundation
 
 class TurnEngine {
-    var buildingProductionEngine: BuildingProductionEngine = BuildingProductionEngine()
-    
-    init() {
-        
+    static func doBuildingProduction(game: inout GameManager) {
+        for index in game.map.villages.indices {
+            BuildingProductionEngine.consumeAndProduceAll(in: &game.map.villages[index])
+        }
     }
     
-    func doTurn() {
-        
+    static func doTurn(game: inout GameManager) {
+        doBuildingProduction(game: &game)
     }
 }

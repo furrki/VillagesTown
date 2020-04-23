@@ -45,7 +45,7 @@ extension ResourceHolder {
             return false
         } else {
             for (res, amount) in resourcesToSubstract {
-                self.resources[res] = amount - (resources[res] ?? 0)
+                self.resources[res] = (self.resources[res] ?? 0) - amount
             }
             return true
         }

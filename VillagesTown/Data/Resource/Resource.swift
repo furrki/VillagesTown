@@ -10,17 +10,22 @@ import SwiftUI
 
 enum Resource: Hashable {
     case iron
+    case wood
     
     var name: String {
         switch self {
         case .iron:
             return "Iron"
+        case .wood:
+            return "Wood"
         }
     }
     
     var group: Group {
         switch self {
         case .iron:
+            return .raw
+        case .wood:
             return .raw
         }
     }
@@ -29,6 +34,8 @@ enum Resource: Hashable {
         switch self {
         case .iron:
             return .gray
+        case .wood:
+            return .orange
         }
     }
     
@@ -49,6 +56,6 @@ enum Resource: Hashable {
     
     // MARK: - Static Methods
     static func getAll() -> [Resource] {
-        return [.iron]
+        return [.iron, .wood]
     }
 }
