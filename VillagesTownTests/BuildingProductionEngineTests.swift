@@ -11,7 +11,7 @@ import XCTest
 
 class BuildingProductionEngineTests: XCTestCase {
     func testProduction() {
-        var village: Village = Village(name: "Argithan", coordinates: CGPoint(x: 10, y: 10))
+        var village: Village = Village(name: "Argithan", nationality: Nationality.getAll()[0], coordinates: CGPoint(x: 10, y: 10))
         village.resources[.iron] = 100
         village.resources[.wood] = 50
         village.buildings = [

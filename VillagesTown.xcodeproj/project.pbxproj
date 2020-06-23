@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		FB050F5324A2A22300CF25DB /* MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB050F5224A2A22300CF25DB /* MapView.swift */; };
 		FB27EAF1243FDEBD0052F909 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB27EAF0243FDEBD0052F909 /* AppDelegate.swift */; };
 		FB27EAF3243FDEBD0052F909 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB27EAF2243FDEBD0052F909 /* ContentView.swift */; };
 		FB27EAF5243FDEC00052F909 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FB27EAF4243FDEC00052F909 /* Assets.xcassets */; };
@@ -50,6 +51,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		FB050F5224A2A22300CF25DB /* MapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapView.swift; sourceTree = "<group>"; };
 		FB27EAED243FDEBD0052F909 /* VillagesTown.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VillagesTown.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FB27EAF0243FDEBD0052F909 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		FB27EAF2243FDEBD0052F909 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -107,6 +109,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		FB050F5124A2A1F400CF25DB /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				FB050F5224A2A22300CF25DB /* MapView.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
 		FB27EAE4243FDEBC0052F909 = {
 			isa = PBXGroup;
 			children = (
@@ -133,6 +143,7 @@
 				FBC8BD61243FE6A500DC64CD /* Constants */,
 				FB27EB20243FDF160052F909 /* Engines */,
 				FB27EB1F243FDF0C0052F909 /* Data */,
+				FB050F5124A2A1F400CF25DB /* UI */,
 				FB27EAF0243FDEBD0052F909 /* AppDelegate.swift */,
 				FB27EAF2243FDEBD0052F909 /* ContentView.swift */,
 				FB27EAF4243FDEC00052F909 /* Assets.xcassets */,
@@ -363,6 +374,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FBC8BD6E243FF0E300DC64CD /* Map.swift in Sources */,
+				FB050F5324A2A22300CF25DB /* MapView.swift in Sources */,
 				FBC8BD63243FE6AF00DC64CD /* Constants.swift in Sources */,
 				FB3E4FDE24511440000869EB /* Entity.swift in Sources */,
 				FB48B06824431CEB00F530E7 /* TurnEngine.swift in Sources */,

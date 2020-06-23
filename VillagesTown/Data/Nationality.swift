@@ -11,7 +11,7 @@ import Foundation
 struct Nationality {
     let id = UUID()
     let name: String
-    let flag: String?
+    let flag: String
     
     static func getAll() -> [Nationality] {
         return [Nationality(name: "Turkish", flag: "🇹🇷"),

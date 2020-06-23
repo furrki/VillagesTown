@@ -6,11 +6,13 @@
 //  Copyright © 2020 Furkan Kaynar. All rights reserved.
 //
 
-import CoreGraphics
+import SwiftUI
 
 struct Village: Entity, ResourceHolder, TreasuryHolder {
     // MARK: - Properties
     let name: String
+    var mapColor: Color = .red
+    let nationality: Nationality
     let isMovable: Bool = false
     var coordinates: CGPoint
     var level: Level = .village
@@ -19,14 +21,13 @@ struct Village: Entity, ResourceHolder, TreasuryHolder {
     var money: Double = Constants.villageStartCash
     private(set) var population: Int = Constants.villageStartPopulation
     
-    init(name: String, coordinates: CGPoint) {
+    init(name: String, nationality: Nationality, coordinates: CGPoint) {
         self.name = name
+        self.nationality = nationality
         self.coordinates = coordinates
         self.buildings = Building.all
     }
     
     // MARK: - Methods
-    
-    // MARK: - Private Methods
     
 }

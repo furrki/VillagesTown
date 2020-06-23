@@ -10,7 +10,7 @@ import XCTest
 @testable import VillagesTown
 
 class TreasuryHolderTests: XCTestCase {
-    var village: Village = Village(name: "Age of Empires", coordinates: CGPoint.zero)
+    var village: Village = Village(name: "Age of Empires", nationality: Nationality.getAll()[0], coordinates: CGPoint.zero)
 
     func testAddAndSubstract() {
         village.money = 500

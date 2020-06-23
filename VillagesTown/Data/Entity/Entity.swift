@@ -7,8 +7,10 @@
 //
 
 import Foundation
+import SwiftUI
 
 protocol Entity {
     var isMovable: Bool { get }
     var coordinates: CGPoint { get set }
+    var mapColor: Color { get }
 }
