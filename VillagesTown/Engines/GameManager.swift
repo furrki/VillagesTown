@@ -17,6 +17,7 @@ class GameManager: ObservableObject {
     @Published var currentTurn: Int = 0
     @Published var currentPlayer: String = "player"
     @Published var gameStarted: Bool = false
+    @Published var playerNationality: Nationality?
 
     let turnEngine: TurnEngine = TurnEngine()
 

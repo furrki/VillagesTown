@@ -77,6 +77,15 @@ struct MapView: View {
         // Check for village first
         if let village = viewModel.getVillageAt(x: x, y: y) {
             print("🏘️ Found village: \(village.name)")
+
+            // Check if player can access this village
+            if let playerNationality = GameManager.shared.playerNationality {
+                if village.nationality.name != playerNationality.name {
+                    print("❌ Cannot access village of different nationality")
+                    return
+                }
+            }
+
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                 selectedVillage = village
                 print("✅ selectedVillage set to: \(selectedVillage?.name ?? "nil")")

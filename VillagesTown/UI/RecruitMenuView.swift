@@ -11,7 +11,6 @@ import SwiftUI
 struct RecruitMenuInlineView: View {
     let village: Village
     @State private var selectedUnitType: Unit.UnitType?
-    @State private var quantity: Int = 1
     @State private var showAlert = false
     @State private var alertMessage = ""
 
@@ -52,9 +51,8 @@ struct RecruitMenuInlineView: View {
                                 UnitRecruitCard(
                                     unitType: unitType,
                                     village: village,
-                                    quantity: $quantity,
-                                    onRecruit: {
-                                        attemptRecruit(unitType: unitType)
+                                    onRecruit: { quantity in
+                                        attemptRecruit(unitType: unitType, quantity: quantity)
                                     }
                                 )
                                 .padding(.horizontal)
@@ -73,7 +71,7 @@ struct RecruitMenuInlineView: View {
         }
     }
 
-    func attemptRecruit(unitType: Unit.UnitType) {
+    func attemptRecruit(unitType: Unit.UnitType, quantity: Int) {
         var mutableVillage = village
         let recruitedUnits = recruitmentEngine.recruitUnits(
             unitType: unitType,
@@ -108,7 +106,6 @@ struct RecruitMenuView: View {
     let village: Village
     @Binding var isPresented: Bool
     @State private var selectedUnitType: Unit.UnitType?
-    @State private var quantity: Int = 1
     @State private var showAlert = false
     @State private var alertMessage = ""
 
@@ -164,9 +161,8 @@ struct RecruitMenuView: View {
                                     UnitRecruitCard(
                                         unitType: unitType,
                                         village: village,
-                                        quantity: $quantity,
-                                        onRecruit: {
-                                            attemptRecruit(unitType: unitType)
+                                        onRecruit: { quantity in
+                                            attemptRecruit(unitType: unitType, quantity: quantity)
                                         }
                                     )
                                     .padding(.horizontal)
@@ -185,7 +181,7 @@ struct RecruitMenuView: View {
         }
     }
 
-    func attemptRecruit(unitType: Unit.UnitType) {
+    func attemptRecruit(unitType: Unit.UnitType, quantity: Int) {
         var mutableVillage = village
         let recruitedUnits = recruitmentEngine.recruitUnits(
             unitType: unitType,
@@ -218,8 +214,8 @@ struct RecruitMenuView: View {
 struct UnitRecruitCard: View {
     let unitType: Unit.UnitType
     let village: Village
-    @Binding var quantity: Int
-    let onRecruit: () -> Void
+    let onRecruit: (Int) -> Void
+    @State private var quantity: Int = 1
 
     let recruitmentEngine = RecruitmentEngine()
 
@@ -325,7 +321,7 @@ struct UnitRecruitCard: View {
                 // Recruit button
                 Button(action: {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        onRecruit()
+                        onRecruit(quantity)
                     }
                 }) {
                     Text("Recruit")

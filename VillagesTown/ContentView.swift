@@ -9,8 +9,18 @@
 import SwiftUI
 
 struct ContentView: View {
+    @ObservedObject var gameManager = GameManager.shared
+    @State private var showNationalitySelection = true
+
     var body: some View {
-        GameView()
+        if gameManager.playerNationality == nil && showNationalitySelection {
+            NationalitySelectionView(
+                selectedNationality: $gameManager.playerNationality,
+                isPresented: $showNationalitySelection
+            )
+        } else {
+            GameView()
+        }
     }
 }
 
