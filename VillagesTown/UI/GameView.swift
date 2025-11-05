@@ -9,9 +9,6 @@ import SwiftUI
 
 struct GameView: View {
     @ObservedObject var gameManager = GameManager.shared
-    @State private var selectedVillage: Village?
-    @State private var showBuildMenu = false
-    @State private var showVillageDetail = false
     @State private var showVictoryScreen = false
 
     var winner: Player? {
@@ -38,11 +35,6 @@ struct GameView: View {
         .onAppear {
             if !gameManager.gameStarted {
                 gameManager.initializeGame()
-            }
-        }
-        .sheet(isPresented: $showVillageDetail) {
-            if let village = selectedVillage {
-                VillageDetailView(village: village, isPresented: $showVillageDetail)
             }
         }
         .overlay(
@@ -123,7 +115,7 @@ struct GameView: View {
             .foregroundColor(.secondary)
         }
         .padding(.vertical, 8)
-        .background(Color(UIColor.systemBackground))
+        .background(Color(NSColor.windowBackgroundColor))
         .shadow(radius: 2)
     }
 
@@ -146,24 +138,9 @@ struct GameView: View {
             }
 
             Spacer()
-
-            if let village = selectedVillage {
-                Text("Selected: \(village.name)")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-
-                Button("Details") {
-                    showVillageDetail = true
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-            }
         }
         .padding()
-        .background(Color(UIColor.systemBackground))
+        .background(Color(NSColor.windowBackgroundColor))
         .shadow(radius: 2)
     }
 
@@ -201,7 +178,7 @@ struct ResourceBadge: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(Color(UIColor.secondarySystemBackground))
+        .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(8)
     }
 }

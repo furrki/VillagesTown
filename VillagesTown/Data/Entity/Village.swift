@@ -55,7 +55,6 @@ struct Village: Entity, ResourceHolder, TreasuryHolder {
     }
 
     var productionBonus: Double {
-        let levelBonus: Double
         switch level {
         case .village: return 0.1
         case .town: return 0.2

@@ -26,9 +26,6 @@ class GameManager: ObservableObject {
 
     // MARK: - Initializers
     init() {
-        // Create players
-        self.players = Player.createPlayers()
-
         // Create 50x50 map
         let mapSize = CGSize(width: 50.0, height: 50.0)
 
@@ -61,14 +58,17 @@ class GameManager: ObservableObject {
 
         let allVillages = playerVillages + ai1Villages + ai2Villages
 
-        // Update player village lists
-        for i in 0..<players.count {
-            let playerID = players[i].id
-            players[i].villages = allVillages.filter { $0.owner == playerID }.map { $0.name }
-        }
-
         // Create map
-        map = VirtualMap(size: mapSize, villages: allVillages)
+        self.map = VirtualMap(size: mapSize, villages: allVillages)
+
+        // Create players
+        self.players = Player.createPlayers()
+
+        // Update player village lists
+        for i in 0..<self.players.count {
+            let playerID = self.players[i].id
+            self.players[i].villages = allVillages.filter { $0.owner == playerID }.map { $0.name }
+        }
     }
 
     func initializeGame() {

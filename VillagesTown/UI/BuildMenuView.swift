@@ -40,41 +40,45 @@ struct BuildMenuView: View {
     }
 
     var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // Category Picker
-                categoryPicker
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("Build")
+                    .font(.title)
+                    .fontWeight(.bold)
+                Spacer()
+                Button("Done") {
+                    isPresented = false
+                }
+            }
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
 
-                // Buildings List
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(selectedCategory.buildings) { building in
-                            BuildingCard(
-                                building: building,
-                                village: village,
-                                onBuild: { buildBuilding in
-                                    attemptBuild(buildBuilding)
-                                }
-                            )
-                        }
-                    }
-                    .padding()
-                }
-            }
-            .navigationTitle("Build")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        isPresented = false
+            Divider()
+
+            // Category Picker
+            categoryPicker
+
+            // Buildings List
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(selectedCategory.buildings) { building in
+                        BuildingCard(
+                            building: building,
+                            village: village,
+                            onBuild: { buildBuilding in
+                                attemptBuild(buildBuilding)
+                            }
+                        )
                     }
                 }
+                .padding()
             }
-            .alert("Build Result", isPresented: $showAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(alertMessage)
-            }
+        }
+        .alert("Build Result", isPresented: $showAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(alertMessage)
         }
     }
 
@@ -92,7 +96,7 @@ struct BuildMenuView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(selectedCategory == category ? Color.blue : Color(UIColor.secondarySystemBackground))
+                        .background(selectedCategory == category ? Color.blue : Color(NSColor.controlBackgroundColor))
                         .foregroundColor(selectedCategory == category ? .white : .primary)
                         .cornerRadius(20)
                     }
@@ -100,7 +104,7 @@ struct BuildMenuView: View {
             }
             .padding()
         }
-        .background(Color(UIColor.systemBackground))
+        .background(Color(NSColor.windowBackgroundColor))
         .shadow(radius: 1)
     }
 
@@ -205,7 +209,7 @@ struct BuildingCard: View {
             .disabled(!canBuild)
         }
         .padding()
-        .background(Color(UIColor.secondarySystemBackground))
+        .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(12)
     }
 

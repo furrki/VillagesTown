@@ -239,11 +239,11 @@ class AIEngine {
         let shouldAttack: Bool
         switch personality {
         case .aggressive:
-            shouldAttack = attackerStrength > defenderStrength * 0.7 // Attack even when slightly weaker
+            shouldAttack = Double(attackerStrength) > Double(defenderStrength) * 0.7 // Attack even when slightly weaker
         case .economic:
-            shouldAttack = attackerStrength > defenderStrength * 1.5 // Only attack when much stronger
+            shouldAttack = Double(attackerStrength) > Double(defenderStrength) * 1.5 // Only attack when much stronger
         case .balanced:
-            shouldAttack = attackerStrength > defenderStrength * 1.1 // Attack when stronger
+            shouldAttack = Double(attackerStrength) > Double(defenderStrength) * 1.1 // Attack when stronger
         }
 
         if shouldAttack && !defenders.isEmpty {

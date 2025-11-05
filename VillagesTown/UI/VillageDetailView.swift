@@ -15,7 +15,39 @@ struct VillageDetailView: View {
     @State private var selectedBuilding: Building?
 
     var body: some View {
-        NavigationView {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text(village.name)
+                    .font(.title)
+                    .fontWeight(.bold)
+                Spacer()
+                HStack(spacing: 16) {
+                    Button(action: {
+                        showRecruitMenu = true
+                    }) {
+                        Label("Recruit", systemImage: "figure.walk.circle.fill")
+                            .font(.subheadline)
+                    }
+
+                    Button(action: {
+                        showBuildMenu = true
+                    }) {
+                        Label("Build", systemImage: "plus.circle.fill")
+                            .font(.subheadline)
+                    }
+
+                    Button("Close") {
+                        isPresented = false
+                    }
+                }
+            }
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
+
+            Divider()
+
+            // Content
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     // Village Header
@@ -40,38 +72,14 @@ struct VillageDetailView: View {
                 }
                 .padding()
             }
-            .navigationTitle(village.name)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") {
-                        isPresented = false
-                    }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 16) {
-                        Button(action: {
-                            showRecruitMenu = true
-                        }) {
-                            Label("Recruit", systemImage: "figure.walk.circle.fill")
-                                .font(.subheadline)
-                        }
-
-                        Button(action: {
-                            showBuildMenu = true
-                        }) {
-                            Label("Build", systemImage: "plus.circle.fill")
-                                .font(.subheadline)
-                        }
-                    }
-                }
-            }
-            .sheet(isPresented: $showBuildMenu) {
-                BuildMenuView(village: village, isPresented: $showBuildMenu)
-            }
-            .sheet(isPresented: $showRecruitMenu) {
-                RecruitMenuView(village: village, isPresented: $showRecruitMenu)
-            }
+        }
+        .sheet(isPresented: $showBuildMenu) {
+            BuildMenuView(village: village, isPresented: $showBuildMenu)
+                .frame(minWidth: 600, minHeight: 700)
+        }
+        .sheet(isPresented: $showRecruitMenu) {
+            RecruitMenuView(village: village, isPresented: $showRecruitMenu)
+                .frame(minWidth: 600, minHeight: 700)
         }
     }
 
@@ -84,7 +92,7 @@ struct VillageDetailView: View {
                     Text(village.name)
                         .font(.title)
                         .fontWeight(.bold)
-                    Text(village.level.rawValue.capitalized)
+                    Text(village.level.displayName)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
@@ -173,7 +181,7 @@ struct StatCard: View {
             Spacer()
         }
         .padding(8)
-        .background(Color(UIColor.secondarySystemBackground))
+        .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(8)
     }
 }
@@ -201,7 +209,7 @@ struct BuildingRow: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(Color(UIColor.secondarySystemBackground))
+        .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(10)
     }
 }
@@ -223,7 +231,7 @@ struct ResourceCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(Color(UIColor.secondarySystemBackground))
+        .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(10)
     }
 }

@@ -1,0 +1,42 @@
+name: VillagesTown
+
+options:
+  bundleIdPrefix: com.yourcompany
+  deploymentTarget:
+    macOS: "13.0"
+
+targets:
+  VillagesTown:
+    type: application
+    platform: macOS
+    sources:
+      - VillagesTown
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.yourcompany.VillagesTown
+      INFOPLIST_FILE: VillagesTown/Info.plist
+    scheme:
+      testTargets:
+        - VillagesTownTests
+        - VillagesTownUITests
+
+  VillagesTownTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - VillagesTownTests
+    dependencies:
+      - target: VillagesTown
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.yourcompany.VillagesTownTests
+      INFOPLIST_FILE: VillagesTownTests/Info.plist
+
+  VillagesTownUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - VillagesTownUITests
+    dependencies:
+      - target: VillagesTown
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.yourcompany.VillagesTownUITests
+      INFOPLIST_FILE: VillagesTownUITests/Info.plist

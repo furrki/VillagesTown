@@ -21,8 +21,8 @@ struct UnitDetailView: View {
     }
 
     var body: some View {
-        NavigationView {
-            ScrollView {
+        NavigationStack {
+            ScrollView(.vertical, showsIndicators: true) {
                 VStack(alignment: .leading, spacing: 20) {
                     // Army Header
                     armyHeader
@@ -42,14 +42,6 @@ struct UnitDetailView: View {
                 .padding()
             }
             .navigationTitle("Army Details")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        isPresented = false
-                    }
-                }
-            }
             .alert("Action Result", isPresented: $showingAlert) {
                 Button("OK", role: .cancel) { }
             } message: {
@@ -173,7 +165,7 @@ struct UnitRow: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(Color(UIColor.secondarySystemBackground))
+        .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(10)
     }
 }
@@ -198,7 +190,7 @@ struct StatBadge: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(Color(UIColor.secondarySystemBackground))
+        .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(10)
     }
 }
@@ -233,7 +225,7 @@ struct ActionButton: View {
                     .foregroundColor(.secondary)
             }
             .padding()
-            .background(Color(UIColor.secondarySystemBackground))
+            .background(Color(NSColor.controlBackgroundColor))
             .cornerRadius(12)
         }
         .buttonStyle(PlainButtonStyle())

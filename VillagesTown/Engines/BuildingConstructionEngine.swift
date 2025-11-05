@@ -60,7 +60,7 @@ class BuildingConstructionEngine {
 
     // MARK: - Village Upgrade
     func canUpgradeVillage(_ village: Village) -> (can: Bool, cost: [Resource: Int], reason: String) {
-        let nextLevel: Level?
+        let nextLevel: Village.Level?
         var cost: [Resource: Int] = [:]
 
         switch village.level {

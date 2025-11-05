@@ -16,7 +16,7 @@ class BuildingProductionEngine {
             // Check if we can consume required resources
             if building.resourcesConsumption.isEmpty || village.substract(building.resourcesConsumption) {
                 // Calculate production with bonuses
-                var production = building.resourcesProduction
+                let production = building.resourcesProduction
 
                 // Apply village production bonus
                 let bonus = village.productionBonus

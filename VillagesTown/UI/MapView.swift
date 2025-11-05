@@ -12,9 +12,7 @@ import Combine
 struct MapView: View {
     @ObservedObject var viewModel: MapViewModel = MapViewModel(map: GameManager.shared.map)
     @State private var selectedVillage: Village?
-    @State private var showVillageDetail = false
     @State private var selectedUnits: [Unit]?
-    @State private var showUnitDetail = false
 
     var body: some View {
         VStack(alignment: .center, spacing: 2.0) {
@@ -29,15 +27,31 @@ struct MapView: View {
                 }
             }
         }
-        .sheet(isPresented: $showVillageDetail) {
-            if let village = selectedVillage {
-                VillageDetailView(village: village, isPresented: $showVillageDetail)
-            }
+        .sheet(item: Binding(
+            get: { selectedVillage.map { VillageWrapper(village: $0) } },
+            set: { selectedVillage = $0?.village }
+        )) { wrapper in
+            VillageDetailView(
+                village: wrapper.village,
+                isPresented: Binding(
+                    get: { selectedVillage != nil },
+                    set: { if !$0 { selectedVillage = nil } }
+                )
+            )
+            .frame(minWidth: 600, minHeight: 700)
         }
-        .sheet(isPresented: $showUnitDetail) {
-            if let units = selectedUnits {
-                UnitDetailView(units: units, isPresented: $showUnitDetail)
-            }
+        .sheet(item: Binding(
+            get: { selectedUnits.map { UnitsWrapper(units: $0) } },
+            set: { selectedUnits = $0?.units }
+        )) { wrapper in
+            UnitDetailView(
+                units: wrapper.units,
+                isPresented: Binding(
+                    get: { selectedUnits != nil },
+                    set: { if !$0 { selectedUnits = nil } }
+                )
+            )
+            .frame(minWidth: 500, minHeight: 600)
         }
     }
 
@@ -45,7 +59,6 @@ struct MapView: View {
         // Check for village first
         if let village = viewModel.getVillageAt(x: x, y: y) {
             selectedVillage = village
-            showVillageDetail = true
             return
         }
 
@@ -53,10 +66,19 @@ struct MapView: View {
         let units = viewModel.getUnitsAt(x: x, y: y)
         if !units.isEmpty {
             selectedUnits = units
-            showUnitDetail = true
             return
         }
     }
+}
+
+struct VillageWrapper: Identifiable {
+    let id = UUID()
+    let village: Village
+}
+
+struct UnitsWrapper: Identifiable {
+    let id = UUID()
+    let units: [Unit]
 }
 
 extension MapViewModel {

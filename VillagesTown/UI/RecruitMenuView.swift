@@ -18,7 +18,22 @@ struct RecruitMenuView: View {
     let recruitmentEngine = RecruitmentEngine()
 
     var body: some View {
-        NavigationView {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("Recruit Units")
+                    .font(.title)
+                    .fontWeight(.bold)
+                Spacer()
+                Button("Done") {
+                    isPresented = false
+                }
+            }
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
+
+            Divider()
+
             ScrollView {
                 VStack(spacing: 16) {
                     // Available Units
@@ -65,20 +80,11 @@ struct RecruitMenuView: View {
                 }
                 .padding(.vertical)
             }
-            .navigationTitle("Recruit Units")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        isPresented = false
-                    }
-                }
-            }
-            .alert("Recruitment", isPresented: $showAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(alertMessage)
-            }
+        }
+        .alert("Recruitment", isPresented: $showAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(alertMessage)
         }
     }
 
@@ -230,7 +236,7 @@ struct UnitRecruitCard: View {
             }
         }
         .padding()
-        .background(Color(UIColor.secondarySystemBackground))
+        .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(12)
     }
 
