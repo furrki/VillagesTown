@@ -30,7 +30,7 @@ struct Building: Identifiable {
     var happinessBonus: Int = 0
     var canRecruitUnits: Bool = false
 
-    // MARK: - Building Definitions
+    // MARK: - Building Definitions (Simplified)
 
     // Economic Buildings
     static let farm = Building(
@@ -57,45 +57,12 @@ struct Building: Identifiable {
         description: "Produces iron for military units"
     )
 
-    static let quarry = Building(
-        type: .production,
-        name: "Quarry",
-        baseCost: [.gold: 50, .wood: 15],
-        resourcesProduction: [.stone: 6],
-        description: "Produces stone for fortifications"
-    )
-
-    static let stable = Building(
-        type: .production,
-        name: "Stable",
-        baseCost: [.gold: 80, .wood: 30],
-        resourcesProduction: [.horses: 3],
-        description: "Breeds horses for cavalry units"
-    )
-
     static let market = Building(
         type: .production,
         name: "Market",
         baseCost: [.gold: 100, .wood: 30],
         resourcesProduction: [.gold: 15],
         description: "Generates gold through trade"
-    )
-
-    static let fishery = Building(
-        type: .production,
-        name: "Fishery",
-        baseCost: [.gold: 60, .wood: 25],
-        resourcesProduction: [.food: 8, .fish: 2],
-        description: "Produces food and fish (requires coast)"
-    )
-
-    static let winery = Building(
-        type: .production,
-        name: "Winery",
-        baseCost: [.gold: 120, .wood: 40],
-        resourcesProduction: [.wine: 3, .gold: 10],
-        description: "Produces wine luxury resource",
-        happinessBonus: 5
     )
 
     // Military Buildings
@@ -115,36 +82,12 @@ struct Building: Identifiable {
         canRecruitUnits: true
     )
 
-    static let cavalryStable = Building(
-        type: .military,
-        name: "Cavalry Stable",
-        baseCost: [.gold: 200, .wood: 80, .iron: 30, .horses: 10],
-        description: "Enables recruitment of cavalry units",
-        canRecruitUnits: true
-    )
-
-    static let siegeWorkshop = Building(
-        type: .military,
-        name: "Siege Workshop",
-        baseCost: [.gold: 250, .wood: 100, .iron: 50],
-        description: "Enables construction of siege weapons",
-        canRecruitUnits: true
-    )
-
     static let fortress = Building(
         type: .military,
         name: "Fortress",
-        baseCost: [.gold: 300, .wood: 100, .stone: 50],
+        baseCost: [.gold: 300, .wood: 100, .iron: 50],
         description: "Provides strong defensive bonus",
         defenseBonus: 0.5
-    )
-
-    static let watchtower = Building(
-        type: .military,
-        name: "Watchtower",
-        baseCost: [.gold: 100, .wood: 40, .stone: 20],
-        description: "Increases vision and early warning",
-        defenseBonus: 0.15
     )
 
     // Infrastructure Buildings
@@ -157,27 +100,12 @@ struct Building: Identifiable {
         productionBonus: 0.1
     )
 
-    static let aqueduct = Building(
-        type: .infrastructure,
-        name: "Aqueduct",
-        baseCost: [.gold: 150, .stone: 50],
-        description: "Increases population capacity by 50%",
-        happinessBonus: 10
-    )
-
-    static let road = Building(
-        type: .infrastructure,
-        name: "Road Network",
-        baseCost: [.gold: 100, .stone: 30],
-        description: "Reduces movement cost in your territory"
-    )
-
     // Special Buildings
     static let temple = Building(
         type: .special,
         name: "Temple",
-        baseCost: [.gold: 200, .stone: 60],
-        description: "Increases happiness and generates culture",
+        baseCost: [.gold: 200, .wood: 60],
+        description: "Increases happiness and culture",
         happinessBonus: 15
     )
 
@@ -188,52 +116,21 @@ struct Building: Identifiable {
         description: "Generates science points for research"
     )
 
-    static let university = Building(
-        type: .special,
-        name: "University",
-        baseCost: [.gold: 300, .stone: 80],
-        description: "Advanced research facility"
-    )
-
-    static let monument = Building(
-        type: .special,
-        name: "Monument",
-        baseCost: [.gold: 250, .stone: 100],
-        description: "Generates culture and prestige",
-        happinessBonus: 20
-    )
-
-    static let tavern = Building(
-        type: .special,
-        name: "Tavern",
-        baseCost: [.gold: 120, .wood: 40],
-        description: "Increases happiness and enables spy recruitment",
-        happinessBonus: 10
-    )
-
-    static let hospital = Building(
-        type: .special,
-        name: "Hospital",
-        baseCost: [.gold: 180, .wood: 50, .stone: 30],
-        description: "Increases population growth rate",
-        happinessBonus: 5
-    )
-
     // MARK: - Static Methods
     static let allEconomic: [Building] = [
-        farm, lumberMill, ironMine, quarry, stable, market, fishery, winery
+        farm, lumberMill, ironMine, market
     ]
 
     static let allMilitary: [Building] = [
-        barracks, archeryRange, cavalryStable, siegeWorkshop, fortress, watchtower
+        barracks, archeryRange, fortress
     ]
 
     static let allInfrastructure: [Building] = [
-        granary, aqueduct, road
+        granary
     ]
 
     static let allSpecial: [Building] = [
-        temple, library, university, monument, tavern, hospital
+        temple, library
     ]
 
     static let all: [Building] = allEconomic + allMilitary + allInfrastructure + allSpecial

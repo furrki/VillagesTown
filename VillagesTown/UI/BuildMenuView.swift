@@ -45,9 +45,9 @@ struct BuildMenuInlineView: View {
             // Category Picker
             categoryPicker
 
-            // Buildings List
+            // Buildings Grid - More Compact
             ScrollView {
-                LazyVStack(spacing: 12) {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     ForEach(selectedCategory.buildings) { building in
                         BuildingCard(
                             building: building,
@@ -224,31 +224,36 @@ struct BuildingCard: View {
     let onBuild: (Building) -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Name and description
-            VStack(alignment: .leading, spacing: 2) {
-                Text(building.name)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                Text(building.description)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-            }
+        VStack(spacing: 8) {
+            // Name
+            Text(building.name)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
 
-            Spacer()
+            // Description
+            Text(building.description)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(height: 28)
 
             // Cost
-            HStack(spacing: 6) {
+            VStack(spacing: 4) {
                 let globalResources = GameManager.shared.getGlobalResources(playerID: village.owner)
                 ForEach(Array(building.baseCost.keys.sorted(by: { $0.name < $1.name })), id: \.self) { resource in
                     let cost = building.baseCost[resource]!
                     let has = globalResources[resource] ?? 0
                     let canAfford = has >= cost
 
-                    HStack(spacing: 2) {
+                    HStack(spacing: 4) {
                         Text(resource.emoji)
                         Text("\(cost)")
+                        Spacer()
+                        Text("\(has)")
+                            .foregroundColor(.secondary)
                     }
                     .font(.caption)
                     .foregroundColor(canAfford ? .primary : .red)
@@ -264,7 +269,7 @@ struct BuildingCard: View {
                 Text("Build")
                     .font(.caption)
                     .fontWeight(.semibold)
-                    .padding(.horizontal, 12)
+                    .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
                     .background(canBuild ? Color.blue : Color.gray)
                     .foregroundColor(.white)
@@ -273,8 +278,8 @@ struct BuildingCard: View {
             .buttonStyle(.plain)
             .disabled(!canBuild)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(12)
+        .frame(maxWidth: .infinity)
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(8)
     }

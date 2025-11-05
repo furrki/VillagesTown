@@ -75,12 +75,6 @@ class RecruitmentEngine {
             return "Barracks"
         case "Ranged":
             return "Archery Range"
-        case "Cavalry":
-            return "Cavalry Stable"
-        case "Siege":
-            return "Siege Workshop"
-        case "Naval":
-            return "Harbor" // Would need to add this building
         default:
             return "Barracks"
         }
@@ -92,27 +86,15 @@ class RecruitmentEngine {
         // Check which military buildings exist
         let hasBarracks = village.buildings.contains(where: { $0.name == "Barracks" })
         let hasArcheryRange = village.buildings.contains(where: { $0.name == "Archery Range" })
-        let hasCavalryStable = village.buildings.contains(where: { $0.name == "Cavalry Stable" })
-        let hasSiegeWorkshop = village.buildings.contains(where: { $0.name == "Siege Workshop" })
 
         // Infantry
         if hasBarracks {
-            available.append(contentsOf: [.militia, .spearman, .swordsman, .pikeman, .eliteGuard])
+            available.append(contentsOf: [.militia, .spearman, .swordsman])
         }
 
         // Ranged
         if hasArcheryRange {
-            available.append(contentsOf: [.archer, .crossbowman, .longbowman])
-        }
-
-        // Cavalry
-        if hasCavalryStable {
-            available.append(contentsOf: [.lightCavalry, .heavyCavalry, .cataphract])
-        }
-
-        // Siege
-        if hasSiegeWorkshop {
-            available.append(contentsOf: [.batteringRam, .catapult, .trebuchet])
+            available.append(contentsOf: [.archer, .crossbowman])
         }
 
         return available

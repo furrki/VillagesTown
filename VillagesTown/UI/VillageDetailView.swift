@@ -54,6 +54,11 @@ struct VillageDetailView: View {
 
                 Divider()
 
+                // Stationed Units
+                stationedUnitsSection
+
+                Divider()
+
                 // Buildings
                 buildingsSection
 
@@ -138,10 +143,12 @@ struct VillageDetailView: View {
                     .foregroundColor(.secondary)
                     .italic()
             } else {
-                ForEach(village.buildings) { building in
-                    BuildingRow(building: building, village: village, onUpgrade: { buildingID in
-                        attemptUpgrade(buildingID: buildingID)
-                    })
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(village.buildings) { building in
+                        BuildingRow(building: building, village: village, onUpgrade: { buildingID in
+                            attemptUpgrade(buildingID: buildingID)
+                        })
+                    }
                 }
             }
         }
@@ -168,6 +175,51 @@ struct VillageDetailView: View {
                 ForEach(Resource.getAll(), id: \.self) { resource in
                     ResourceCard(resource: resource, amount: globalResources[resource] ?? 0)
                 }
+            }
+        }
+    }
+
+    var stationedUnitsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Stationed Units")
+                    .font(.headline)
+                Spacer()
+                let unitsHere = GameManager.shared.map.getUnits(at: village.coordinates)
+                    .filter { $0.owner == village.owner }
+                Text("\(unitsHere.count) units")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+
+            let unitsAtLocation = GameManager.shared.map.getUnits(at: village.coordinates)
+                .filter { $0.owner == village.owner }
+
+            if unitsAtLocation.isEmpty {
+                VStack(spacing: 8) {
+                    Text("No units stationed here")
+                        .foregroundColor(.secondary)
+                        .italic()
+                    Text("Recruit units below to defend this village")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(8)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(unitsAtLocation) { unit in
+                            UnitMiniCard(unit: unit)
+                        }
+                    }
+                }
+                Text("Click on the map tile to select and move these units")
+                    .font(.caption)
+                    .foregroundColor(.blue)
+                    .italic()
             }
         }
     }
@@ -263,56 +315,54 @@ struct BuildingRow: View {
     @State private var alertMessage = ""
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Name and Level
-            VStack(alignment: .leading, spacing: 2) {
-                Text(building.name)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-
-                // Production info
-                if !building.resourcesProduction.isEmpty {
-                    HStack(spacing: 4) {
-                        ForEach(Array(building.resourcesProduction.keys.prefix(3)), id: \.self) { resource in
-                            if let amount = building.resourcesProduction[resource] {
-                                HStack(spacing: 2) {
-                                    Text(resource.emoji)
-                                    Text("+\(amount)")
-                                }
-                                .font(.caption2)
-                                .foregroundColor(.green)
-                            }
-                        }
-                    }
-                } else if building.productionBonus > 0 || building.defenseBonus > 0 || building.happinessBonus > 0 {
-                    HStack(spacing: 6) {
-                        if building.productionBonus > 0 {
-                            Text("+\(Int(building.productionBonus * 100))%📈")
-                                .font(.caption2)
-                                .foregroundColor(.green)
-                        }
-                        if building.defenseBonus > 0 {
-                            Text("+\(Int(building.defenseBonus * 100))%🛡️")
-                                .font(.caption2)
-                                .foregroundColor(.blue)
-                        }
-                        if building.happinessBonus > 0 {
-                            Text("+\(building.happinessBonus)😊")
-                                .font(.caption2)
-                                .foregroundColor(.orange)
-                        }
-                    }
-                }
-            }
-
-            Spacer()
+        VStack(spacing: 6) {
+            // Name
+            Text(building.name)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
 
             // Level indicator
-            HStack(spacing: 4) {
+            HStack(spacing: 3) {
                 ForEach(1...5, id: \.self) { level in
                     Circle()
                         .fill(level <= building.level ? Color.blue : Color.gray.opacity(0.3))
-                        .frame(width: 6, height: 6)
+                        .frame(width: 5, height: 5)
+                }
+            }
+
+            // Production/Bonus info
+            if !building.resourcesProduction.isEmpty {
+                VStack(spacing: 2) {
+                    ForEach(Array(building.resourcesProduction.keys.prefix(2)), id: \.self) { resource in
+                        if let amount = building.resourcesProduction[resource] {
+                            HStack(spacing: 2) {
+                                Text(resource.emoji)
+                                Text("+\(amount)")
+                            }
+                            .font(.caption2)
+                            .foregroundColor(.green)
+                        }
+                    }
+                }
+            } else if building.productionBonus > 0 || building.defenseBonus > 0 || building.happinessBonus > 0 {
+                VStack(spacing: 2) {
+                    if building.productionBonus > 0 {
+                        Text("+\(Int(building.productionBonus * 100))%📈")
+                            .font(.caption2)
+                            .foregroundColor(.green)
+                    }
+                    if building.defenseBonus > 0 {
+                        Text("+\(Int(building.defenseBonus * 100))%🛡️")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                    }
+                    if building.happinessBonus > 0 {
+                        Text("+\(building.happinessBonus)😊")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                    }
                 }
             }
 
@@ -329,9 +379,9 @@ struct BuildingRow: View {
             }) {
                 VStack(spacing: 2) {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.title3)
+                        .font(.caption)
                     if !upgradeCheck.cost.isEmpty {
-                        HStack(spacing: 2) {
+                        VStack(spacing: 1) {
                             ForEach(Array(upgradeCheck.cost.keys.prefix(2)), id: \.self) { resource in
                                 if let cost = upgradeCheck.cost[resource] {
                                     let has = globalResources[resource] ?? 0
@@ -340,22 +390,23 @@ struct BuildingRow: View {
                                         Text(resource.emoji)
                                         Text("\(cost)")
                                     }
-                                    .font(.caption2)
+                                    .font(.system(size: 9))
                                     .foregroundColor(canAfford ? .primary : .red)
                                 }
                             }
                         }
                     }
                 }
-                .padding(6)
+                .padding(4)
+                .frame(maxWidth: .infinity)
                 .background(upgradeCheck.can ? Color.green.opacity(0.2) : Color.gray.opacity(0.1))
-                .cornerRadius(8)
+                .cornerRadius(6)
             }
             .buttonStyle(.plain)
             .disabled(!upgradeCheck.can)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(8)
+        .frame(maxWidth: .infinity)
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(8)
         .alert("Upgrade", isPresented: $showAlert) {
@@ -385,5 +436,48 @@ struct ResourceCard: View {
         .padding(.vertical, 12)
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(10)
+    }
+}
+
+struct UnitMiniCard: View {
+    let unit: Unit
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Text(unit.unitType.emoji)
+                .font(.title2)
+            Text(unit.name)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .lineLimit(1)
+            HStack(spacing: 8) {
+                VStack(spacing: 2) {
+                    Image(systemName: "sword.fill")
+                        .font(.system(size: 8))
+                        .foregroundColor(.red)
+                    Text("\(unit.attack)")
+                        .font(.system(size: 9))
+                }
+                VStack(spacing: 2) {
+                    Image(systemName: "shield.fill")
+                        .font(.system(size: 8))
+                        .foregroundColor(.blue)
+                    Text("\(unit.defense)")
+                        .font(.system(size: 9))
+                }
+                VStack(spacing: 2) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 8))
+                        .foregroundColor(.green)
+                    Text("\(unit.currentHP)")
+                        .font(.system(size: 9))
+                }
+            }
+            .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(8)
     }
 }
