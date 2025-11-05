@@ -21,9 +21,10 @@ class BuildingConstructionEngine {
             return (false, "This building already exists in this village.")
         }
 
-        // Check resources
+        // Check global resources
+        let globalResources = GameManager.shared.getGlobalResources(playerID: village.owner)
         for (resource, amount) in building.baseCost {
-            let available = village.resources[resource] ?? 0
+            let available = globalResources[resource] ?? 0
             if available < amount {
                 return (false, "Not enough \(resource.name). Need \(amount), have \(available).")
             }
@@ -46,15 +47,89 @@ class BuildingConstructionEngine {
             return false
         }
 
-        // Pay costs
-        for (resource, amount) in building.baseCost {
-            _ = village.substract(resource, amount: amount)
+        // Pay costs from global pool
+        guard GameManager.shared.spendResources(playerID: village.owner, cost: building.baseCost) else {
+            return false
         }
 
         // Add building
         village.addBuilding(building)
 
         print("🏗️ \(village.name): Built \(building.name)!")
+        return true
+    }
+
+    // MARK: - Building Upgrade
+    func getUpgradeCost(for building: Building) -> [Resource: Int] {
+        var cost: [Resource: Int] = [:]
+        let multiplier = Double(building.level) * 1.5
+
+        for (resource, baseAmount) in building.baseCost {
+            cost[resource] = Int(Double(baseAmount) * multiplier)
+        }
+
+        return cost
+    }
+
+    func canUpgradeBuilding(_ building: Building, in village: Village) -> (can: Bool, cost: [Resource: Int], reason: String) {
+        // Check max level
+        if building.level >= 5 {
+            return (false, [:], "Building is at maximum level (5)")
+        }
+
+        let upgradeCost = getUpgradeCost(for: building)
+
+        // Check global resources
+        let globalResources = GameManager.shared.getGlobalResources(playerID: village.owner)
+        for (resource, amount) in upgradeCost {
+            let available = globalResources[resource] ?? 0
+            if available < amount {
+                return (false, upgradeCost, "Not enough \(resource.name). Need \(amount), have \(available)")
+            }
+        }
+
+        return (true, upgradeCost, "Can upgrade to level \(building.level + 1)")
+    }
+
+    func upgradeBuilding(buildingID: UUID, in village: inout Village) -> Bool {
+        guard let index = village.buildings.firstIndex(where: { $0.id == buildingID }) else {
+            print("❌ Building not found in village")
+            return false
+        }
+
+        var building = village.buildings[index]
+        let check = canUpgradeBuilding(building, in: village)
+
+        guard check.can else {
+            print("❌ \(village.name): Cannot upgrade \(building.name) - \(check.reason)")
+            return false
+        }
+
+        // Pay costs from global pool
+        guard GameManager.shared.spendResources(playerID: village.owner, cost: check.cost) else {
+            return false
+        }
+
+        // Upgrade building
+        let oldLevel = building.level
+        building.level += 1
+
+        // Increase bonuses and production
+        building.productionBonus *= 1.5
+        building.defenseBonus *= 1.5
+        building.happinessBonus = Int(Double(building.happinessBonus) * 1.5)
+
+        // Increase resource production
+        var newProduction: [Resource: Int] = [:]
+        for (resource, amount) in building.resourcesProduction {
+            newProduction[resource] = Int(Double(amount) * 1.5)
+        }
+        building.resourcesProduction = newProduction
+
+        // Update in village
+        village.buildings[index] = building
+
+        print("⬆️ \(village.name): Upgraded \(building.name) from level \(oldLevel) to \(building.level)!")
         return true
     }
 

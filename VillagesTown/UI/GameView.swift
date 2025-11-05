@@ -10,6 +10,7 @@ import SwiftUI
 struct GameView: View {
     @ObservedObject var gameManager = GameManager.shared
     @State private var showVictoryScreen = false
+    @State private var isProcessingTurn = false
 
     var winner: Player? {
         let activePlayers = gameManager.players.filter { !$0.isEliminated }
@@ -20,6 +21,7 @@ struct GameView: View {
         VStack(spacing: 0) {
             // Top Bar - Resources and Info
             topBar
+                .animation(.easeInOut(duration: 0.3), value: gameManager.currentTurn)
 
             // Main Map View
             ScrollView([.horizontal, .vertical], showsIndicators: true) {
@@ -39,18 +41,18 @@ struct GameView: View {
         }
         .overlay(
             Group {
-                if let winner = winner {
+                if let winner = winner, showVictoryScreen {
                     VictoryScreenView(winner: winner, turns: gameManager.currentTurn, isPresented: $showVictoryScreen)
-                        .onAppear {
-                            showVictoryScreen = true
-                        }
+                        .transition(.scale.combined(with: .opacity))
                 }
             }
         )
         .onChange(of: gameManager.currentTurn) { _ in
             // Check for victory after each turn
             if winner != nil {
-                showVictoryScreen = true
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                    showVictoryScreen = true
+                }
             }
         }
     }
@@ -66,6 +68,8 @@ struct GameView: View {
                     .padding(.vertical, 6)
                     .background(Color.blue)
                     .cornerRadius(8)
+                    .shadow(color: .blue.opacity(0.3), radius: 4)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.7), value: gameManager.currentTurn)
 
                 Spacer()
 
@@ -75,7 +79,9 @@ struct GameView: View {
                 Spacer()
 
                 Button(action: {
-                    gameManager.toggleTutorial()
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        gameManager.toggleTutorial()
+                    }
                 }) {
                     Image(systemName: gameManager.tutorialEnabled ? "book.fill" : "book")
                         .font(.title2)
@@ -122,20 +128,36 @@ struct GameView: View {
     var bottomBar: some View {
         HStack(spacing: 16) {
             Button(action: {
-                gameManager.turnEngine.doTurn()
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    isProcessingTurn = true
+                }
+
+                // Delay to show animation
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    gameManager.turnEngine.doTurn()
+
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        isProcessingTurn = false
+                    }
+                }
             }) {
                 HStack {
-                    Image(systemName: "arrow.right.circle.fill")
+                    Image(systemName: isProcessingTurn ? "hourglass" : "arrow.right.circle.fill")
                         .font(.title2)
-                    Text("Next Turn")
+                        .rotationEffect(.degrees(isProcessingTurn ? 360 : 0))
+                        .animation(isProcessingTurn ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isProcessingTurn)
+                    Text(isProcessingTurn ? "Processing..." : "Next Turn")
                         .fontWeight(.semibold)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
-                .background(Color.green)
+                .background(isProcessingTurn ? Color.orange : Color.green)
                 .foregroundColor(.white)
                 .cornerRadius(10)
+                .shadow(color: (isProcessingTurn ? Color.orange : Color.green).opacity(0.4), radius: 6)
             }
+            .disabled(isProcessingTurn)
+            .scaleEffect(isProcessingTurn ? 0.95 : 1.0)
 
             Spacer()
         }
@@ -164,6 +186,8 @@ struct GameView: View {
 struct ResourceBadge: View {
     let resource: Resource
     let amount: Int
+    @State private var previousAmount: Int = 0
+    @State private var isChanged = false
 
     var body: some View {
         VStack(spacing: 4) {
@@ -172,6 +196,8 @@ struct ResourceBadge: View {
             Text("\(amount)")
                 .font(.caption)
                 .fontWeight(.semibold)
+                .foregroundColor(isChanged ? (amount > previousAmount ? .green : .red) : .primary)
+                .animation(.easeInOut(duration: 0.3), value: isChanged)
             Text(resource.name)
                 .font(.caption2)
                 .foregroundColor(.secondary)
@@ -180,5 +206,24 @@ struct ResourceBadge: View {
         .padding(.vertical, 4)
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(8)
+        .scaleEffect(isChanged ? 1.1 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isChanged)
+        .onChange(of: amount) { newAmount in
+            if previousAmount != 0 && newAmount != previousAmount {
+                withAnimation {
+                    isChanged = true
+                }
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    withAnimation {
+                        isChanged = false
+                    }
+                }
+            }
+            previousAmount = newAmount
+        }
+        .onAppear {
+            previousAmount = amount
+        }
     }
 }

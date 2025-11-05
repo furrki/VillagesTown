@@ -9,7 +9,7 @@
 import Foundation
 
 struct Building: Identifiable {
-    let id = UUID()
+    var id = UUID()
 
     enum BuildingType {
         case production

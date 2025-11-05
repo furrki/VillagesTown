@@ -7,37 +7,126 @@
 
 import SwiftUI
 
+// Shared category enum
+enum BuildingCategory: String, CaseIterable {
+    case economic = "Economic"
+    case military = "Military"
+    case infrastructure = "Infrastructure"
+    case special = "Special"
+
+    var buildings: [Building] {
+        switch self {
+        case .economic: return Building.allEconomic
+        case .military: return Building.allMilitary
+        case .infrastructure: return Building.allInfrastructure
+        case .special: return Building.allSpecial
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .economic: return "banknote"
+        case .military: return "shield.fill"
+        case .infrastructure: return "building.2"
+        case .special: return "star.fill"
+        }
+    }
+}
+
+// Inline version for use within VillageDetailView
+struct BuildMenuInlineView: View {
+    let village: Village
+    @State private var selectedCategory: BuildingCategory = .economic
+    @State private var showAlert = false
+    @State private var alertMessage = ""
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Category Picker
+            categoryPicker
+
+            // Buildings List
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(selectedCategory.buildings) { building in
+                        BuildingCard(
+                            building: building,
+                            village: village,
+                            onBuild: { buildBuilding in
+                                attemptBuild(buildBuilding)
+                            }
+                        )
+                        .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .padding()
+                .animation(.easeInOut(duration: 0.2), value: selectedCategory)
+            }
+        }
+        .alert("Build Result", isPresented: $showAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(alertMessage)
+        }
+    }
+
+    var categoryPicker: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(BuildingCategory.allCases, id: \.self) { category in
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedCategory = category
+                        }
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: category.icon)
+                            Text(category.rawValue)
+                                .fontWeight(.medium)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(selectedCategory == category ? Color.blue : Color(NSColor.controlBackgroundColor))
+                        .foregroundColor(selectedCategory == category ? .white : .primary)
+                        .cornerRadius(20)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding()
+        }
+        .background(Color(NSColor.windowBackgroundColor))
+        .shadow(radius: 1)
+    }
+
+    func attemptBuild(_ building: Building) {
+        var mutableVillage = village
+        let engine = BuildingConstructionEngine()
+
+        let result = engine.canBuild(building: building, in: mutableVillage)
+
+        if result.can {
+            if engine.buildBuilding(building: building, in: &mutableVillage) {
+                GameManager.shared.updateVillage(mutableVillage)
+                // Post notification to refresh UI
+                NotificationCenter.default.post(name: NSNotification.Name("MapUpdated"), object: nil)
+                alertMessage = "Successfully built \(building.name)!"
+                showAlert = true
+            }
+        } else {
+            alertMessage = result.reason
+            showAlert = true
+        }
+    }
+}
+
+// Original sheet version (kept for backwards compatibility)
 struct BuildMenuView: View {
     let village: Village
     @Binding var isPresented: Bool
     @State private var selectedCategory: BuildingCategory = .economic
     @State private var showAlert = false
     @State private var alertMessage = ""
-
-    enum BuildingCategory: String, CaseIterable {
-        case economic = "Economic"
-        case military = "Military"
-        case infrastructure = "Infrastructure"
-        case special = "Special"
-
-        var buildings: [Building] {
-            switch self {
-            case .economic: return Building.allEconomic
-            case .military: return Building.allMilitary
-            case .infrastructure: return Building.allInfrastructure
-            case .special: return Building.allSpecial
-            }
-        }
-
-        var icon: String {
-            switch self {
-            case .economic: return "banknote"
-            case .military: return "shield.fill"
-            case .infrastructure: return "building.2"
-            case .special: return "star.fill"
-            }
-        }
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -117,6 +206,8 @@ struct BuildMenuView: View {
         if result.can {
             if engine.buildBuilding(building: building, in: &mutableVillage) {
                 GameManager.shared.updateVillage(mutableVillage)
+                // Post notification to refresh UI
+                NotificationCenter.default.post(name: NSNotification.Name("MapUpdated"), object: nil)
                 alertMessage = "Successfully built \(building.name)!"
                 showAlert = true
             }
@@ -133,88 +224,64 @@ struct BuildingCard: View {
     let onBuild: (Building) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(building.name)
-                        .font(.headline)
-                    Text(building.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                Spacer()
+        HStack(spacing: 12) {
+            // Name and description
+            VStack(alignment: .leading, spacing: 2) {
+                Text(building.name)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Text(building.description)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
             }
+
+            Spacer()
 
             // Cost
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Cost:")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+            HStack(spacing: 6) {
+                let globalResources = GameManager.shared.getGlobalResources(playerID: village.owner)
+                ForEach(Array(building.baseCost.keys.sorted(by: { $0.name < $1.name })), id: \.self) { resource in
+                    let cost = building.baseCost[resource]!
+                    let has = globalResources[resource] ?? 0
+                    let canAfford = has >= cost
 
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                    ForEach(Array(building.baseCost.keys), id: \.self) { resource in
-                        let cost = building.baseCost[resource]!
-                        let has = village.resources[resource] ?? 0
-                        let canAfford = has >= cost
-
-                        HStack(spacing: 4) {
-                            Text(resource.emoji)
-                            Text("\(cost)")
-                                .font(.caption)
-                                .foregroundColor(canAfford ? .primary : .red)
-                            Text("(\(has))")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
+                    HStack(spacing: 2) {
+                        Text(resource.emoji)
+                        Text("\(cost)")
                     }
-                }
-            }
-
-            // Bonuses
-            if building.productionBonus > 0 || building.defenseBonus > 0 || building.happinessBonus > 0 {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Bonuses:")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                    HStack(spacing: 12) {
-                        if building.productionBonus > 0 {
-                            Label("+\(Int(building.productionBonus * 100))% Production", systemImage: "chart.line.uptrend.xyaxis")
-                                .font(.caption2)
-                        }
-                        if building.defenseBonus > 0 {
-                            Label("+\(Int(building.defenseBonus * 100))% Defense", systemImage: "shield")
-                                .font(.caption2)
-                        }
-                        if building.happinessBonus > 0 {
-                            Label("+\(building.happinessBonus) Happiness", systemImage: "face.smiling")
-                                .font(.caption2)
-                        }
-                    }
+                    .font(.caption)
+                    .foregroundColor(canAfford ? .primary : .red)
                 }
             }
 
             // Build Button
             Button(action: {
-                onBuild(building)
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    onBuild(building)
+                }
             }) {
                 Text("Build")
+                    .font(.caption)
                     .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
                     .background(canBuild ? Color.blue : Color.gray)
                     .foregroundColor(.white)
-                    .cornerRadius(8)
+                    .cornerRadius(6)
             }
+            .buttonStyle(.plain)
             .disabled(!canBuild)
         }
-        .padding()
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(12)
+        .cornerRadius(8)
     }
 
     var canBuild: Bool {
         let engine = BuildingConstructionEngine()
-        return engine.canBuild(building: building, in: village).can
+        let result = engine.canBuild(building: building, in: village)
+        return result.can
     }
 }

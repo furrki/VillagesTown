@@ -65,12 +65,18 @@ class TurnEngine {
             BuildingProductionEngine.consumeAndProduceAll(in: &mutableVillage)
             return mutableVillage
         }
+
+        // Sync all village resources to global pool
+        GameManager.shared.syncGlobalResources()
     }
 
     private func collectTaxes() {
         var villages = GameManager.shared.map.villages
         populationEngine.collectTaxes(for: &villages)
         GameManager.shared.map.villages = villages
+
+        // Sync to global pool
+        GameManager.shared.syncGlobalResources()
     }
 
     private func processPopulation() {

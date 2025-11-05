@@ -46,11 +46,11 @@ struct Village: Entity, ResourceHolder, TreasuryHolder {
 
     var maxBuildings: Int {
         switch level {
-        case .village: return 3
-        case .town: return 5
-        case .district: return 7
-        case .castle: return 10
-        case .city: return 15
+        case .village: return 8
+        case .town: return 12
+        case .district: return 16
+        case .castle: return 20
+        case .city: return 30
         }
     }
 
