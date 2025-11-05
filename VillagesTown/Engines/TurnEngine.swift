@@ -11,6 +11,7 @@ import Foundation
 class TurnEngine {
     let populationEngine = PopulationEngine()
     let unitUpkeepEngine = UnitUpkeepEngine()
+    let movementEngine = MovementEngine()
 
     func doTurn() {
         let game = GameManager.shared
@@ -20,8 +21,12 @@ class TurnEngine {
         print("🎲 TURN \(game.currentTurn)")
         print(String(repeating: "=", count: 60) + "\n")
 
+        // 0. Reset unit movement
+        print("🔄 Phase 0: Reset Unit Movement")
+        resetUnitMovement()
+
         // 1. Building Production
-        print("📦 Phase 1: Building Production")
+        print("\n📦 Phase 1: Building Production")
         doBuildingProduction()
 
         // 2. Tax Collection
@@ -80,6 +85,13 @@ class TurnEngine {
         var villages = GameManager.shared.map.villages
         unitUpkeepEngine.processUpkeep(units: units, villages: &villages)
         GameManager.shared.map.villages = villages
+    }
+
+    private func resetUnitMovement() {
+        var units = GameManager.shared.map.units
+        movementEngine.resetMovement(for: &units)
+        GameManager.shared.map.units = units
+        print("✨ All units movement restored")
     }
 
     // MARK: - Legacy compatibility

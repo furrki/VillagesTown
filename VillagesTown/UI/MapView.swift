@@ -13,6 +13,8 @@ struct MapView: View {
     @ObservedObject var viewModel: MapViewModel = MapViewModel(map: GameManager.shared.map)
     @State private var selectedVillage: Village?
     @State private var showVillageDetail = false
+    @State private var selectedUnits: [Unit]?
+    @State private var showUnitDetail = false
 
     var body: some View {
         VStack(alignment: .center, spacing: 2.0) {
@@ -32,13 +34,34 @@ struct MapView: View {
                 VillageDetailView(village: village, isPresented: $showVillageDetail)
             }
         }
+        .sheet(isPresented: $showUnitDetail) {
+            if let units = selectedUnits {
+                UnitDetailView(units: units, isPresented: $showUnitDetail)
+            }
+        }
     }
 
     func handleTileTap(x: Int, y: Int) {
+        // Check for village first
         if let village = viewModel.getVillageAt(x: x, y: y) {
             selectedVillage = village
             showVillageDetail = true
+            return
         }
+
+        // Check for units
+        let units = viewModel.getUnitsAt(x: x, y: y)
+        if !units.isEmpty {
+            selectedUnits = units
+            showUnitDetail = true
+            return
+        }
+    }
+}
+
+extension MapViewModel {
+    func getUnitsAt(x: Int, y: Int) -> [Unit] {
+        return map.getUnitsAt(x: x, y: y)
     }
 }
 
