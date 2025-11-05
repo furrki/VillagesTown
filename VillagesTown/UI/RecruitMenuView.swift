@@ -89,6 +89,9 @@ struct RecruitMenuInlineView: View {
             // Add units to map
             GameManager.shared.map.addUnits(recruitedUnits)
 
+            // Post notification to refresh UI
+            NotificationCenter.default.post(name: NSNotification.Name("MapUpdated"), object: nil)
+
             let stats = Unit.getStats(for: unitType)
             alertMessage = "Successfully recruited \(quantity) \(stats.name)!"
             showAlert = true
@@ -197,6 +200,9 @@ struct RecruitMenuView: View {
 
             // Add units to map
             GameManager.shared.map.addUnits(recruitedUnits)
+
+            // Post notification to refresh UI
+            NotificationCenter.default.post(name: NSNotification.Name("MapUpdated"), object: nil)
 
             let stats = Unit.getStats(for: unitType)
             alertMessage = "Successfully recruited \(quantity) \(stats.name)!"

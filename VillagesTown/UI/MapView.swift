@@ -13,16 +13,16 @@ struct MapView: View {
     @ObservedObject var viewModel: MapViewModel = MapViewModel(map: GameManager.shared.map)
     @State private var selectedVillage: Village?
     @State private var selectedUnits: [Unit]?
+    @State private var refreshTrigger = false
 
     var body: some View {
         VStack(alignment: .center, spacing: 2.0) {
             ForEach((0...self.viewModel.getMapHeight()), id: \.self) { y in
                 HStack(alignment: .center, spacing: 2.0) {
                     ForEach((0...self.viewModel.getMapWidth()), id: \.self) { x in
-                        MapTile(x: x, y: y, viewModel: viewModel)
-                            .onTapGesture {
-                                handleTileTap(x: x, y: y)
-                            }
+                        MapTile(x: x, y: y, viewModel: viewModel, onTap: {
+                            handleTileTap(x: x, y: y)
+                        })
                     }
                 }
             }
@@ -32,7 +32,7 @@ struct MapView: View {
             set: { selectedVillage = $0?.village }
         )) { wrapper in
             VillageDetailView(
-                village: wrapper.village,
+                village: getCurrentVillage(wrapper.village),
                 isPresented: Binding(
                     get: { selectedVillage != nil },
                     set: { if !$0 {
@@ -40,7 +40,13 @@ struct MapView: View {
                             selectedVillage = nil
                         }
                     } }
-                )
+                ),
+                onUpdate: {
+                    // Refresh the village when updated
+                    if let coords = selectedVillage?.coordinates {
+                        selectedVillage = viewModel.getVillageAt(x: Int(coords.x), y: Int(coords.y))
+                    }
+                }
             )
             .frame(minWidth: 600, minHeight: 700)
             .transition(.scale.combined(with: .opacity))
@@ -66,10 +72,14 @@ struct MapView: View {
     }
 
     func handleTileTap(x: Int, y: Int) {
+        print("🔍 Tile tapped at (\(x), \(y))")
+
         // Check for village first
         if let village = viewModel.getVillageAt(x: x, y: y) {
+            print("🏘️ Found village: \(village.name)")
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                 selectedVillage = village
+                print("✅ selectedVillage set to: \(selectedVillage?.name ?? "nil")")
             }
             return
         }
@@ -77,11 +87,22 @@ struct MapView: View {
         // Check for units
         let units = viewModel.getUnitsAt(x: x, y: y)
         if !units.isEmpty {
+            print("⚔️ Found \(units.count) units")
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                 selectedUnits = units
             }
             return
         }
+
+        print("❌ Nothing found at this tile")
+    }
+
+    func getCurrentVillage(_ fallback: Village) -> Village {
+        // Get the latest version from the map
+        if let updated = viewModel.getVillageAt(x: Int(fallback.coordinates.x), y: Int(fallback.coordinates.y)) {
+            return updated
+        }
+        return fallback
     }
 }
 
@@ -105,6 +126,7 @@ struct MapTile: View {
     let x: Int
     let y: Int
     @ObservedObject var viewModel: MapViewModel
+    let onTap: () -> Void
     @State private var isPressed = false
 
     var body: some View {
@@ -145,9 +167,13 @@ struct MapTile: View {
         .animation(.easeInOut(duration: 0.15), value: isPressed)
         .shadow(color: isPressed ? Color.blue.opacity(0.3) : Color.clear, radius: 4)
         .onLongPressGesture(minimumDuration: 0, maximumDistance: 50) {
-            // Tap completed
+            print("✨ Tap completed at (\(x), \(y))")
+            onTap()
         } onPressingChanged: { pressing in
             isPressed = pressing
+            if pressing {
+                print("👇 Press started at (\(x), \(y))")
+            }
         }
     }
 }

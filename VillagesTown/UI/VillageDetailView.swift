@@ -10,21 +10,9 @@ import SwiftUI
 struct VillageDetailView: View {
     let village: Village
     @Binding var isPresented: Bool
-    @State private var selectedTab: Tab = .overview
-
-    enum Tab: String, CaseIterable {
-        case overview = "Overview"
-        case build = "Build"
-        case recruit = "Recruit"
-
-        var icon: String {
-            switch self {
-            case .overview: return "info.circle.fill"
-            case .build: return "hammer.fill"
-            case .recruit: return "person.3.fill"
-            }
-        }
-    }
+    let onUpdate: () -> Void
+    @State private var showBuildSection = false
+    @State private var showRecruitSection = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -45,92 +33,44 @@ struct VillageDetailView: View {
 
             Divider()
 
-            // Tab Selector
-            tabSelector
-
-            Divider()
-
-            // Content based on selected tab
-            Group {
-                switch selectedTab {
-                case .overview:
-                    overviewContent
-                case .build:
-                    buildContent
-                case .recruit:
-                    recruitContent
-                }
-            }
-            .transition(.asymmetric(
-                insertion: .move(edge: .trailing).combined(with: .opacity),
-                removal: .move(edge: .leading).combined(with: .opacity)
-            ))
+            // Content
+            overviewContent
         }
-    }
-
-    var tabSelector: some View {
-        HStack(spacing: 0) {
-            ForEach(Tab.allCases, id: \.self) { tab in
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        selectedTab = tab
-                    }
-                }) {
-                    VStack(spacing: 6) {
-                        Image(systemName: tab.icon)
-                            .font(.title3)
-                        Text(tab.rawValue)
-                            .font(.caption)
-                            .fontWeight(.medium)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(selectedTab == tab ? Color.blue.opacity(0.1) : Color.clear)
-                    .foregroundColor(selectedTab == tab ? .blue : .secondary)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .background(Color(NSColor.controlBackgroundColor))
     }
 
     var overviewContent: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 16) {
                 // Village Header
                 villageHeader
-                    .transition(.scale.combined(with: .opacity))
 
-                Divider()
-
-                // Stats
-                villageStats
-                    .transition(.scale.combined(with: .opacity))
+                // Stats and Resources side by side
+                HStack(alignment: .top, spacing: 16) {
+                    villageStats
+                        .frame(maxWidth: .infinity)
+                    resourcesSection
+                        .frame(maxWidth: .infinity)
+                }
 
                 Divider()
 
                 // Buildings
                 buildingsSection
-                    .transition(.scale.combined(with: .opacity))
 
                 Divider()
 
-                // Resources
-                resourcesSection
-                    .transition(.scale.combined(with: .opacity))
+                // Build (Collapsible)
+                buildSection
+
+                Divider()
+
+                // Recruit (Collapsible)
+                recruitSection
 
                 Spacer()
             }
             .padding()
         }
-    }
-
-    var buildContent: some View {
-        BuildMenuInlineView(village: village)
-    }
-
-    var recruitContent: some View {
-        RecruitMenuInlineView(village: village)
     }
 
     var villageHeader: some View {
@@ -170,6 +110,23 @@ struct VillageDetailView: View {
             HStack {
                 Text("Buildings")
                     .font(.headline)
+
+                // Upgrade available badge
+                let upgradeableCount = village.buildings.filter { building in
+                    BuildingConstructionEngine().canUpgradeBuilding(building, in: village).can
+                }.count
+
+                if upgradeableCount > 0 {
+                    Text("\(upgradeableCount)")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.green)
+                        .cornerRadius(8)
+                }
+
                 Spacer()
                 Text("\(village.buildings.count)/\(village.maxBuildings)")
                     .font(.subheadline)
@@ -182,20 +139,34 @@ struct VillageDetailView: View {
                     .italic()
             } else {
                 ForEach(village.buildings) { building in
-                    BuildingRow(building: building)
+                    BuildingRow(building: building, village: village, onUpgrade: { buildingID in
+                        attemptUpgrade(buildingID: buildingID)
+                    })
                 }
             }
         }
     }
 
+    func attemptUpgrade(buildingID: UUID) {
+        var mutableVillage = village
+        let engine = BuildingConstructionEngine()
+
+        if engine.upgradeBuilding(buildingID: buildingID, in: &mutableVillage) {
+            GameManager.shared.updateVillage(mutableVillage)
+            onUpdate()
+        }
+    }
+
     var resourcesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Resources")
+            Text("Empire Resources")
                 .font(.headline)
+                .foregroundColor(.green)
 
+            let globalResources = GameManager.shared.getGlobalResources(playerID: village.owner)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ForEach(Resource.getAll(), id: \.self) { resource in
-                    ResourceCard(resource: resource, amount: village.resources[resource] ?? 0)
+                    ResourceCard(resource: resource, amount: globalResources[resource] ?? 0)
                 }
             }
         }
@@ -206,6 +177,54 @@ struct VillageDetailView: View {
         if happiness >= 80 { return "face.smiling.fill" }
         if happiness >= 50 { return "face.smiling" }
         return "face.dashed.fill"
+    }
+
+    var buildSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showBuildSection.toggle()
+                }
+            }) {
+                HStack {
+                    Text("Build New")
+                        .font(.headline)
+                    Spacer()
+                    Image(systemName: showBuildSection ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                }
+            }
+            .buttonStyle(.plain)
+
+            if showBuildSection {
+                BuildMenuInlineView(village: village)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    var recruitSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showRecruitSection.toggle()
+                }
+            }) {
+                HStack {
+                    Text("Recruit Units")
+                        .font(.headline)
+                    Spacer()
+                    Image(systemName: showRecruitSection ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                }
+            }
+            .buttonStyle(.plain)
+
+            if showRecruitSection {
+                RecruitMenuInlineView(village: village)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
     }
 }
 
@@ -238,29 +257,112 @@ struct StatCard: View {
 
 struct BuildingRow: View {
     let building: Building
+    let village: Village
+    let onUpgrade: (UUID) -> Void
+    @State private var showAlert = false
+    @State private var alertMessage = ""
 
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: 12) {
+            // Name and Level
+            VStack(alignment: .leading, spacing: 2) {
                 Text(building.name)
                     .font(.subheadline)
-                    .fontWeight(.medium)
-                Text(building.description)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .fontWeight(.semibold)
+
+                // Production info
+                if !building.resourcesProduction.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(Array(building.resourcesProduction.keys.prefix(3)), id: \.self) { resource in
+                            if let amount = building.resourcesProduction[resource] {
+                                HStack(spacing: 2) {
+                                    Text(resource.emoji)
+                                    Text("+\(amount)")
+                                }
+                                .font(.caption2)
+                                .foregroundColor(.green)
+                            }
+                        }
+                    }
+                } else if building.productionBonus > 0 || building.defenseBonus > 0 || building.happinessBonus > 0 {
+                    HStack(spacing: 6) {
+                        if building.productionBonus > 0 {
+                            Text("+\(Int(building.productionBonus * 100))%📈")
+                                .font(.caption2)
+                                .foregroundColor(.green)
+                        }
+                        if building.defenseBonus > 0 {
+                            Text("+\(Int(building.defenseBonus * 100))%🛡️")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                        }
+                        if building.happinessBonus > 0 {
+                            Text("+\(building.happinessBonus)😊")
+                                .font(.caption2)
+                                .foregroundColor(.orange)
+                        }
+                    }
+                }
             }
+
             Spacer()
-            Text("Lv.\(building.level)")
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.blue.opacity(0.2))
-                .cornerRadius(6)
+
+            // Level indicator
+            HStack(spacing: 4) {
+                ForEach(1...5, id: \.self) { level in
+                    Circle()
+                        .fill(level <= building.level ? Color.blue : Color.gray.opacity(0.3))
+                        .frame(width: 6, height: 6)
+                }
+            }
+
+            // Upgrade button
+            let upgradeCheck = BuildingConstructionEngine().canUpgradeBuilding(building, in: village)
+            let globalResources = GameManager.shared.getGlobalResources(playerID: village.owner)
+            Button(action: {
+                if upgradeCheck.can {
+                    onUpgrade(building.id)
+                } else {
+                    alertMessage = upgradeCheck.reason
+                    showAlert = true
+                }
+            }) {
+                VStack(spacing: 2) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.title3)
+                    if !upgradeCheck.cost.isEmpty {
+                        HStack(spacing: 2) {
+                            ForEach(Array(upgradeCheck.cost.keys.prefix(2)), id: \.self) { resource in
+                                if let cost = upgradeCheck.cost[resource] {
+                                    let has = globalResources[resource] ?? 0
+                                    let canAfford = has >= cost
+                                    HStack(spacing: 1) {
+                                        Text(resource.emoji)
+                                        Text("\(cost)")
+                                    }
+                                    .font(.caption2)
+                                    .foregroundColor(canAfford ? .primary : .red)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(6)
+                .background(upgradeCheck.can ? Color.green.opacity(0.2) : Color.gray.opacity(0.1))
+                .cornerRadius(8)
+            }
+            .buttonStyle(.plain)
+            .disabled(!upgradeCheck.can)
         }
-        .padding(.vertical, 8)
         .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(10)
+        .cornerRadius(8)
+        .alert("Upgrade", isPresented: $showAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(alertMessage)
+        }
     }
 }
 

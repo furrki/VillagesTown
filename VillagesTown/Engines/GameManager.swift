@@ -20,6 +20,9 @@ class GameManager: ObservableObject {
 
     let turnEngine: TurnEngine = TurnEngine()
 
+    // Global resource pools per player
+    @Published var globalResources: [String: [Resource: Int]] = [:]
+
     // Tutorial settings
     var tutorialEnabled: Bool = true
     var tutorialStep: Int = 0
@@ -74,10 +77,63 @@ class GameManager: ObservableObject {
     func initializeGame() {
         gameStarted = true
         currentTurn = 1
+
+        // Initialize global resource pools by aggregating village resources
+        syncGlobalResources()
+
         print("🎮 Game Started! Turn \(currentTurn)")
         print("📍 Map size: \(Int(map.size.width))x\(Int(map.size.height))")
         print("🏘️ Total villages: \(map.villages.count)")
         print("👥 Players: \(players.count)")
+    }
+
+    // MARK: - Resource Management
+    func syncGlobalResources() {
+        // Aggregate all village resources into global pools
+        for player in players {
+            let villages = getPlayerVillages(playerID: player.id)
+            var totalResources: [Resource: Int] = [:]
+
+            for village in villages {
+                for (resource, amount) in village.resources {
+                    totalResources[resource, default: 0] += amount
+                }
+            }
+
+            globalResources[player.id] = totalResources
+        }
+    }
+
+    func getGlobalResources(playerID: String) -> [Resource: Int] {
+        return globalResources[playerID] ?? [:]
+    }
+
+    func modifyGlobalResource(playerID: String, resource: Resource, amount: Int) {
+        globalResources[playerID, default: [:]][resource, default: 0] += amount
+        if globalResources[playerID]![resource]! < 0 {
+            globalResources[playerID]![resource] = 0
+        }
+    }
+
+    func canAfford(playerID: String, cost: [Resource: Int]) -> Bool {
+        let resources = getGlobalResources(playerID: playerID)
+        for (resource, amount) in cost {
+            if (resources[resource] ?? 0) < amount {
+                return false
+            }
+        }
+        return true
+    }
+
+    func spendResources(playerID: String, cost: [Resource: Int]) -> Bool {
+        guard canAfford(playerID: playerID, cost: cost) else {
+            return false
+        }
+
+        for (resource, amount) in cost {
+            modifyGlobalResource(playerID: playerID, resource: resource, amount: -amount)
+        }
+        return true
     }
 
     // MARK: - Tutorial Methods

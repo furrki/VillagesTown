@@ -108,6 +108,8 @@ struct BuildMenuInlineView: View {
         if result.can {
             if engine.buildBuilding(building: building, in: &mutableVillage) {
                 GameManager.shared.updateVillage(mutableVillage)
+                // Post notification to refresh UI
+                NotificationCenter.default.post(name: NSNotification.Name("MapUpdated"), object: nil)
                 alertMessage = "Successfully built \(building.name)!"
                 showAlert = true
             }
@@ -204,6 +206,8 @@ struct BuildMenuView: View {
         if result.can {
             if engine.buildBuilding(building: building, in: &mutableVillage) {
                 GameManager.shared.updateVillage(mutableVillage)
+                // Post notification to refresh UI
+                NotificationCenter.default.post(name: NSNotification.Name("MapUpdated"), object: nil)
                 alertMessage = "Successfully built \(building.name)!"
                 showAlert = true
             }
@@ -220,64 +224,34 @@ struct BuildingCard: View {
     let onBuild: (Building) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(building.name)
-                        .font(.headline)
-                    Text(building.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                Spacer()
+        HStack(spacing: 12) {
+            // Name and description
+            VStack(alignment: .leading, spacing: 2) {
+                Text(building.name)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Text(building.description)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
             }
+
+            Spacer()
 
             // Cost
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Cost:")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+            HStack(spacing: 6) {
+                let globalResources = GameManager.shared.getGlobalResources(playerID: village.owner)
+                ForEach(Array(building.baseCost.keys.sorted(by: { $0.name < $1.name })), id: \.self) { resource in
+                    let cost = building.baseCost[resource]!
+                    let has = globalResources[resource] ?? 0
+                    let canAfford = has >= cost
 
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                    ForEach(Array(building.baseCost.keys), id: \.self) { resource in
-                        let cost = building.baseCost[resource]!
-                        let has = village.resources[resource] ?? 0
-                        let canAfford = has >= cost
-
-                        HStack(spacing: 4) {
-                            Text(resource.emoji)
-                            Text("\(cost)")
-                                .font(.caption)
-                                .foregroundColor(canAfford ? .primary : .red)
-                            Text("(\(has))")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
+                    HStack(spacing: 2) {
+                        Text(resource.emoji)
+                        Text("\(cost)")
                     }
-                }
-            }
-
-            // Bonuses
-            if building.productionBonus > 0 || building.defenseBonus > 0 || building.happinessBonus > 0 {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Bonuses:")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                    HStack(spacing: 12) {
-                        if building.productionBonus > 0 {
-                            Label("+\(Int(building.productionBonus * 100))% Production", systemImage: "chart.line.uptrend.xyaxis")
-                                .font(.caption2)
-                        }
-                        if building.defenseBonus > 0 {
-                            Label("+\(Int(building.defenseBonus * 100))% Defense", systemImage: "shield")
-                                .font(.caption2)
-                        }
-                        if building.happinessBonus > 0 {
-                            Label("+\(building.happinessBonus) Happiness", systemImage: "face.smiling")
-                                .font(.caption2)
-                        }
-                    }
+                    .font(.caption)
+                    .foregroundColor(canAfford ? .primary : .red)
                 }
             }
 
@@ -288,24 +262,26 @@ struct BuildingCard: View {
                 }
             }) {
                 Text("Build")
+                    .font(.caption)
                     .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
                     .background(canBuild ? Color.blue : Color.gray)
                     .foregroundColor(.white)
-                    .cornerRadius(8)
+                    .cornerRadius(6)
             }
+            .buttonStyle(.plain)
             .disabled(!canBuild)
-            .scaleEffect(canBuild ? 1.0 : 0.95)
-            .animation(.easeInOut(duration: 0.2), value: canBuild)
         }
-        .padding()
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(12)
+        .cornerRadius(8)
     }
 
     var canBuild: Bool {
         let engine = BuildingConstructionEngine()
-        return engine.canBuild(building: building, in: village).can
+        let result = engine.canBuild(building: building, in: village)
+        return result.can
     }
 }
