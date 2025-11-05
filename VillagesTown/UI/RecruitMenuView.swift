@@ -7,6 +7,100 @@
 
 import SwiftUI
 
+// Inline version for use within VillageDetailView
+struct RecruitMenuInlineView: View {
+    let village: Village
+    @State private var selectedUnitType: Unit.UnitType?
+    @State private var quantity: Int = 1
+    @State private var showAlert = false
+    @State private var alertMessage = ""
+
+    let recruitmentEngine = RecruitmentEngine()
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                // Available Units
+                let availableUnits = recruitmentEngine.getAvailableUnits(for: village)
+
+                if availableUnits.isEmpty {
+                    VStack(spacing: 20) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 50))
+                            .foregroundColor(.orange)
+                        Text("No military buildings")
+                            .font(.headline)
+                        Text("Build a Barracks, Archery Range, or Cavalry Stable to recruit units")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+                    .padding()
+                    .transition(.scale.combined(with: .opacity))
+                } else {
+                    // Group by category
+                    let unitsByCategory = Dictionary(grouping: availableUnits) { $0.category }
+
+                    ForEach(Array(unitsByCategory.keys.sorted()), id: \.self) { category in
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(category)
+                                .font(.headline)
+                                .padding(.horizontal)
+
+                            ForEach(unitsByCategory[category] ?? [], id: \.self) { unitType in
+                                UnitRecruitCard(
+                                    unitType: unitType,
+                                    village: village,
+                                    quantity: $quantity,
+                                    onRecruit: {
+                                        attemptRecruit(unitType: unitType)
+                                    }
+                                )
+                                .padding(.horizontal)
+                                .transition(.scale.combined(with: .opacity))
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.vertical)
+        }
+        .alert("Recruitment", isPresented: $showAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(alertMessage)
+        }
+    }
+
+    func attemptRecruit(unitType: Unit.UnitType) {
+        var mutableVillage = village
+        let recruitedUnits = recruitmentEngine.recruitUnits(
+            unitType: unitType,
+            quantity: quantity,
+            in: &mutableVillage,
+            at: village.coordinates
+        )
+
+        if !recruitedUnits.isEmpty {
+            // Update village
+            GameManager.shared.updateVillage(mutableVillage)
+
+            // Add units to map
+            GameManager.shared.map.addUnits(recruitedUnits)
+
+            let stats = Unit.getStats(for: unitType)
+            alertMessage = "Successfully recruited \(quantity) \(stats.name)!"
+            showAlert = true
+        } else {
+            let check = recruitmentEngine.canRecruit(unitType: unitType, quantity: quantity, in: village)
+            alertMessage = check.reason
+            showAlert = true
+        }
+    }
+}
+
+// Original sheet version (kept for backwards compatibility)
 struct RecruitMenuView: View {
     let village: Village
     @Binding var isPresented: Bool
@@ -223,7 +317,11 @@ struct UnitRecruitCard: View {
                 }
 
                 // Recruit button
-                Button(action: onRecruit) {
+                Button(action: {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        onRecruit()
+                    }
+                }) {
                     Text("Recruit")
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
@@ -233,6 +331,8 @@ struct UnitRecruitCard: View {
                         .cornerRadius(8)
                 }
                 .disabled(!canRecruit)
+                .scaleEffect(canRecruit ? 1.0 : 0.95)
+                .animation(.easeInOut(duration: 0.2), value: canRecruit)
             }
         }
         .padding()

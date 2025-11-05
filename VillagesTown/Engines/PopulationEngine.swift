@@ -14,8 +14,8 @@ class PopulationEngine {
         for i in 0..<villages.count {
             var village = villages[i]
 
-            // Check food availability
-            let foodNeeded = village.population
+            // Check food availability (1 food per 10 population)
+            let foodNeeded = max(1, village.population / 10)
             let currentFood = village.resources[.food] ?? 0
 
             if currentFood >= foodNeeded {
@@ -85,8 +85,8 @@ class PopulationEngine {
 
             // Building bonuses are calculated in totalHappiness
 
-            // Food situation
-            let foodNeeded = village.population
+            // Food situation (1 food per 10 population)
+            let foodNeeded = max(1, village.population / 10)
             let currentFood = village.resources[.food] ?? 0
 
             if currentFood < foodNeeded {

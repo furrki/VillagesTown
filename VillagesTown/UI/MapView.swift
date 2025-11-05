@@ -35,10 +35,15 @@ struct MapView: View {
                 village: wrapper.village,
                 isPresented: Binding(
                     get: { selectedVillage != nil },
-                    set: { if !$0 { selectedVillage = nil } }
+                    set: { if !$0 {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            selectedVillage = nil
+                        }
+                    } }
                 )
             )
             .frame(minWidth: 600, minHeight: 700)
+            .transition(.scale.combined(with: .opacity))
         }
         .sheet(item: Binding(
             get: { selectedUnits.map { UnitsWrapper(units: $0) } },
@@ -48,24 +53,33 @@ struct MapView: View {
                 units: wrapper.units,
                 isPresented: Binding(
                     get: { selectedUnits != nil },
-                    set: { if !$0 { selectedUnits = nil } }
+                    set: { if !$0 {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            selectedUnits = nil
+                        }
+                    } }
                 )
             )
             .frame(minWidth: 500, minHeight: 600)
+            .transition(.scale.combined(with: .opacity))
         }
     }
 
     func handleTileTap(x: Int, y: Int) {
         // Check for village first
         if let village = viewModel.getVillageAt(x: x, y: y) {
-            selectedVillage = village
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                selectedVillage = village
+            }
             return
         }
 
         // Check for units
         let units = viewModel.getUnitsAt(x: x, y: y)
         if !units.isEmpty {
-            selectedUnits = units
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                selectedUnits = units
+            }
             return
         }
     }
@@ -91,6 +105,7 @@ struct MapTile: View {
     let x: Int
     let y: Int
     @ObservedObject var viewModel: MapViewModel
+    @State private var isPressed = false
 
     var body: some View {
         ZStack {
@@ -101,6 +116,8 @@ struct MapTile: View {
             // Village flag or unit icon
             Text(viewModel.getTextAt(x, y))
                 .font(.system(size: 12))
+                .scaleEffect(isPressed ? 1.2 : 1.0)
+                .animation(.spring(response: 0.2, dampingFraction: 0.5), value: isPressed)
 
             // Strategic resource indicator
             if viewModel.hasStrategicResource(x: x, y: y) {
@@ -108,6 +125,7 @@ struct MapTile: View {
                     .fill(Color.yellow)
                     .frame(width: 6, height: 6)
                     .offset(x: 6, y: -6)
+                    .shadow(color: .yellow.opacity(0.5), radius: 2)
             }
 
             // Unit count indicator
@@ -119,9 +137,18 @@ struct MapTile: View {
                     .padding(2)
                     .background(Circle().fill(Color.red))
                     .offset(x: -6, y: 6)
+                    .shadow(color: .red.opacity(0.5), radius: 2)
             }
         }
         .cornerRadius(3.0)
+        .scaleEffect(isPressed ? 0.95 : 1.0)
+        .animation(.easeInOut(duration: 0.15), value: isPressed)
+        .shadow(color: isPressed ? Color.blue.opacity(0.3) : Color.clear, radius: 4)
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: 50) {
+            // Tap completed
+        } onPressingChanged: { pressing in
+            isPressed = pressing
+        }
     }
 }
 

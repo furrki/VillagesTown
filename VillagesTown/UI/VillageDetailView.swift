@@ -10,9 +10,21 @@ import SwiftUI
 struct VillageDetailView: View {
     let village: Village
     @Binding var isPresented: Bool
-    @State private var showBuildMenu = false
-    @State private var showRecruitMenu = false
-    @State private var selectedBuilding: Building?
+    @State private var selectedTab: Tab = .overview
+
+    enum Tab: String, CaseIterable {
+        case overview = "Overview"
+        case build = "Build"
+        case recruit = "Recruit"
+
+        var icon: String {
+            switch self {
+            case .overview: return "info.circle.fill"
+            case .build: return "hammer.fill"
+            case .recruit: return "person.3.fill"
+            }
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,22 +34,8 @@ struct VillageDetailView: View {
                     .font(.title)
                     .fontWeight(.bold)
                 Spacer()
-                HStack(spacing: 16) {
-                    Button(action: {
-                        showRecruitMenu = true
-                    }) {
-                        Label("Recruit", systemImage: "figure.walk.circle.fill")
-                            .font(.subheadline)
-                    }
-
-                    Button(action: {
-                        showBuildMenu = true
-                    }) {
-                        Label("Build", systemImage: "plus.circle.fill")
-                            .font(.subheadline)
-                    }
-
-                    Button("Close") {
+                Button("Close") {
+                    withAnimation(.easeOut(duration: 0.2)) {
                         isPresented = false
                     }
                 }
@@ -47,40 +45,92 @@ struct VillageDetailView: View {
 
             Divider()
 
-            // Content
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Village Header
-                    villageHeader
+            // Tab Selector
+            tabSelector
 
-                    Divider()
+            Divider()
 
-                    // Stats
-                    villageStats
-
-                    Divider()
-
-                    // Buildings
-                    buildingsSection
-
-                    Divider()
-
-                    // Resources
-                    resourcesSection
-
-                    Spacer()
+            // Content based on selected tab
+            Group {
+                switch selectedTab {
+                case .overview:
+                    overviewContent
+                case .build:
+                    buildContent
+                case .recruit:
+                    recruitContent
                 }
-                .padding()
+            }
+            .transition(.asymmetric(
+                insertion: .move(edge: .trailing).combined(with: .opacity),
+                removal: .move(edge: .leading).combined(with: .opacity)
+            ))
+        }
+    }
+
+    var tabSelector: some View {
+        HStack(spacing: 0) {
+            ForEach(Tab.allCases, id: \.self) { tab in
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        selectedTab = tab
+                    }
+                }) {
+                    VStack(spacing: 6) {
+                        Image(systemName: tab.icon)
+                            .font(.title3)
+                        Text(tab.rawValue)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(selectedTab == tab ? Color.blue.opacity(0.1) : Color.clear)
+                    .foregroundColor(selectedTab == tab ? .blue : .secondary)
+                }
+                .buttonStyle(.plain)
             }
         }
-        .sheet(isPresented: $showBuildMenu) {
-            BuildMenuView(village: village, isPresented: $showBuildMenu)
-                .frame(minWidth: 600, minHeight: 700)
+        .background(Color(NSColor.controlBackgroundColor))
+    }
+
+    var overviewContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Village Header
+                villageHeader
+                    .transition(.scale.combined(with: .opacity))
+
+                Divider()
+
+                // Stats
+                villageStats
+                    .transition(.scale.combined(with: .opacity))
+
+                Divider()
+
+                // Buildings
+                buildingsSection
+                    .transition(.scale.combined(with: .opacity))
+
+                Divider()
+
+                // Resources
+                resourcesSection
+                    .transition(.scale.combined(with: .opacity))
+
+                Spacer()
+            }
+            .padding()
         }
-        .sheet(isPresented: $showRecruitMenu) {
-            RecruitMenuView(village: village, isPresented: $showRecruitMenu)
-                .frame(minWidth: 600, minHeight: 700)
-        }
+    }
+
+    var buildContent: some View {
+        BuildMenuInlineView(village: village)
+    }
+
+    var recruitContent: some View {
+        RecruitMenuInlineView(village: village)
     }
 
     var villageHeader: some View {

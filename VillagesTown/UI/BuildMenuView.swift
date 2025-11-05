@@ -7,37 +7,124 @@
 
 import SwiftUI
 
+// Shared category enum
+enum BuildingCategory: String, CaseIterable {
+    case economic = "Economic"
+    case military = "Military"
+    case infrastructure = "Infrastructure"
+    case special = "Special"
+
+    var buildings: [Building] {
+        switch self {
+        case .economic: return Building.allEconomic
+        case .military: return Building.allMilitary
+        case .infrastructure: return Building.allInfrastructure
+        case .special: return Building.allSpecial
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .economic: return "banknote"
+        case .military: return "shield.fill"
+        case .infrastructure: return "building.2"
+        case .special: return "star.fill"
+        }
+    }
+}
+
+// Inline version for use within VillageDetailView
+struct BuildMenuInlineView: View {
+    let village: Village
+    @State private var selectedCategory: BuildingCategory = .economic
+    @State private var showAlert = false
+    @State private var alertMessage = ""
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Category Picker
+            categoryPicker
+
+            // Buildings List
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(selectedCategory.buildings) { building in
+                        BuildingCard(
+                            building: building,
+                            village: village,
+                            onBuild: { buildBuilding in
+                                attemptBuild(buildBuilding)
+                            }
+                        )
+                        .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .padding()
+                .animation(.easeInOut(duration: 0.2), value: selectedCategory)
+            }
+        }
+        .alert("Build Result", isPresented: $showAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(alertMessage)
+        }
+    }
+
+    var categoryPicker: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(BuildingCategory.allCases, id: \.self) { category in
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedCategory = category
+                        }
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: category.icon)
+                            Text(category.rawValue)
+                                .fontWeight(.medium)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(selectedCategory == category ? Color.blue : Color(NSColor.controlBackgroundColor))
+                        .foregroundColor(selectedCategory == category ? .white : .primary)
+                        .cornerRadius(20)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding()
+        }
+        .background(Color(NSColor.windowBackgroundColor))
+        .shadow(radius: 1)
+    }
+
+    func attemptBuild(_ building: Building) {
+        var mutableVillage = village
+        let engine = BuildingConstructionEngine()
+
+        let result = engine.canBuild(building: building, in: mutableVillage)
+
+        if result.can {
+            if engine.buildBuilding(building: building, in: &mutableVillage) {
+                GameManager.shared.updateVillage(mutableVillage)
+                alertMessage = "Successfully built \(building.name)!"
+                showAlert = true
+            }
+        } else {
+            alertMessage = result.reason
+            showAlert = true
+        }
+    }
+}
+
+// Original sheet version (kept for backwards compatibility)
 struct BuildMenuView: View {
     let village: Village
     @Binding var isPresented: Bool
     @State private var selectedCategory: BuildingCategory = .economic
     @State private var showAlert = false
     @State private var alertMessage = ""
-
-    enum BuildingCategory: String, CaseIterable {
-        case economic = "Economic"
-        case military = "Military"
-        case infrastructure = "Infrastructure"
-        case special = "Special"
-
-        var buildings: [Building] {
-            switch self {
-            case .economic: return Building.allEconomic
-            case .military: return Building.allMilitary
-            case .infrastructure: return Building.allInfrastructure
-            case .special: return Building.allSpecial
-            }
-        }
-
-        var icon: String {
-            switch self {
-            case .economic: return "banknote"
-            case .military: return "shield.fill"
-            case .infrastructure: return "building.2"
-            case .special: return "star.fill"
-            }
-        }
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -196,7 +283,9 @@ struct BuildingCard: View {
 
             // Build Button
             Button(action: {
-                onBuild(building)
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    onBuild(building)
+                }
             }) {
                 Text("Build")
                     .fontWeight(.semibold)
@@ -207,6 +296,8 @@ struct BuildingCard: View {
                     .cornerRadius(8)
             }
             .disabled(!canBuild)
+            .scaleEffect(canBuild ? 1.0 : 0.95)
+            .animation(.easeInOut(duration: 0.2), value: canBuild)
         }
         .padding()
         .background(Color(NSColor.controlBackgroundColor))
