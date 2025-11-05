@@ -12,6 +12,7 @@ class TurnEngine {
     let populationEngine = PopulationEngine()
     let unitUpkeepEngine = UnitUpkeepEngine()
     let movementEngine = MovementEngine()
+    let aiEngine = AIEngine()
 
     func doTurn() {
         let game = GameManager.shared
@@ -44,13 +45,17 @@ class TurnEngine {
         // 5. Update happiness
         processHappiness()
 
-        // Future phases:
         // 6. AI turns
+        print("\n🤖 Phase 6: AI Turns")
+        processAITurns()
+
         // 7. Check victory conditions
+        print("\n🏆 Phase 7: Victory Check")
+        checkVictory()
 
         print("\n" + String(repeating: "=", count: 60))
         print("✅ Turn \(game.currentTurn) Complete")
-        print("📊 Total units on map: \(GameManager.shared.map.units.count)")
+        printGameStatus()
         print(String(repeating: "=", count: 60) + "\n")
     }
 
@@ -92,6 +97,69 @@ class TurnEngine {
         movementEngine.resetMovement(for: &units)
         GameManager.shared.map.units = units
         print("✨ All units movement restored")
+    }
+
+    private func processAITurns() {
+        let game = GameManager.shared
+
+        // Get all AI players
+        let aiPlayers = game.players.filter { !$0.isHuman && !$0.isEliminated }
+
+        if aiPlayers.isEmpty {
+            print("No active AI players")
+            return
+        }
+
+        // Each AI takes their turn
+        for aiPlayer in aiPlayers {
+            aiEngine.executeAITurn(for: aiPlayer, map: &game.map)
+        }
+    }
+
+    private func checkVictory() {
+        let game = GameManager.shared
+
+        // Check each player
+        for i in 0..<game.players.count {
+            let playerVillages = game.map.villages.filter { $0.owner == game.players[i].id }
+
+            // Eliminate if no villages
+            if playerVillages.isEmpty && !game.players[i].isEliminated {
+                game.players[i].isEliminated = true
+                print("💀 \(game.players[i].name) has been eliminated!")
+            }
+        }
+
+        // Check for overall victory
+        let activePlayers = game.players.filter { !$0.isEliminated }
+
+        if activePlayers.count == 1 {
+            let winner = activePlayers[0]
+            print("🎉🎉🎉 \(winner.name) HAS WON THE GAME! 🎉🎉🎉")
+            print("Victory by Domination!")
+        }
+
+        // Check for player defeat
+        let player = game.players.first(where: { $0.isHuman })
+        if player?.isEliminated == true {
+            print("💔 You have been defeated!")
+        }
+    }
+
+    private func printGameStatus() {
+        let game = GameManager.shared
+
+        print("📊 Game Status:")
+        for player in game.players {
+            if player.isEliminated {
+                print("   ❌ \(player.name): ELIMINATED")
+            } else {
+                let villages = game.map.villages.filter { $0.owner == player.id }
+                let units = game.map.units.filter { $0.owner == player.id }
+                print("   ✓ \(player.name): \(villages.count) villages, \(units.count) units")
+            }
+        }
+        print("📊 Total units on map: \(game.map.units.count)")
     }
 
     // MARK: - Legacy compatibility

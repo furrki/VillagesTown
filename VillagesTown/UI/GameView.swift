@@ -12,6 +12,12 @@ struct GameView: View {
     @State private var selectedVillage: Village?
     @State private var showBuildMenu = false
     @State private var showVillageDetail = false
+    @State private var showVictoryScreen = false
+
+    var winner: Player? {
+        let activePlayers = gameManager.players.filter { !$0.isEliminated }
+        return activePlayers.count == 1 ? activePlayers.first : nil
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,6 +43,22 @@ struct GameView: View {
         .sheet(isPresented: $showVillageDetail) {
             if let village = selectedVillage {
                 VillageDetailView(village: village, isPresented: $showVillageDetail)
+            }
+        }
+        .overlay(
+            Group {
+                if let winner = winner {
+                    VictoryScreenView(winner: winner, turns: gameManager.currentTurn, isPresented: $showVictoryScreen)
+                        .onAppear {
+                            showVictoryScreen = true
+                        }
+                }
+            }
+        )
+        .onChange(of: gameManager.currentTurn) { _ in
+            // Check for victory after each turn
+            if winner != nil {
+                showVictoryScreen = true
             }
         }
     }
