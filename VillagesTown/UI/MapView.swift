@@ -53,18 +53,30 @@ struct MapTile: View {
                 .fill(viewModel.getColorAt(x: x, y: y))
                 .frame(width: 20.0, height: 20.0)
 
+            // Village flag or unit icon
             Text(viewModel.getTextAt(x, y))
                 .font(.system(size: 12))
+
+            // Strategic resource indicator
+            if viewModel.hasStrategicResource(x: x, y: y) {
+                Circle()
+                    .fill(Color.yellow)
+                    .frame(width: 6, height: 6)
+                    .offset(x: 6, y: -6)
+            }
+
+            // Unit count indicator
+            let unitCount = viewModel.getUnitCount(x: x, y: y)
+            if unitCount > 0 {
+                Text("\(unitCount)")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(2)
+                    .background(Circle().fill(Color.red))
+                    .offset(x: -6, y: 6)
+            }
         }
         .cornerRadius(3.0)
-        .overlay(
-            viewModel.hasStrategicResource(x: x, y: y) ?
-            Circle()
-                .fill(Color.yellow)
-                .frame(width: 6, height: 6)
-                .offset(x: 6, y: -6)
-            : nil
-        )
     }
 }
 
@@ -130,5 +142,9 @@ class MapViewModel: ObservableObject {
             return tile.strategicResource != nil
         }
         return false
+    }
+
+    func getUnitCount(x: Int, y: Int) -> Int {
+        return map.getUnitsAt(x: x, y: y).count
     }
 }

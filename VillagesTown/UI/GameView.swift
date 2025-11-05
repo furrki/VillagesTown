@@ -90,10 +90,12 @@ struct GameView: View {
                 let playerVillages = gameManager.getPlayerVillages(playerID: "player")
                 let totalPop = playerVillages.reduce(0) { $0 + $1.population }
                 let avgHappiness = playerVillages.isEmpty ? 0 : playerVillages.reduce(0) { $0 + $1.totalHappiness } / playerVillages.count
+                let playerUnits = gameManager.map.units.filter { $0.owner == "player" }
 
                 Label("\(totalPop)", systemImage: "person.3.fill")
                 Label("\(avgHappiness)%", systemImage: happinessIcon(for: avgHappiness))
                 Label("\(playerVillages.count) Villages", systemImage: "house.fill")
+                Label("\(playerUnits.count) Units", systemImage: "figure.walk")
             }
             .font(.caption)
             .foregroundColor(.secondary)

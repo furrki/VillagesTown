@@ -12,12 +12,14 @@ protocol Map {
     var size: CGSize { get }
     var villages: [Village] { get set }
     var tiles: [[Tile]] { get set }
+    var units: [Unit] { get set }
 }
 
 class VirtualMap: Map {
     let size: CGSize
     var villages: [Village] = []
     var tiles: [[Tile]] = []
+    var units: [Unit] = []
 
     init(size: CGSize, villages: [Village] = []) {
         self.size = size
@@ -101,7 +103,7 @@ class VirtualMap: Map {
 
 extension Map {
     var entities: [Entity] {
-        return [villages].flatMap { $0 }
+        return [villages as [Entity], units as [Entity]].flatMap { $0 }
     }
 
     func getEntityAt(x: Int, y: Int) -> Entity? {
@@ -110,5 +112,31 @@ extension Map {
 
     func getVillageAt(x: Int, y: Int) -> Village? {
         return villages.first(where: { $0.coordinates.x == CGFloat(x) && $0.coordinates.y == CGFloat(y) })
+    }
+
+    func getUnitsAt(x: Int, y: Int) -> [Unit] {
+        return units.filter { $0.coordinates.x == CGFloat(x) && $0.coordinates.y == CGFloat(y) }
+    }
+
+    func getUnitsAt(point: CGPoint) -> [Unit] {
+        return units.filter { $0.coordinates == point }
+    }
+
+    mutating func addUnit(_ unit: Unit) {
+        units.append(unit)
+    }
+
+    mutating func addUnits(_ newUnits: [Unit]) {
+        units.append(contentsOf: newUnits)
+    }
+
+    mutating func removeUnit(_ unit: Unit) {
+        units.removeAll(where: { $0.id == unit.id })
+    }
+
+    mutating func updateUnit(_ unit: Unit) {
+        if let index = units.firstIndex(where: { $0.id == unit.id }) {
+            units[index] = unit
+        }
     }
 }

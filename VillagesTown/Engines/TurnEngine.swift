@@ -10,6 +10,7 @@ import Foundation
 
 class TurnEngine {
     let populationEngine = PopulationEngine()
+    let unitUpkeepEngine = UnitUpkeepEngine()
 
     func doTurn() {
         let game = GameManager.shared
@@ -27,20 +28,24 @@ class TurnEngine {
         print("\n💰 Phase 2: Tax Collection")
         collectTaxes()
 
-        // 3. Population & Happiness
-        print("\n👥 Phase 3: Population & Happiness")
+        // 3. Unit Upkeep
+        print("\n💸 Phase 3: Unit Upkeep")
+        processUnitUpkeep()
+
+        // 4. Population & Happiness
+        print("\n👥 Phase 4: Population & Happiness")
         processPopulation()
 
-        // 4. Update happiness
+        // 5. Update happiness
         processHappiness()
 
         // Future phases:
-        // 5. Unit upkeep
         // 6. AI turns
         // 7. Check victory conditions
 
         print("\n" + String(repeating: "=", count: 60))
         print("✅ Turn \(game.currentTurn) Complete")
+        print("📊 Total units on map: \(GameManager.shared.map.units.count)")
         print(String(repeating: "=", count: 60) + "\n")
     }
 
@@ -67,6 +72,13 @@ class TurnEngine {
     private func processHappiness() {
         var villages = GameManager.shared.map.villages
         populationEngine.processHappiness(for: &villages)
+        GameManager.shared.map.villages = villages
+    }
+
+    private func processUnitUpkeep() {
+        let units = GameManager.shared.map.units
+        var villages = GameManager.shared.map.villages
+        unitUpkeepEngine.processUpkeep(units: units, villages: &villages)
         GameManager.shared.map.villages = villages
     }
 

@@ -11,6 +11,7 @@ struct VillageDetailView: View {
     let village: Village
     @Binding var isPresented: Bool
     @State private var showBuildMenu = false
+    @State private var showRecruitMenu = false
     @State private var selectedBuilding: Building?
 
     var body: some View {
@@ -48,16 +49,28 @@ struct VillageDetailView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        showBuildMenu = true
-                    }) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
+                    HStack(spacing: 16) {
+                        Button(action: {
+                            showRecruitMenu = true
+                        }) {
+                            Label("Recruit", systemImage: "figure.walk.circle.fill")
+                                .font(.subheadline)
+                        }
+
+                        Button(action: {
+                            showBuildMenu = true
+                        }) {
+                            Label("Build", systemImage: "plus.circle.fill")
+                                .font(.subheadline)
+                        }
                     }
                 }
             }
             .sheet(isPresented: $showBuildMenu) {
                 BuildMenuView(village: village, isPresented: $showBuildMenu)
+            }
+            .sheet(isPresented: $showRecruitMenu) {
+                RecruitMenuView(village: village, isPresented: $showRecruitMenu)
             }
         }
     }
