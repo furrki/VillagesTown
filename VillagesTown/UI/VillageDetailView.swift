@@ -11,8 +11,8 @@ struct VillageDetailView: View {
     let village: Village
     @Binding var isPresented: Bool
     let onUpdate: () -> Void
-    @State private var showBuildSection = false
-    @State private var showRecruitSection = false
+    @State private var showBuildSection = true
+    @State private var showRecruitSection = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -40,17 +40,29 @@ struct VillageDetailView: View {
 
     var overviewContent: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // Village Header
-                villageHeader
-
-                // Stats and Resources side by side
-                HStack(alignment: .top, spacing: 16) {
-                    villageStats
-                        .frame(maxWidth: .infinity)
-                    resourcesSection
-                        .frame(maxWidth: .infinity)
+            VStack(alignment: .leading, spacing: 6) {
+                // Compact header with stats inline
+                HStack(spacing: 6) {
+                    Text(village.nationality.flag).font(.title3)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(village.name).font(.subheadline).fontWeight(.bold)
+                        Text(village.level.displayName).font(.caption2).foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    // Stats inline
+                    HStack(spacing: 6) {
+                        CompactStat(icon: "person.3.fill", value: "\(village.population)/\(village.populationCapacity)")
+                        CompactStat(icon: happinessIcon, value: "\(village.totalHappiness)%")
+                        CompactStat(icon: "shield.fill", value: "+\(Int(village.defenseBonus * 100))%")
+                        CompactStat(icon: "chart.line.uptrend.xyaxis", value: "+\(Int(village.productionBonus * 100))%")
+                    }
                 }
+                .padding(6)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(4)
+
+                // Resources in compact row
+                resourcesSection
 
                 Divider()
 
@@ -69,79 +81,33 @@ struct VillageDetailView: View {
 
                 Spacer()
             }
-            .padding()
-        }
-    }
-
-    var villageHeader: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(village.nationality.flag)
-                    .font(.system(size: 50))
-                VStack(alignment: .leading) {
-                    Text(village.name)
-                        .font(.title)
-                        .fontWeight(.bold)
-                    Text(village.level.displayName)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                Spacer()
-            }
-        }
-    }
-
-    var villageStats: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Statistics")
-                .font(.headline)
-
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                StatCard(icon: "person.3.fill", label: "Population", value: "\(village.population)/\(village.populationCapacity)")
-                StatCard(icon: happinessIcon, label: "Happiness", value: "\(village.totalHappiness)%")
-                StatCard(icon: "shield.fill", label: "Defense", value: "+\(Int(village.defenseBonus * 100))%")
-                StatCard(icon: "chart.line.uptrend.xyaxis", label: "Production", value: "+\(Int(village.productionBonus * 100))%")
-            }
+            .padding(6)
         }
     }
 
     var buildingsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text("Buildings")
-                    .font(.headline)
-
-                // Upgrade available badge
+                Text("Buildings").font(.caption).fontWeight(.semibold)
                 let upgradeableCount = village.buildings.filter { building in
                     BuildingConstructionEngine().canUpgradeBuilding(building, in: village).can
                 }.count
-
                 if upgradeableCount > 0 {
-                    Text("\(upgradeableCount)")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.green)
-                        .cornerRadius(8)
+                    Circle().fill(Color.green).frame(width: 6, height: 6)
                 }
-
                 Spacer()
-                Text("\(village.buildings.count)/\(village.maxBuildings)")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                Text("\(village.buildings.count)/\(village.maxBuildings)").font(.caption2).foregroundColor(.secondary)
             }
 
             if village.buildings.isEmpty {
-                Text("No buildings yet")
-                    .foregroundColor(.secondary)
-                    .italic()
+                Text("Empty").foregroundColor(.secondary).italic().font(.caption2)
             } else {
-                ForEach(village.buildings) { building in
-                    BuildingRow(building: building, village: village, onUpgrade: { buildingID in
-                        attemptUpgrade(buildingID: buildingID)
-                    })
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 3), count: 6), spacing: 3) {
+                    ForEach(village.buildings) { building in
+                        BuildingMicroSlot(building: building, village: village, onUpgrade: { buildingID in
+                            attemptUpgrade(buildingID: buildingID)
+                        })
+                    }
                 }
             }
         }
@@ -158,18 +124,20 @@ struct VillageDetailView: View {
     }
 
     var resourcesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Empire Resources")
-                .font(.headline)
-                .foregroundColor(.green)
-
-            let globalResources = GameManager.shared.getGlobalResources(playerID: village.owner)
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                ForEach(Resource.getAll(), id: \.self) { resource in
-                    ResourceCard(resource: resource, amount: globalResources[resource] ?? 0)
+        let globalResources = GameManager.shared.getGlobalResources(playerID: village.owner)
+        return HStack(spacing: 6) {
+            ForEach(Resource.getAll(), id: \.self) { resource in
+                HStack(spacing: 1) {
+                    Text(resource.emoji).font(.caption2)
+                    Text("\(globalResources[resource] ?? 0)").font(.caption2).fontWeight(.medium)
                 }
             }
+            Spacer()
         }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .cornerRadius(4)
     }
 
     var happinessIcon: String {
@@ -180,18 +148,16 @@ struct VillageDetailView: View {
     }
 
     var buildSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 4) {
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     showBuildSection.toggle()
                 }
             }) {
                 HStack {
-                    Text("Build New")
-                        .font(.headline)
+                    Text("Build").font(.caption).fontWeight(.semibold)
                     Spacer()
-                    Image(systemName: showBuildSection ? "chevron.up" : "chevron.down")
-                        .font(.caption)
+                    Image(systemName: showBuildSection ? "chevron.up" : "chevron.down").font(.caption2)
                 }
             }
             .buttonStyle(.plain)
@@ -204,18 +170,16 @@ struct VillageDetailView: View {
     }
 
     var recruitSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 4) {
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     showRecruitSection.toggle()
                 }
             }) {
                 HStack {
-                    Text("Recruit Units")
-                        .font(.headline)
+                    Text("Recruit").font(.caption).fontWeight(.semibold)
                     Spacer()
-                    Image(systemName: showRecruitSection ? "chevron.up" : "chevron.down")
-                        .font(.caption)
+                    Image(systemName: showRecruitSection ? "chevron.up" : "chevron.down").font(.caption2)
                 }
             }
             .buttonStyle(.plain)
@@ -228,162 +192,108 @@ struct VillageDetailView: View {
     }
 }
 
-struct StatCard: View {
+struct CompactStat: View {
     let icon: String
-    let label: String
     let value: String
 
     var body: some View {
-        HStack {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundColor(.blue)
-                .frame(width: 30)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Text(value)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-            }
-            Spacer()
+        HStack(spacing: 4) {
+            Image(systemName: icon).font(.caption).foregroundColor(.blue)
+            Text(value).font(.caption).fontWeight(.medium)
         }
-        .padding(8)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(8)
     }
 }
 
-struct BuildingRow: View {
+struct BuildingMicroSlot: View {
     let building: Building
     let village: Village
     let onUpgrade: (UUID) -> Void
-    @State private var showAlert = false
-    @State private var alertMessage = ""
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Name and Level
-            VStack(alignment: .leading, spacing: 2) {
+        let upgradeCheck = BuildingConstructionEngine().canUpgradeBuilding(building, in: village)
+        let globalResources = GameManager.shared.getGlobalResources(playerID: village.owner)
+
+        Button(action: {
+            if upgradeCheck.can {
+                onUpgrade(building.id)
+            }
+        }) {
+            VStack(spacing: 1) {
+                // Building name (abbreviated if needed)
                 Text(building.name)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .font(.system(size: 9, weight: .semibold))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.6)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.white)
+                    .frame(width: 50, height: 24)
+                    .background(buildingColor)
+                    .cornerRadius(3)
 
-                // Production info
-                if !building.resourcesProduction.isEmpty {
-                    HStack(spacing: 4) {
-                        ForEach(Array(building.resourcesProduction.keys.prefix(3)), id: \.self) { resource in
-                            if let amount = building.resourcesProduction[resource] {
-                                HStack(spacing: 2) {
-                                    Text(resource.emoji)
-                                    Text("+\(amount)")
-                                }
-                                .font(.caption2)
-                                .foregroundColor(.green)
-                            }
-                        }
-                    }
-                } else if building.productionBonus > 0 || building.defenseBonus > 0 || building.happinessBonus > 0 {
-                    HStack(spacing: 6) {
-                        if building.productionBonus > 0 {
-                            Text("+\(Int(building.productionBonus * 100))%📈")
-                                .font(.caption2)
-                                .foregroundColor(.green)
-                        }
-                        if building.defenseBonus > 0 {
-                            Text("+\(Int(building.defenseBonus * 100))%🛡️")
-                                .font(.caption2)
-                                .foregroundColor(.blue)
-                        }
-                        if building.happinessBonus > 0 {
-                            Text("+\(building.happinessBonus)😊")
-                                .font(.caption2)
-                                .foregroundColor(.orange)
-                        }
+                // Level + upgrade indicator
+                HStack(spacing: 2) {
+                    Text("L\(building.level)")
+                        .font(.system(size: 7))
+                        .foregroundColor(.secondary)
+                    if upgradeCheck.can {
+                        Circle().fill(Color.green).frame(width: 3, height: 3)
                     }
                 }
-            }
 
-            Spacer()
-
-            // Level indicator
-            HStack(spacing: 4) {
-                ForEach(1...5, id: \.self) { level in
-                    Circle()
-                        .fill(level <= building.level ? Color.blue : Color.gray.opacity(0.3))
-                        .frame(width: 6, height: 6)
-                }
-            }
-
-            // Upgrade button
-            let upgradeCheck = BuildingConstructionEngine().canUpgradeBuilding(building, in: village)
-            let globalResources = GameManager.shared.getGlobalResources(playerID: village.owner)
-            Button(action: {
-                if upgradeCheck.can {
-                    onUpgrade(building.id)
-                } else {
-                    alertMessage = upgradeCheck.reason
-                    showAlert = true
-                }
-            }) {
-                VStack(spacing: 2) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.title3)
-                    if !upgradeCheck.cost.isEmpty {
-                        HStack(spacing: 2) {
-                            ForEach(Array(upgradeCheck.cost.keys.prefix(2)), id: \.self) { resource in
-                                if let cost = upgradeCheck.cost[resource] {
-                                    let has = globalResources[resource] ?? 0
-                                    let canAfford = has >= cost
-                                    HStack(spacing: 1) {
-                                        Text(resource.emoji)
-                                        Text("\(cost)")
-                                    }
-                                    .font(.caption2)
-                                    .foregroundColor(canAfford ? .primary : .red)
-                                }
+                // Upgrade cost
+                if !upgradeCheck.cost.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(Array(upgradeCheck.cost.keys.prefix(2)), id: \.self) { resource in
+                            if let cost = upgradeCheck.cost[resource] {
+                                let has = globalResources[resource] ?? 0
+                                let canAfford = has >= cost
+                                Text("\(resource.emoji)\(cost)")
+                                    .font(.system(size: 6))
+                                    .foregroundColor(canAfford ? .secondary : .red)
                             }
                         }
                     }
                 }
-                .padding(6)
-                .background(upgradeCheck.can ? Color.green.opacity(0.2) : Color.gray.opacity(0.1))
-                .cornerRadius(8)
             }
-            .buttonStyle(.plain)
-            .disabled(!upgradeCheck.can)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(8)
-        .alert("Upgrade", isPresented: $showAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(alertMessage)
+        .buttonStyle(.plain)
+        .help(buildingTooltip)
+    }
+
+    var buildingColor: Color {
+        if !building.resourcesProduction.isEmpty {
+            return Color.green.opacity(0.7)
+        } else if building.defenseBonus > 0 {
+            return Color.blue.opacity(0.7)
+        } else if building.happinessBonus > 0 {
+            return Color.orange.opacity(0.7)
+        } else if building.productionBonus > 0 {
+            return Color.purple.opacity(0.7)
         }
+        return Color.gray.opacity(0.7)
+    }
+
+    var buildingTooltip: String {
+        var tooltip = building.name + " (Level \(building.level))"
+
+        if !building.resourcesProduction.isEmpty {
+            tooltip += "\n"
+            for (resource, amount) in building.resourcesProduction {
+                tooltip += "\(resource.emoji) +\(amount) "
+            }
+        }
+
+        if building.productionBonus > 0 {
+            tooltip += "\n📈 +\(Int(building.productionBonus * 100))%"
+        }
+        if building.defenseBonus > 0 {
+            tooltip += "\n🛡️ +\(Int(building.defenseBonus * 100))%"
+        }
+        if building.happinessBonus > 0 {
+            tooltip += "\n😊 +\(building.happinessBonus)"
+        }
+
+        return tooltip
     }
 }
 
-struct ResourceCard: View {
-    let resource: Resource
-    let amount: Int
-
-    var body: some View {
-        VStack(spacing: 6) {
-            Text(resource.emoji)
-                .font(.title2)
-            Text("\(amount)")
-                .font(.headline)
-                .fontWeight(.bold)
-            Text(resource.name)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(10)
-    }
-}

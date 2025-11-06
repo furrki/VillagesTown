@@ -33,31 +33,19 @@ class GameManager: ObservableObject {
         // Create 50x50 map
         let mapSize = CGSize(width: 50.0, height: 50.0)
 
-        // Create villages for each player
+        // Each player starts with 1 village
         let nationalities = Nationality.getAll()
 
-        // Player villages (Turkish) - 4 villages
         let playerVillages = [
-            Village(name: "Argithan", nationality: nationalities[0], coordinates: CGPoint(x: 10, y: 10), owner: "player"),
-            Village(name: "Zafer", nationality: nationalities[0], coordinates: CGPoint(x: 15, y: 12), owner: "player"),
-            Village(name: "Selim", nationality: nationalities[0], coordinates: CGPoint(x: 12, y: 15), owner: "player"),
-            Village(name: "Orhan", nationality: nationalities[0], coordinates: CGPoint(x: 8, y: 13), owner: "player")
+            Village(name: "Argithan", nationality: nationalities[0], coordinates: CGPoint(x: 10, y: 10), owner: "player")
         ]
 
-        // AI 1 villages (Greek) - 4 villages
         let ai1Villages = [
-            Village(name: "Athens", nationality: nationalities[1], coordinates: CGPoint(x: 35, y: 10), owner: "ai1"),
-            Village(name: "Sparta", nationality: nationalities[1], coordinates: CGPoint(x: 40, y: 12), owner: "ai1"),
-            Village(name: "Corinth", nationality: nationalities[1], coordinates: CGPoint(x: 37, y: 15), owner: "ai1"),
-            Village(name: "Thebes", nationality: nationalities[1], coordinates: CGPoint(x: 33, y: 13), owner: "ai1")
+            Village(name: "Athens", nationality: nationalities[1], coordinates: CGPoint(x: 40, y: 10), owner: "ai1")
         ]
 
-        // AI 2 villages (Bulgarian) - 4 villages
         let ai2Villages = [
-            Village(name: "Sofia", nationality: nationalities[2], coordinates: CGPoint(x: 25, y: 35), owner: "ai2"),
-            Village(name: "Plovdiv", nationality: nationalities[2], coordinates: CGPoint(x: 28, y: 38), owner: "ai2"),
-            Village(name: "Varna", nationality: nationalities[2], coordinates: CGPoint(x: 22, y: 37), owner: "ai2"),
-            Village(name: "Burgas", nationality: nationalities[2], coordinates: CGPoint(x: 26, y: 40), owner: "ai2")
+            Village(name: "Sofia", nationality: nationalities[2], coordinates: CGPoint(x: 25, y: 40), owner: "ai2")
         ]
 
         let allVillages = playerVillages + ai1Villages + ai2Villages
