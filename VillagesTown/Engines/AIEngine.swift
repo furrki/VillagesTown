@@ -76,9 +76,7 @@ class AIEngine {
                 Building.ironMine,
                 Building.barracks,
                 Building.market,
-                Building.archeryRange,
-                Building.stable,
-                Building.cavalryStable
+                Building.archeryRange
             ]
 
         case .economic:
@@ -150,11 +148,11 @@ class AIEngine {
         let unitPriorities: [Unit.UnitType]
         switch personality {
         case .aggressive:
-            unitPriorities = [.heavyCavalry, .swordsman, .archer, .militia]
+            unitPriorities = [.swordsman, .archer, .militia]
         case .economic:
-            unitPriorities = [.pikeman, .archer, .militia]
+            unitPriorities = [.spearman, .archer, .militia]
         case .balanced:
-            unitPriorities = [.swordsman, .archer, .lightCavalry, .militia]
+            unitPriorities = [.swordsman, .archer, .militia]
         }
 
         // Try to recruit

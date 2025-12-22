@@ -141,28 +141,28 @@ class BuildingConstructionEngine {
         switch village.level {
         case .village:
             nextLevel = .town
-            cost = [.gold: 500, .stone: 100, .wood: 150]
+            cost = [.gold: 500, .iron: 100, .wood: 150]
             if village.population < 200 {
                 return (false, cost, "Need 200 population (currently \(village.population))")
             }
 
         case .town:
             nextLevel = .district
-            cost = [.gold: 1000, .stone: 200, .wood: 250]
+            cost = [.gold: 1000, .iron: 200, .wood: 250]
             if village.population < 500 {
                 return (false, cost, "Need 500 population (currently \(village.population))")
             }
 
         case .district:
             nextLevel = .castle
-            cost = [.gold: 2000, .stone: 400, .wood: 500]
+            cost = [.gold: 2000, .iron: 400, .wood: 500]
             if village.population < 1000 {
                 return (false, cost, "Need 1000 population (currently \(village.population))")
             }
 
         case .castle:
             nextLevel = .city
-            cost = [.gold: 5000, .stone: 800, .wood: 1000]
+            cost = [.gold: 5000, .iron: 800, .wood: 1000]
             if village.population < 2000 {
                 return (false, cost, "Need 2000 population (currently \(village.population))")
             }

@@ -66,6 +66,11 @@ struct VillageDetailView: View {
 
                 Divider()
 
+                // Stationed Units
+                stationedUnitsSection
+
+                Divider()
+
                 // Buildings
                 buildingsSection
 
@@ -138,6 +143,33 @@ struct VillageDetailView: View {
         .padding(.vertical, 4)
         .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
         .cornerRadius(4)
+    }
+
+    var stationedUnitsSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Units").font(.caption).fontWeight(.semibold)
+                Spacer()
+                let unitsHere = GameManager.shared.map.getUnitsAt(point: village.coordinates)
+                    .filter { $0.owner == village.owner }
+                Text("\(unitsHere.count)").font(.caption2).foregroundColor(.secondary)
+            }
+
+            let unitsAtLocation = GameManager.shared.map.getUnitsAt(point: village.coordinates)
+                .filter { $0.owner == village.owner }
+
+            if unitsAtLocation.isEmpty {
+                Text("No units").foregroundColor(.secondary).italic().font(.caption2)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(unitsAtLocation) { unit in
+                            UnitMiniCard(unit: unit)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     var happinessIcon: String {
@@ -219,7 +251,7 @@ struct BuildingMicroSlot: View {
             }
         }) {
             VStack(spacing: 1) {
-                // Building name (abbreviated if needed)
+                // Building name
                 Text(building.name)
                     .font(.system(size: 9, weight: .semibold))
                     .lineLimit(2)
@@ -297,3 +329,31 @@ struct BuildingMicroSlot: View {
     }
 }
 
+struct UnitMiniCard: View {
+    let unit: Unit
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(unit.unitType.emoji).font(.caption)
+            Text(unit.name).font(.system(size: 7)).lineLimit(1)
+            HStack(spacing: 4) {
+                HStack(spacing: 1) {
+                    Image(systemName: "sword.fill").font(.system(size: 6)).foregroundColor(.red)
+                    Text("\(unit.attack)").font(.system(size: 6))
+                }
+                HStack(spacing: 1) {
+                    Image(systemName: "shield.fill").font(.system(size: 6)).foregroundColor(.blue)
+                    Text("\(unit.defense)").font(.system(size: 6))
+                }
+                HStack(spacing: 1) {
+                    Image(systemName: "heart.fill").font(.system(size: 6)).foregroundColor(.green)
+                    Text("\(unit.currentHP)").font(.system(size: 6))
+                }
+            }
+            .foregroundColor(.secondary)
+        }
+        .padding(4)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(4)
+    }
+}

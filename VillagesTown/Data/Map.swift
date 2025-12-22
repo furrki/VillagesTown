@@ -66,7 +66,7 @@ class VirtualMap: Map {
     }
 
     func placeStrategicResources() {
-        let strategicResources = Resource.getAllStrategic()
+        let strategicResources = [Resource.iron, Resource.gold]
         let width = Int(size.width)
         let height = Int(size.height)
 

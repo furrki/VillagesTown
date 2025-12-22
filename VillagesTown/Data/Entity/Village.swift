@@ -36,9 +36,7 @@ struct Village: Entity, ResourceHolder, TreasuryHolder {
             .food: 50,
             .wood: 30,
             .iron: 10,
-            .gold: 100,
-            .stone: 10,
-            .horses: 0
+            .gold: 100
         ]
     }
 
