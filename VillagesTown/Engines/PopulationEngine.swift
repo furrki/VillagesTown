@@ -14,8 +14,8 @@ class PopulationEngine {
         for i in 0..<villages.count {
             var village = villages[i]
 
-            // Check food availability (1 food per 10 population)
-            let foodNeeded = max(1, village.population / 10)
+            // Check food availability (1 food per 20 population - reduced requirement)
+            let foodNeeded = max(1, village.population / 20)
             let currentFood = village.resources[.food] ?? 0
 
             if currentFood >= foodNeeded {
@@ -35,42 +35,54 @@ class PopulationEngine {
     }
 
     private func growPopulation(village: inout Village) {
-        // Base growth rate 2%
-        var growthRate = 0.02
+        // MUCH higher base growth: 5% + flat bonus
+        var growthRate = 0.05
+        var flatBonus = 3  // Always grow by at least 3
 
         // Happiness bonus
         let happiness = village.totalHappiness
         if happiness >= 80 {
-            growthRate += 0.01 // +1% if very happy
-        } else if happiness < 50 {
-            growthRate -= 0.01 // -1% if unhappy
+            growthRate += 0.03  // +3% if very happy
+            flatBonus += 2
+        } else if happiness >= 60 {
+            growthRate += 0.01  // +1% if happy
+            flatBonus += 1
+        } else if happiness < 40 {
+            growthRate -= 0.02  // -2% if unhappy
+            flatBonus = 1
         }
 
-        // Hospital bonus
-        if village.buildings.contains(where: { $0.name == "Hospital" }) {
-            growthRate += 0.015 // +1.5%
+        // Farm bonus - each farm adds growth
+        let farmCount = village.buildings.filter { $0.name == "Farm" }.count
+        flatBonus += farmCount * 2
+
+        // Granary bonus
+        if village.buildings.contains(where: { $0.name == "Granary" }) {
+            growthRate += 0.02
         }
 
         // Check if at capacity
         if village.population >= village.populationCapacity {
             growthRate = 0
+            flatBonus = 0
         }
 
-        let growth = Int(Double(village.population) * growthRate)
-        village.modifyPopulation(by: growth)
+        let percentGrowth = Int(Double(village.population) * growthRate)
+        let totalGrowth = max(0, percentGrowth + flatBonus)
 
-        if growth > 0 {
-            print("📈 \(village.name): Population grew by \(growth) (now \(village.population))")
+        if totalGrowth > 0 {
+            village.modifyPopulation(by: totalGrowth)
+            print("📈 \(village.name): +\(totalGrowth) pop (now \(village.population))")
         }
     }
 
     private func starvePopulation(village: inout Village) {
-        // Starvation causes 10% population loss
-        let loss = Int(Double(village.population) * 0.1)
+        // Starvation causes 5% population loss (reduced from 10%)
+        let loss = max(1, Int(Double(village.population) * 0.05))
         village.modifyPopulation(by: -loss)
 
-        // Major happiness penalty
-        village.modifyHappiness(by: -30)
+        // Happiness penalty
+        village.modifyHappiness(by: -15)
 
         print("💀 \(village.name): STARVATION! Lost \(loss) population")
     }
@@ -80,20 +92,25 @@ class PopulationEngine {
         for i in 0..<villages.count {
             var village = villages[i]
 
-            // Reset to base happiness
-            var baseHappiness = 50
+            // Start with decent base happiness
+            var baseHappiness = 60
 
-            // Building bonuses are calculated in totalHappiness
-
-            // Food situation (1 food per 10 population)
-            let foodNeeded = max(1, village.population / 10)
+            // Food situation
+            let foodNeeded = max(1, village.population / 20)
             let currentFood = village.resources[.food] ?? 0
 
-            if currentFood < foodNeeded {
-                baseHappiness -= 20 // Starvation penalty
+            if currentFood >= foodNeeded * 2 {
+                baseHappiness += 10  // Surplus food = happy
+            } else if currentFood < foodNeeded {
+                baseHappiness -= 25  // Starvation penalty
             }
 
-            village.happiness = baseHappiness
+            // Population density penalty if overcrowded
+            if village.population > village.populationCapacity * 80 / 100 {
+                baseHappiness -= 10
+            }
+
+            village.happiness = min(100, max(0, baseHappiness))
             villages[i] = village
         }
     }
@@ -103,14 +120,19 @@ class PopulationEngine {
         for i in 0..<villages.count {
             var village = villages[i]
 
-            // Base tax: 0.5 gold per population
-            let taxRate = 0.5
+            // Better tax: 1 gold per population
+            let taxRate = 1.0
             let taxIncome = Int(Double(village.population) * taxRate)
 
-            // Add gold resource
-            village.add(.gold, amount: taxIncome)
-
-            print("💰 \(village.name): Collected \(taxIncome) gold in taxes")
+            // Market bonus
+            if village.buildings.contains(where: { $0.name == "Market" }) {
+                let bonus = taxIncome / 4  // +25% with market
+                village.add(.gold, amount: taxIncome + bonus)
+                print("💰 \(village.name): +\(taxIncome + bonus) gold (market bonus)")
+            } else {
+                village.add(.gold, amount: taxIncome)
+                print("💰 \(village.name): +\(taxIncome) gold")
+            }
 
             villages[i] = village
         }

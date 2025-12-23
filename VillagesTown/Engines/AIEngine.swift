@@ -73,10 +73,11 @@ class AIEngine {
         case .aggressive:
             // Focus on military and resources for military
             buildingPriorities = [
+                Building.barracks,  // First priority - need to recruit
                 Building.ironMine,
-                Building.barracks,
                 Building.market,
-                Building.archeryRange
+                Building.archeryRange,
+                Building.farm
             ]
 
         case .economic:
@@ -85,19 +86,19 @@ class AIEngine {
                 Building.farm,
                 Building.market,
                 Building.lumberMill,
+                Building.barracks,  // Still need military eventually
                 Building.granary,
                 Building.temple,
-                Building.ironMine,
-                Building.barracks
+                Building.ironMine
             ]
 
         case .balanced:
             // Mix of everything
             buildingPriorities = [
+                Building.barracks,  // Get military capability first
                 Building.farm,
                 Building.market,
                 Building.ironMine,
-                Building.barracks,
                 Building.lumberMill,
                 Building.archeryRange
             ]
@@ -105,6 +106,11 @@ class AIEngine {
 
         // Try to build first affordable building
         for building in buildingPriorities {
+            // Skip if already have this building
+            if village.buildings.contains(where: { $0.name == building.name }) {
+                continue
+            }
+
             let check = buildingEngine.canBuild(building: building, in: village)
             if check.can {
                 if buildingEngine.buildBuilding(building: building, in: &village) {
@@ -120,50 +126,40 @@ class AIEngine {
         let personality = player.aiPersonality ?? .balanced
         let globalResources = GameManager.shared.getGlobalResources(playerID: player.id)
 
-        // Determine recruitment strategy based on global resources
-        let shouldRecruit: Bool
-        let aggressiveness: Int
+        // Check if village can recruit (has barracks)
+        let availableUnits = recruitmentEngine.getAvailableUnits(for: village)
+        if availableUnits.isEmpty {
+            return // No barracks - can't recruit
+        }
+
+        // Determine recruitment strategy - be more aggressive about recruiting
+        let goldThreshold: Int
+        let recruitCount: Int
 
         switch personality {
         case .aggressive:
-            shouldRecruit = (globalResources[.gold] ?? 0) > 100
-            aggressiveness = 3 // Recruit more units
-
+            goldThreshold = 50   // Recruit even with low gold
+            recruitCount = 3     // Recruit more units
         case .economic:
-            shouldRecruit = (globalResources[.gold] ?? 0) > 500
-            aggressiveness = 1 // Recruit fewer units
-
+            goldThreshold = 200
+            recruitCount = 1
         case .balanced:
-            shouldRecruit = (globalResources[.gold] ?? 0) > 300
-            aggressiveness = 2 // Moderate recruitment
+            goldThreshold = 100
+            recruitCount = 2
         }
 
-        guard shouldRecruit else { return }
-
-        // Get available units
-        let availableUnits = recruitmentEngine.getAvailableUnits(for: village)
-
-        if availableUnits.isEmpty { return }
+        guard (globalResources[.gold] ?? 0) > goldThreshold else { return }
 
         // Choose best unit to recruit
-        let unitPriorities: [Unit.UnitType]
-        switch personality {
-        case .aggressive:
-            unitPriorities = [.swordsman, .archer, .militia]
-        case .economic:
-            unitPriorities = [.spearman, .archer, .militia]
-        case .balanced:
-            unitPriorities = [.swordsman, .archer, .militia]
-        }
+        let unitPriorities: [Unit.UnitType] = [.militia, .swordsman, .archer, .spearman]
 
         // Try to recruit
         for unitType in unitPriorities {
             if availableUnits.contains(unitType) {
-                let quantity = min(aggressiveness, village.population / 10)
+                let quantity = recruitCount
                 let check = recruitmentEngine.canRecruit(unitType: unitType, quantity: quantity, in: village)
 
                 if check.can {
-                    // RecruitmentEngine now handles adding to armies internally
                     let units = recruitmentEngine.recruitUnits(
                         unitType: unitType,
                         quantity: quantity,
@@ -185,13 +181,12 @@ class AIEngine {
         let personality = player.aiPersonality ?? .balanced
         let game = GameManager.shared
 
-        // EARLY GAME PROTECTION: Don't attack before turn 12
-        // This gives players time to build up defenses
+        // Shorter grace period
         let gracePeriod: Int
         switch personality {
-        case .aggressive: gracePeriod = 8
-        case .economic: gracePeriod = 15
-        case .balanced: gracePeriod = 12
+        case .aggressive: gracePeriod = 5
+        case .economic: gracePeriod = 10
+        case .balanced: gracePeriod = 7
         }
 
         if game.currentTurn < gracePeriod {
@@ -207,7 +202,7 @@ class AIEngine {
             return
         }
 
-        // Find enemy targets
+        // Find ALL potential targets (enemies and neutrals)
         let enemies = map.villages.filter { $0.owner != player.id }
 
         if enemies.isEmpty {
@@ -222,60 +217,78 @@ class AIEngine {
                 continue
             }
 
-            // Find nearest enemy
-            var nearestEnemy: Village?
-            var shortestDistance = Int.max
+            // Find the WEAKEST target, not nearest (smarter AI)
+            var bestTarget: Village?
+            var bestTargetScore = Int.min // Higher = better target
 
             for enemy in enemies {
+                // Calculate enemy strength
+                let defenderArmies = game.getArmiesAt(villageID: enemy.id).filter { $0.owner == enemy.owner }
+                let defenderArmyStrength = defenderArmies.reduce(0) { $0 + $1.strength }
+                let garrisonStrength = enemy.garrisonStrength * 3
+                let totalDefenderStrength = defenderArmyStrength + garrisonStrength
+
+                // Calculate distance penalty
                 let distance = calculateDistance(from: stationedAt.coordinates, to: enemy.coordinates)
-                if distance < shortestDistance {
-                    shortestDistance = distance
-                    nearestEnemy = enemy
+
+                // Score = our advantage - distance penalty
+                // Higher score = easier target
+                let advantage = army.strength - totalDefenderStrength
+                let score = advantage - (distance * 5)  // Penalize far targets
+
+                // Bonus for neutral villages (easier)
+                let neutralBonus = enemy.owner == "neutral" ? 50 : 0
+
+                let finalScore = score + neutralBonus
+
+                if finalScore > bestTargetScore {
+                    bestTargetScore = finalScore
+                    bestTarget = enemy
                 }
             }
 
-            guard let target = nearestEnemy else { continue }
+            guard let target = bestTarget else { continue }
 
-            // Get defender strength estimate (including village garrison)
+            // Calculate if we can win
             let defenderArmies = game.getArmiesAt(villageID: target.id).filter { $0.owner == target.owner }
             let defenderArmyStrength = defenderArmies.reduce(0) { $0 + $1.strength }
-
-            // Villages have inherent garrison strength from population
-            let garrisonStrength = target.population / 10  // 10 pop = 1 strength
-            let villageDefenseBonus = Int(Double(garrisonStrength) * (1.0 + target.defenseBonus))
-            let totalDefenderStrength = defenderArmyStrength + villageDefenseBonus
+            let garrisonStrength = target.garrisonStrength * 3
+            let totalDefenderStrength = defenderArmyStrength + garrisonStrength
 
             let attackerStrength = army.strength
 
-            // Decide if should attack based on personality
-            // Now requires SIGNIFICANT advantage because of garrison
+            // Much more aggressive attack thresholds
             let shouldAttack: Bool
             switch personality {
             case .aggressive:
-                // Need 1.5x strength to attack (was 0.7x)
-                shouldAttack = attackerStrength > 0 && Double(attackerStrength) > Double(totalDefenderStrength) * 1.5
+                // Attack if we have 80% of defender strength
+                shouldAttack = attackerStrength > 0 && Double(attackerStrength) > Double(totalDefenderStrength) * 0.8
             case .economic:
-                // Need 2.5x strength to attack (was 1.5x)
-                shouldAttack = attackerStrength > 0 && Double(attackerStrength) > Double(totalDefenderStrength) * 2.5
+                // Need 1.5x strength
+                shouldAttack = attackerStrength > 0 && Double(attackerStrength) > Double(totalDefenderStrength) * 1.5
             case .balanced:
-                // Need 2.0x strength to attack (was 1.1x)
-                shouldAttack = attackerStrength > 0 && Double(attackerStrength) > Double(totalDefenderStrength) * 2.0
+                // Need equal strength
+                shouldAttack = attackerStrength > 0 && Double(attackerStrength) >= Double(totalDefenderStrength) * 1.0
             }
 
-            // Require larger army sizes before attacking
+            // Lower minimum army size
             let minArmySize: Int
             switch personality {
-            case .aggressive: minArmySize = 5
-            case .economic: minArmySize = 10
-            case .balanced: minArmySize = 7
+            case .aggressive: minArmySize = 3
+            case .economic: minArmySize = 5
+            case .balanced: minArmySize = 4
             }
 
-            if shouldAttack && army.unitCount >= minArmySize {
+            // Special case: always attack undefended neutrals
+            let isUndefendedNeutral = target.owner == "neutral" && defenderArmyStrength == 0 && target.garrisonStrength < 5
+
+            if (shouldAttack && army.unitCount >= minArmySize) || (isUndefendedNeutral && army.unitCount >= 2) {
                 // Send army to attack!
                 if game.sendArmy(armyID: army.id, to: target.id) {
-                    print("      🚶 \(army.name) (\(army.unitCount) units) sent to attack \(target.name)")
-                    print("         Attacker: \(attackerStrength) vs Defender: \(totalDefenderStrength) (includes garrison)")
+                    print("      🚶 \(army.name) (\(army.unitCount) units, str:\(attackerStrength)) → \(target.name) (def:\(totalDefenderStrength))")
                 }
+            } else {
+                print("      ⏳ \(army.name) waiting (str:\(attackerStrength) vs \(totalDefenderStrength))")
             }
         }
     }

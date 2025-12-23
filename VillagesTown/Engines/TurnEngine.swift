@@ -42,20 +42,28 @@ class TurnEngine {
         // 5. Update happiness
         processHappiness()
 
-        // 6. Process Army Movement & Combat
-        print("\n⚔️ Phase 6: Army Movement & Combat")
+        // 6. Garrison Regeneration
+        print("\n🛡️ Phase 6: Garrison Regeneration")
+        processGarrisonRegeneration()
+
+        // 7. Mid-route Army Interception
+        print("\n🗡️ Phase 7: Army Interception")
+        processArmyInterception()
+
+        // 8. Process Army Movement & Combat at destinations
+        print("\n⚔️ Phase 8: Army Movement & Combat")
         processArmyMovement()
 
-        // 7. AI turns
-        print("\n🤖 Phase 7: AI Turns")
+        // 9. AI turns
+        print("\n🤖 Phase 9: AI Turns")
         processAITurns()
 
-        // 8. Detect incoming enemies
-        print("\n👁️ Phase 8: Intelligence")
+        // 10. Detect incoming enemies
+        print("\n👁️ Phase 10: Intelligence")
         detectIncomingEnemies()
 
-        // 9. Check victory conditions
-        print("\n🏆 Phase 9: Victory Check")
+        // 11. Check victory conditions
+        print("\n🏆 Phase 11: Victory Check")
         checkVictory()
 
         print("\n" + String(repeating: "=", count: 60))
@@ -195,13 +203,21 @@ class TurnEngine {
             _ = game.createArmy(units: survivingDefenders, stationedAt: village.id, owner: village.owner)
         }
 
-        // Handle village conquest
-        if result.attackerWon && survivingDefenders.isEmpty {
-            var mutableVillage = village
+        // Damage garrison
+        var mutableVillage = village
+        let garrisonDamage = result.attackerWon ? mutableVillage.garrisonStrength : mutableVillage.garrisonStrength / 2
+        mutableVillage.damageGarrison(amount: garrisonDamage)
+        game.updateVillage(mutableVillage)
+
+        // Handle village conquest - need garrison to be 0 as well
+        let canConquer = result.attackerWon && survivingDefenders.isEmpty && mutableVillage.garrisonStrength == 0
+
+        if canConquer {
             let oldOwner = mutableVillage.owner
             mutableVillage.owner = attacker.owner
             mutableVillage.population = Int(Double(mutableVillage.population) * 0.7)
             mutableVillage.happiness -= 30
+            mutableVillage.garrisonStrength = 3 // New owner gets small garrison
             game.updateVillage(mutableVillage)
 
             // Station attacking army at village
@@ -247,6 +263,110 @@ class TurnEngine {
                     turns: army.turnsUntilArrival
                 ))
             }
+        }
+    }
+
+    private func processGarrisonRegeneration() {
+        let game = GameManager.shared
+
+        // Regenerate garrison for all owned villages (not neutral)
+        for i in game.map.villages.indices {
+            if game.map.villages[i].owner != "neutral" {
+                let oldGarrison = game.map.villages[i].garrisonStrength
+                game.map.villages[i].regenerateGarrison()
+                let newGarrison = game.map.villages[i].garrisonStrength
+
+                if newGarrison > oldGarrison {
+                    print("   \(game.map.villages[i].name): Garrison \(oldGarrison) → \(newGarrison)")
+                }
+            }
+        }
+    }
+
+    private func processArmyInterception() {
+        let game = GameManager.shared
+
+        // Find pairs of armies traveling in opposite directions on the same route
+        let marchingArmies = game.armies.filter { $0.isMarching }
+
+        var processedPairs: Set<String> = []
+        var interceptedArmyIDs: Set<UUID> = []
+
+        for army1 in marchingArmies {
+            for army2 in marchingArmies {
+                // Skip same army or same owner
+                guard army1.id != army2.id,
+                      army1.owner != army2.owner,
+                      !interceptedArmyIDs.contains(army1.id),
+                      !interceptedArmyIDs.contains(army2.id) else {
+                    continue
+                }
+
+                // Check if they're on the same route (opposite directions)
+                let pairKey = [army1.id.uuidString, army2.id.uuidString].sorted().joined(separator: "-")
+                guard !processedPairs.contains(pairKey) else { continue }
+                processedPairs.insert(pairKey)
+
+                // Check if army1's destination is army2's origin and vice versa
+                let army1ToArmy2 = army1.destination == army2.origin && army1.origin == army2.destination
+                let samePath = army1ToArmy2
+
+                if samePath {
+                    // They're on the same path going opposite directions - INTERCEPT!
+                    print("   🗡️ INTERCEPTION: \(army1.name) vs \(army2.name)")
+
+                    resolveFieldBattle(army1ID: army1.id, army2ID: army2.id)
+                    interceptedArmyIDs.insert(army1.id)
+                    interceptedArmyIDs.insert(army2.id)
+
+                    // Add event
+                    if army1.owner == "player" || army2.owner == "player" {
+                        let enemyArmy = army1.owner == "player" ? army2 : army1
+                        let playerArmy = army1.owner == "player" ? army1 : army2
+                        game.addTurnEvent(.battleWon(location: "en route", casualties: 0))
+                    }
+                }
+            }
+        }
+    }
+
+    private func resolveFieldBattle(army1ID: UUID, army2ID: UUID) {
+        let game = GameManager.shared
+        let combatEngine = CombatEngine()
+
+        guard var army1 = game.armies.first(where: { $0.id == army1ID }),
+              var army2 = game.armies.first(where: { $0.id == army2ID }) else {
+            return
+        }
+
+        var units1 = army1.units
+        var units2 = army2.units
+
+        // Field battle - no village bonuses
+        let result = combatEngine.resolveCombat(
+            attackers: &units1,
+            defenders: &units2,
+            location: CGPoint(x: 10, y: 10), // Middle of map
+            map: game.map,
+            defendingVillage: nil
+        )
+
+        // Update armies
+        army1.units = units1.filter { $0.isAlive }
+        army2.units = units2.filter { $0.isAlive }
+
+        if army1.units.isEmpty {
+            game.removeArmy(army1.id)
+            print("   💀 \(army1.name) destroyed in field battle")
+        } else {
+            game.updateArmy(army1)
+        }
+
+        if army2.units.isEmpty {
+            game.removeArmy(army2.id)
+            print("   💀 \(army2.name) destroyed in field battle")
+        } else {
+            game.updateArmy(army2)
         }
     }
 

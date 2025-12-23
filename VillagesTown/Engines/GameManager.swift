@@ -18,6 +18,8 @@ class GameManager: ObservableObject {
     @Published var currentPlayer: String = "player"
     @Published var gameStarted: Bool = false
     @Published var playerNationality: Nationality?
+    @Published var ai1Nationality: Nationality?
+    @Published var ai2Nationality: Nationality?
 
     let turnEngine: TurnEngine = TurnEngine()
 
@@ -36,36 +38,92 @@ class GameManager: ObservableObject {
 
     // MARK: - Initializers
     init() {
-        // Create 20x20 map (smaller for better UX)
+        // Create 20x20 map
         let mapSize = CGSize(width: 20.0, height: 20.0)
 
-        // Each player starts with 1 village
+        // Placeholder villages - will be regenerated when player picks nationality
+        self.map = VirtualMap(size: mapSize, villages: [])
+        self.players = Player.createPlayers()
+    }
+
+    func setupGame(playerNationality: Nationality) {
+        self.playerNationality = playerNationality
         let nationalities = Nationality.getAll()
 
-        let playerVillages = [
-            Village(name: "Argithan", nationality: nationalities[0], coordinates: CGPoint(x: 3, y: 3), owner: "player")
+        // Find AI nationalities (excluding player's choice)
+        let aiNationalities = nationalities.filter { $0.name != playerNationality.name }.shuffled()
+
+        // Store AI nationalities for reference
+        self.ai1Nationality = aiNationalities[0]
+        self.ai2Nationality = aiNationalities.count > 1 ? aiNationalities[1] : aiNationalities[0]
+
+        // Player village - named after their nationality
+        let playerVillage = Village(
+            name: getCapitalName(for: playerNationality),
+            nationality: playerNationality,
+            coordinates: CGPoint(x: 3, y: 3),
+            owner: "player"
+        )
+
+        let ai1Village = Village(
+            name: getCapitalName(for: self.ai1Nationality!),
+            nationality: self.ai1Nationality!,
+            coordinates: CGPoint(x: 17, y: 3),
+            owner: "ai1"
+        )
+
+        let ai2Village = Village(
+            name: getCapitalName(for: self.ai2Nationality!),
+            nationality: self.ai2Nationality!,
+            coordinates: CGPoint(x: 10, y: 17),
+            owner: "ai2"
+        )
+
+        // NEUTRAL VILLAGES - more settlements spread across the map
+        let neutralVillages = [
+            // Northern region
+            Village(name: "Thessaloniki", nationality: nationalities[1], coordinates: CGPoint(x: 10, y: 2), owner: "neutral"),
+            Village(name: "Alexandroupoli", nationality: nationalities[1], coordinates: CGPoint(x: 14, y: 4), owner: "neutral"),
+            // Western region
+            Village(name: "Kavala", nationality: nationalities[1], coordinates: CGPoint(x: 2, y: 10), owner: "neutral"),
+            Village(name: "Ioannina", nationality: nationalities[1], coordinates: CGPoint(x: 5, y: 7), owner: "neutral"),
+            // Central region
+            Village(name: "Edirne", nationality: nationalities[0], coordinates: CGPoint(x: 8, y: 8), owner: "neutral"),
+            Village(name: "Bursa", nationality: nationalities[0], coordinates: CGPoint(x: 12, y: 10), owner: "neutral"),
+            Village(name: "Plovdiv", nationality: nationalities[2], coordinates: CGPoint(x: 10, y: 13), owner: "neutral"),
+            // Eastern region
+            Village(name: "Varna", nationality: nationalities[2], coordinates: CGPoint(x: 18, y: 8), owner: "neutral"),
+            Village(name: "Constanta", nationality: nationalities[2], coordinates: CGPoint(x: 16, y: 14), owner: "neutral"),
+            // Southern region
+            Village(name: "Izmir", nationality: nationalities[0], coordinates: CGPoint(x: 6, y: 15), owner: "neutral"),
+            Village(name: "Antalya", nationality: nationalities[0], coordinates: CGPoint(x: 14, y: 18), owner: "neutral"),
+            Village(name: "Patras", nationality: nationalities[1], coordinates: CGPoint(x: 2, y: 17), owner: "neutral")
         ]
 
-        let ai1Villages = [
-            Village(name: "Athens", nationality: nationalities[1], coordinates: CGPoint(x: 16, y: 3), owner: "ai1")
-        ]
+        let allVillages = [playerVillage, ai1Village, ai2Village] + neutralVillages
 
-        let ai2Villages = [
-            Village(name: "Sofia", nationality: nationalities[2], coordinates: CGPoint(x: 10, y: 16), owner: "ai2")
-        ]
-
-        let allVillages = playerVillages + ai1Villages + ai2Villages
-
-        // Create map
-        self.map = VirtualMap(size: mapSize, villages: allVillages)
-
-        // Create players
-        self.players = Player.createPlayers()
+        // Create map with all villages
+        self.map = VirtualMap(size: CGSize(width: 20, height: 20), villages: allVillages)
 
         // Update player village lists
         for i in 0..<self.players.count {
             let playerID = self.players[i].id
             self.players[i].villages = allVillages.filter { $0.owner == playerID }.map { $0.name }
+        }
+
+        print("🗺️ Map created with \(allVillages.count) villages")
+        print("   Player: \(playerVillage.name) (\(playerNationality.flag))")
+        print("   AI1: \(ai1Village.name) (\(self.ai1Nationality!.flag))")
+        print("   AI2: \(ai2Village.name) (\(self.ai2Nationality!.flag))")
+        print("   Neutral: \(neutralVillages.count) villages")
+    }
+
+    private func getCapitalName(for nationality: Nationality) -> String {
+        switch nationality.name {
+        case "Turkish": return "Istanbul"
+        case "Greek": return "Athens"
+        case "Bulgarian": return "Sofia"
+        default: return "Capital"
         }
     }
 
@@ -84,6 +142,27 @@ class GameManager: ObservableObject {
         print("🏘️ Total villages: \(map.villages.count)")
         print("👥 Players: \(players.count)")
         print("⚔️ Starting armies created: \(armies.count)")
+    }
+
+    func resetGame() {
+        // Clear all game state
+        gameStarted = false
+        currentTurn = 0
+        currentPlayer = "player"
+        playerNationality = nil
+        ai1Nationality = nil
+        ai2Nationality = nil
+        armies.removeAll()
+        turnEvents.removeAll()
+        globalResources.removeAll()
+
+        // Reset map
+        map = VirtualMap(size: CGSize(width: 20, height: 20), villages: [])
+
+        // Reset players
+        players = Player.createPlayers()
+
+        print("🔄 Game Reset!")
     }
 
     private func createStartingArmies() {

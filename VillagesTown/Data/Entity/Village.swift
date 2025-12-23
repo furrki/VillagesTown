@@ -24,6 +24,10 @@ struct Village: Entity, ResourceHolder, TreasuryHolder {
     var happiness: Int = 75 // 0-100%
     var owner: String // Player or AI faction identifier
 
+    // GARRISON SYSTEM - non-movable defensive units that auto-recover
+    var garrisonStrength: Int = 5  // Current garrison strength
+    var garrisonMaxStrength: Int = 10  // Max garrison based on buildings
+
     init(name: String, nationality: Nationality, coordinates: CGPoint, owner: String) {
         self.name = name
         self.nationality = nationality
@@ -31,13 +35,26 @@ struct Village: Entity, ResourceHolder, TreasuryHolder {
         self.owner = owner
         self.buildings = Building.starter()
 
-        // Initialize starting resources
+        // Initialize starting resources - GENEROUS for better gameplay
         self.resources = [
-            .food: 50,
-            .wood: 30,
-            .iron: 10,
-            .gold: 100
+            .food: 100,
+            .wood: 100,
+            .iron: 50,
+            .gold: 300
         ]
+
+        // Neutral villages have less resources but more garrison
+        if owner == "neutral" {
+            self.resources = [
+                .food: 20,
+                .wood: 15,
+                .iron: 5,
+                .gold: 30
+            ]
+            self.garrisonStrength = 8
+            self.garrisonMaxStrength = 15
+            self.population = 50
+        }
     }
 
     // MARK: - Computed Properties
@@ -120,5 +137,53 @@ struct Village: Entity, ResourceHolder, TreasuryHolder {
 
     mutating func modifyHappiness(by amount: Int) {
         happiness = max(0, min(happiness + amount, 100))
+    }
+
+    // MARK: - Garrison Methods
+
+    var computedGarrisonMax: Int {
+        var maxGarrison = 10 // Base garrison
+
+        // Barracks increases garrison
+        if buildings.contains(where: { $0.name == "Barracks" }) {
+            let barracksLevel = buildings.first(where: { $0.name == "Barracks" })?.level ?? 1
+            maxGarrison += 5 * barracksLevel
+        }
+
+        // Fortress greatly increases garrison
+        if buildings.contains(where: { $0.name == "Fortress" }) {
+            let fortressLevel = buildings.first(where: { $0.name == "Fortress" })?.level ?? 1
+            maxGarrison += 15 * fortressLevel
+        }
+
+        // Level bonus
+        switch level {
+        case .village: break
+        case .town: maxGarrison += 5
+        case .district: maxGarrison += 10
+        case .castle: maxGarrison += 20
+        case .city: maxGarrison += 30
+        }
+
+        return maxGarrison
+    }
+
+    mutating func regenerateGarrison() {
+        // Garrison recovers 1-3 per turn based on buildings
+        var recovery = 1
+
+        if buildings.contains(where: { $0.name == "Barracks" }) {
+            recovery += 1
+        }
+        if buildings.contains(where: { $0.name == "Fortress" }) {
+            recovery += 2
+        }
+
+        garrisonMaxStrength = computedGarrisonMax
+        garrisonStrength = min(garrisonStrength + recovery, garrisonMaxStrength)
+    }
+
+    mutating func damageGarrison(amount: Int) {
+        garrisonStrength = max(0, garrisonStrength - amount)
     }
 }

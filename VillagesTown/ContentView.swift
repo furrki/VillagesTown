@@ -16,7 +16,10 @@ struct ContentView: View {
         if gameManager.playerNationality == nil && showNationalitySelection {
             NationalitySelectionView(
                 selectedNationality: $gameManager.playerNationality,
-                isPresented: $showNationalitySelection
+                isPresented: $showNationalitySelection,
+                onSelection: { nationality in
+                    gameManager.setupGame(playerNationality: nationality)
+                }
             )
         } else {
             GameView()

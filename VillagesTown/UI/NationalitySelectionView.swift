@@ -10,64 +10,195 @@ import SwiftUI
 struct NationalitySelectionView: View {
     @Binding var selectedNationality: Nationality?
     @Binding var isPresented: Bool
+    var onSelection: ((Nationality) -> Void)?
+
+    @State private var hoveredNationality: String?
+    @State private var showContent = false
 
     var body: some View {
-        VStack(spacing: 30) {
-            Text("Choose Your Nation")
-                .font(.largeTitle)
-                .fontWeight(.bold)
+        ZStack {
+            // Dark gradient background
+            LinearGradient(
+                colors: [
+                    Color(red: 0.08, green: 0.1, blue: 0.15),
+                    Color(red: 0.12, green: 0.14, blue: 0.2)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-            Text("Select a nationality to rule all villages of that nation")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-
-            ScrollView {
-                VStack(spacing: 20) {
-                    ForEach(Nationality.getAll(), id: \.name) { nationality in
-                        Button(action: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                selectedNationality = nationality
-                                isPresented = false
-                            }
-                        }) {
-                            HStack(spacing: 20) {
-                                Text(nationality.flag)
-                                    .font(.system(size: 60))
-
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text(nationality.name)
-                                        .font(.title2)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.primary)
-
-                                    Text("Rule the \(nationality.name) empire")
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                }
-
-                                Spacer()
-
-                                Image(systemName: "chevron.right")
-                                    .font(.title3)
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(20)
-                            .frame(maxWidth: .infinity)
-                            .background(Color(NSColor.controlBackgroundColor))
-                            .cornerRadius(16)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .stroke(Color.blue.opacity(0.3), lineWidth: 2)
-                            )
-                        }
-                        .buttonStyle(.plain)
+            // Subtle pattern overlay
+            Canvas { context, size in
+                for x in stride(from: 0, to: size.width, by: 50) {
+                    for y in stride(from: 0, to: size.height, by: 50) {
+                        let rect = CGRect(x: x, y: y, width: 1, height: 1)
+                        context.fill(Path(ellipseIn: rect), with: .color(.white.opacity(0.02)))
                     }
                 }
-                .padding()
+            }
+
+            VStack(spacing: 40) {
+                // Header
+                VStack(spacing: 12) {
+                    Text("⚔️")
+                        .font(.system(size: 60))
+                        .opacity(showContent ? 1 : 0)
+                        .scaleEffect(showContent ? 1 : 0.5)
+
+                    Text("Choose Your Empire")
+                        .font(.system(size: 42, weight: .bold))
+                        .foregroundColor(.white)
+                        .opacity(showContent ? 1 : 0)
+                        .offset(y: showContent ? 0 : 20)
+
+                    Text("Lead your nation to glory and domination")
+                        .font(.title3)
+                        .foregroundColor(.white.opacity(0.6))
+                        .opacity(showContent ? 1 : 0)
+                        .offset(y: showContent ? 0 : 20)
+                }
+
+                // Nation cards
+                HStack(spacing: 24) {
+                    ForEach(Nationality.getAll(), id: \.name) { nationality in
+                        NationCard(
+                            nationality: nationality,
+                            isHovered: hoveredNationality == nationality.name,
+                            onSelect: {
+                                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                    onSelection?(nationality)
+                                    selectedNationality = nationality
+                                    isPresented = false
+                                }
+                            }
+                        )
+                        .onHover { hovering in
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                hoveredNationality = hovering ? nationality.name : nil
+                            }
+                        }
+                        .opacity(showContent ? 1 : 0)
+                        .offset(y: showContent ? 0 : 30)
+                    }
+                }
+
+                // Footer hint
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.white.opacity(0.4))
+                    Text("Each nation starts with a capital city and unique territory")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.4))
+                }
+                .opacity(showContent ? 1 : 0)
+            }
+            .padding(40)
+        }
+        .preferredColorScheme(.dark)
+        .onAppear {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
+                showContent = true
             }
         }
-        .padding()
-        .frame(minWidth: 500, minHeight: 600)
+    }
+}
+
+struct NationCard: View {
+    let nationality: Nationality
+    let isHovered: Bool
+    let onSelect: () -> Void
+
+    var nationColor: Color {
+        switch nationality.name {
+        case "Turkish": return Color(red: 0.8, green: 0.2, blue: 0.2)
+        case "Greek": return Color(red: 0.2, green: 0.4, blue: 0.8)
+        case "Bulgarian": return Color(red: 0.2, green: 0.6, blue: 0.3)
+        default: return .gray
+        }
+    }
+
+    var capitalName: String {
+        switch nationality.name {
+        case "Turkish": return "Istanbul"
+        case "Greek": return "Athens"
+        case "Bulgarian": return "Sofia"
+        default: return "Capital"
+        }
+    }
+
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(spacing: 20) {
+                // Flag
+                ZStack {
+                    Circle()
+                        .fill(nationColor.opacity(0.2))
+                        .frame(width: 120, height: 120)
+                        .blur(radius: isHovered ? 20 : 10)
+
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [nationColor, nationColor.opacity(0.7)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 100, height: 100)
+                        .shadow(color: nationColor.opacity(0.5), radius: isHovered ? 20 : 10)
+
+                    Text(nationality.flag)
+                        .font(.system(size: 50))
+                }
+
+                // Info
+                VStack(spacing: 8) {
+                    Text(nationality.name)
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+
+                    HStack(spacing: 4) {
+                        Image(systemName: "building.columns.fill")
+                            .font(.caption)
+                        Text(capitalName)
+                            .font(.subheadline)
+                    }
+                    .foregroundColor(.white.opacity(0.6))
+                }
+
+                // Select button
+                Text("SELECT")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .background(
+                        Capsule()
+                            .fill(isHovered ? nationColor : Color.white.opacity(0.1))
+                    )
+                    .overlay(
+                        Capsule()
+                            .stroke(nationColor.opacity(0.5), lineWidth: 1)
+                    )
+            }
+            .padding(30)
+            .frame(width: 220)
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color.white.opacity(0.05))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24)
+                            .stroke(
+                                isHovered ? nationColor.opacity(0.5) : Color.white.opacity(0.1),
+                                lineWidth: isHovered ? 2 : 1
+                            )
+                    )
+            )
+            .scaleEffect(isHovered ? 1.05 : 1.0)
+        }
+        .buttonStyle(.plain)
     }
 }

@@ -11,6 +11,7 @@ struct VictoryScreenView: View {
     let winner: Player
     let turns: Int
     @Binding var isPresented: Bool
+    var onContinueWatching: (() -> Void)? = nil
     @State private var showTrophy = false
     @State private var showTitle = false
     @State private var showStats = false
@@ -87,20 +88,40 @@ struct VictoryScreenView: View {
                 .opacity(showStats ? 1 : 0)
                 .offset(y: showStats ? 0 : 30)
 
-                // Button
-                Button(action: {
-                    withAnimation(.easeOut(duration: 0.3)) {
-                        isPresented = false
+                // Buttons
+                HStack(spacing: 20) {
+                    if onContinueWatching != nil {
+                        Button(action: {
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                onContinueWatching?()
+                            }
+                        }) {
+                            Text("Continue Watching")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 30)
+                                .padding(.vertical, 15)
+                                .background(Color.blue)
+                                .cornerRadius(25)
+                                .shadow(color: .blue.opacity(0.5), radius: 10)
+                        }
                     }
-                }) {
-                    Text("Continue Watching")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 40)
-                        .padding(.vertical, 15)
-                        .background(Color.blue)
-                        .cornerRadius(25)
-                        .shadow(color: .blue.opacity(0.5), radius: 10)
+
+                    Button(action: {
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            // Full game reset
+                            GameManager.shared.resetGame()
+                        }
+                    }) {
+                        Text("New Game")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 30)
+                            .padding(.vertical, 15)
+                            .background(Color.green)
+                            .cornerRadius(25)
+                            .shadow(color: .green.opacity(0.5), radius: 10)
+                    }
                 }
                 .opacity(showButton ? 1 : 0)
                 .scaleEffect(showButton ? 1.0 : 0.8)
@@ -149,6 +170,125 @@ struct StatRow: View {
             Text(value)
                 .fontWeight(.semibold)
                 .foregroundColor(.white)
+        }
+    }
+}
+
+// MARK: - Defeat Screen
+
+struct DefeatScreenView: View {
+    let turn: Int
+    let onContinueWatching: () -> Void
+    let onQuit: () -> Void
+
+    @State private var showSkull = false
+    @State private var showTitle = false
+    @State private var showButtons = false
+    @State private var skullPulse = false
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.9)
+                .ignoresSafeArea()
+                .onAppear {
+                    animateEntrance()
+                }
+
+            VStack(spacing: 30) {
+                // Skull
+                Text("💀")
+                    .font(.system(size: 100))
+                    .opacity(showSkull ? 1 : 0)
+                    .scaleEffect(showSkull ? (skullPulse ? 1.1 : 1.0) : 0.1)
+                    .shadow(color: .red.opacity(0.5), radius: 20)
+
+                // Defeat Text
+                VStack(spacing: 10) {
+                    Text("DEFEATED")
+                        .font(.system(size: 50, weight: .bold))
+                        .foregroundColor(.red)
+                        .opacity(showTitle ? 1 : 0)
+                        .scaleEffect(showTitle ? 1.0 : 0.5)
+                        .shadow(color: .red.opacity(0.5), radius: 10)
+
+                    Text("Your empire has fallen")
+                        .font(.title3)
+                        .foregroundColor(.white.opacity(0.8))
+                        .opacity(showTitle ? 1 : 0)
+
+                    Text("Turn \(turn)")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.6))
+                        .opacity(showTitle ? 1 : 0)
+                }
+
+                // Info
+                VStack(spacing: 8) {
+                    Text("The remaining factions will continue their war.")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.7))
+
+                    Text("Watch how history unfolds...")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.5))
+                        .italic()
+                }
+                .opacity(showTitle ? 1 : 0)
+                .padding()
+                .background(Color.white.opacity(0.1))
+                .cornerRadius(10)
+
+                // Buttons
+                HStack(spacing: 20) {
+                    Button(action: onContinueWatching) {
+                        HStack {
+                            Image(systemName: "eye.fill")
+                            Text("Watch")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 30)
+                        .padding(.vertical, 15)
+                        .background(Color.purple)
+                        .cornerRadius(25)
+                        .shadow(color: .purple.opacity(0.5), radius: 10)
+                    }
+
+                    Button(action: {
+                        GameManager.shared.resetGame()
+                    }) {
+                        Text("New Game")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 30)
+                            .padding(.vertical, 15)
+                            .background(Color.gray)
+                            .cornerRadius(25)
+                    }
+                }
+                .opacity(showButtons ? 1 : 0)
+                .scaleEffect(showButtons ? 1.0 : 0.8)
+            }
+            .padding()
+        }
+    }
+
+    func animateEntrance() {
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.6).delay(0.2)) {
+            showSkull = true
+        }
+
+        // Pulsing skull
+        withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true).delay(0.8)) {
+            skullPulse = true
+        }
+
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.6)) {
+            showTitle = true
+        }
+
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(1.2)) {
+            showButtons = true
         }
     }
 }

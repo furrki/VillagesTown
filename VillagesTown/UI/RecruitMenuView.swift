@@ -227,6 +227,10 @@ struct UnitRecruitCard: View {
         Unit.getStats(for: unitType)
     }
 
+    var recruitCheck: (can: Bool, reason: String) {
+        recruitmentEngine.canRecruit(unitType: unitType, quantity: quantity, in: village)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
@@ -238,79 +242,77 @@ struct UnitRecruitCard: View {
                     Text(unitStats.name)
                         .font(.headline)
                     HStack(spacing: 12) {
-                        Label("\(unitStats.attack)", systemImage: "sword.fill")
+                        Label("\(unitStats.attack)", systemImage: "burst.fill")
                             .font(.caption)
+                            .foregroundColor(.orange)
                         Label("\(unitStats.defense)", systemImage: "shield.fill")
                             .font(.caption)
-                        Label("\(unitStats.hp) HP", systemImage: "heart.fill")
+                            .foregroundColor(.blue)
+                        Label("\(unitStats.hp)", systemImage: "heart.fill")
                             .font(.caption)
-                        Label("\(unitStats.movement) Move", systemImage: "figure.walk")
-                            .font(.caption)
+                            .foregroundColor(.red)
                     }
-                    .foregroundColor(.secondary)
                 }
                 Spacer()
             }
 
-            Divider()
+            // Cost display - clearer
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Total Cost:")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text("Pop: \(quantity)")
+                        .font(.caption)
+                        .foregroundColor(village.population >= quantity ? .green : .red)
+                }
 
-            // Cost
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Cost (per unit):")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                HStack(spacing: 12) {
                     ForEach(Array(unitStats.cost.keys.sorted(by: { $0.name < $1.name })), id: \.self) { resource in
                         let cost = unitStats.cost[resource]! * quantity
                         let globalResources = GameManager.shared.getGlobalResources(playerID: village.owner)
                         let has = globalResources[resource] ?? 0
                         let canAfford = has >= cost
 
-                        HStack(spacing: 4) {
+                        VStack(spacing: 2) {
                             Text(resource.emoji)
+                                .font(.title3)
                             Text("\(cost)")
                                 .font(.caption)
-                                .foregroundColor(canAfford ? .primary : .red)
-                            Text("(\(has))")
+                                .fontWeight(.bold)
+                                .foregroundColor(canAfford ? .white : .red)
+                            Text("/\(has)")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
-                    }
-                }
-            }
-
-            // Upkeep
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Upkeep (per turn):")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                HStack(spacing: 8) {
-                    ForEach(Array(unitStats.upkeep.keys.sorted(by: { $0.name < $1.name })), id: \.self) { resource in
-                        HStack(spacing: 2) {
-                            Text(resource.emoji)
-                            Text("\(unitStats.upkeep[resource]!)")
-                        }
-                        .font(.caption2)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(canAfford ? Color.green.opacity(0.2) : Color.red.opacity(0.2))
+                        .cornerRadius(8)
                     }
                 }
             }
 
             // Quantity and Recruit
-            HStack(spacing: 16) {
+            HStack(spacing: 12) {
                 // Quantity stepper
-                HStack {
+                HStack(spacing: 8) {
                     Button(action: {
                         if quantity > 1 { quantity -= 1 }
                     }) {
                         Image(systemName: "minus.circle.fill")
                             .font(.title2)
+                            .foregroundColor(quantity > 1 ? .blue : .gray)
                     }
+                    .buttonStyle(.plain)
                     .disabled(quantity <= 1)
 
                     Text("\(quantity)")
-                        .font(.headline)
-                        .frame(width: 40)
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .frame(width: 30)
 
                     Button(action: {
                         if quantity < min(10, village.population) {
@@ -319,37 +321,48 @@ struct UnitRecruitCard: View {
                     }) {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
+                            .foregroundColor(quantity < min(10, village.population) ? .blue : .gray)
                     }
+                    .buttonStyle(.plain)
                     .disabled(quantity >= min(10, village.population))
                 }
 
-                // Recruit button
-                Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        onRecruit(quantity)
+                // Recruit button with reason
+                VStack(spacing: 4) {
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            onRecruit(quantity)
+                        }
+                    }) {
+                        Text("RECRUIT")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(recruitCheck.can ? Color.blue : Color.gray.opacity(0.5))
+                            .foregroundColor(.white)
+                            .cornerRadius(8)
                     }
-                }) {
-                    Text("Recruit")
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(canRecruit ? Color.blue : Color.gray)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
+                    .buttonStyle(.plain)
+                    .disabled(!recruitCheck.can)
+
+                    // Show reason if can't recruit
+                    if !recruitCheck.can {
+                        Text(recruitCheck.reason)
+                            .font(.caption2)
+                            .foregroundColor(.red)
+                            .lineLimit(1)
+                    }
                 }
-                .disabled(!canRecruit)
-                .scaleEffect(canRecruit ? 1.0 : 0.95)
-                .animation(.easeInOut(duration: 0.2), value: canRecruit)
             }
         }
         .padding()
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(Color.cardBackground)
         .cornerRadius(12)
-    }
-
-    var canRecruit: Bool {
-        let check = recruitmentEngine.canRecruit(unitType: unitType, quantity: quantity, in: village)
-        return check.can
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+        )
     }
 }
 
