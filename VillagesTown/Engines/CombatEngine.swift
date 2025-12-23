@@ -43,10 +43,37 @@ class CombatEngine {
 
         // Calculate total strength
         let attackerStrength = calculateArmyStrength(units: attackers, isAttacking: true, location: location, map: map, village: nil)
-        let defenderStrength = calculateArmyStrength(units: defenders, isAttacking: false, location: location, map: map, village: defendingVillage)
+        var defenderStrength = calculateArmyStrength(units: defenders, isAttacking: false, location: location, map: map, village: defendingVillage)
+
+        // GARRISON BONUS: Villages have population that fights back
+        // Even undefended villages aren't free!
+        var garrisonStrength = 0
+        if let village = defendingVillage {
+            // Population provides base defense (10 pop = 1 strength)
+            let popDefense = village.population / 10
+
+            // Village level provides bonus
+            let levelBonus: Double
+            switch village.level {
+            case .village: levelBonus = 1.0
+            case .town: levelBonus = 1.5
+            case .district: levelBonus = 2.0
+            case .castle: levelBonus = 3.0
+            case .city: levelBonus = 4.0
+            }
+
+            // Apply defense bonus from buildings
+            garrisonStrength = Int(Double(popDefense) * levelBonus * (1.0 + village.defenseBonus))
+
+            // Minimum garrison strength so empty villages still resist
+            garrisonStrength = max(garrisonStrength, 10)
+
+            defenderStrength += garrisonStrength
+            print("🏰 Garrison strength: \(garrisonStrength) (from \(village.population) population)")
+        }
 
         print("💪 Attacker strength: \(attackerStrength)")
-        print("🛡️ Defender strength: \(defenderStrength)")
+        print("🛡️ Defender strength: \(defenderStrength) (includes garrison)")
 
         // Battle resolution
         var attackerHP = attackers.reduce(0) { $0 + $1.currentHP }

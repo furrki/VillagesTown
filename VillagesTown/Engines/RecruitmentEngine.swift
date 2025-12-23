@@ -60,17 +60,26 @@ class RecruitmentEngine {
         // Reduce population
         village.modifyPopulation(by: -quantity)
 
-        // Find empty adjacent tile for spawning units
-        let spawnLocation = GameManager.shared.map.findEmptyAdjacentTile(to: coordinates)
-
         // Create units
         var units: [Unit] = []
         for _ in 0..<quantity {
-            let unit = Unit(type: unitType, owner: village.owner, coordinates: spawnLocation)
+            let unit = Unit(type: unitType, owner: village.owner, coordinates: coordinates)
             units.append(unit)
         }
 
-        print("⚔️ \(village.name): Recruited \(quantity) \(stats.name) at (\(Int(spawnLocation.x)), \(Int(spawnLocation.y)))!")
+        // Add to existing army at village or create new one
+        let game = GameManager.shared
+        let existingArmies = game.getArmiesAt(villageID: village.id).filter { $0.owner == village.owner }
+
+        if var army = existingArmies.first {
+            army.addUnits(units)
+            army.name = Army.generateName(for: army.units, owner: village.owner)
+            game.updateArmy(army)
+        } else {
+            _ = game.createArmy(units: units, stationedAt: village.id, owner: village.owner)
+        }
+
+        print("⚔️ \(village.name): Recruited \(quantity) \(stats.name)!")
         return units
     }
 

@@ -45,6 +45,7 @@
 		D772C437FEC38D0933DC2794 /* Resource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 768F9D4B97D090BDF2926F31 /* Resource.swift */; };
 		DA6805513B997BE6799A6894 /* Village.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C41210043DA724117B79F54 /* Village.swift */; };
 		DFCA3B6A0245555EB0F3BC95 /* Village+Enums.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8C5F42DD79D34ACDDCEBA64 /* Village+Enums.swift */; };
+		E2BF1A242944EE6F5EB0682C /* Army.swift in Sources */ = {isa = PBXBuildFile; fileRef = B89A6D98ECDD2C78AB7079E6 /* Army.swift */; };
 		EBADA09D1E3E9BCADA444926 /* Nationality.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E55D0F52390070A981C57E9 /* Nationality.swift */; };
 		EDAA5397ECAFA7A8F2128A97 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 69C7FE21010DB40B3A6A355A /* Preview Assets.xcassets */; };
 		FEC358AEE1D5B2577DEB2BE7 /* BuildingProductionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CD66B14E14B08445474B9BF /* BuildingProductionEngine.swift */; };
@@ -103,6 +104,7 @@
 		AA47CCAA23FFDCF23803F0C6 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		B2509128EBE3AE31EB169C6C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		B2DB69FCC0D455C60DEDE6CE /* PopulationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopulationEngine.swift; sourceTree = "<group>"; };
+		B89A6D98ECDD2C78AB7079E6 /* Army.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Army.swift; sourceTree = "<group>"; };
 		B8EBC515B26676F56C343793 /* RecruitmentEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecruitmentEngine.swift; sourceTree = "<group>"; };
 		BB98F61A09A0C73262141AA7 /* VillagesTownUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VillagesTownUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD77FF7E3B5F9E5F6DD6094A /* Building.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Building.swift; sourceTree = "<group>"; };
@@ -267,6 +269,7 @@
 				9289ACF1EAAF1412EC01847D /* HolderProtocols */,
 				E942D1F2A9FA57AEF3FC622D /* Map */,
 				E6DFE3980308D2B01F284CA5 /* Resource */,
+				B89A6D98ECDD2C78AB7079E6 /* Army.swift */,
 			);
 			path = Data;
 			sourceTree = "<group>";
@@ -295,8 +298,6 @@
 			dependencies = (
 			);
 			name = VillagesTown;
-			packageProductDependencies = (
-			);
 			productName = VillagesTown;
 			productReference = 8514D38A5E8880471A9B07D1 /* VillagesTown.app */;
 			productType = "com.apple.product-type.application";
@@ -313,8 +314,6 @@
 				AD389F9980BF248007195778 /* PBXTargetDependency */,
 			);
 			name = VillagesTownUITests;
-			packageProductDependencies = (
-			);
 			productName = VillagesTownUITests;
 			productReference = BB98F61A09A0C73262141AA7 /* VillagesTownUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -331,8 +330,6 @@
 				69E07437B439B3A94DA8B61C /* PBXTargetDependency */,
 			);
 			name = VillagesTownTests;
-			packageProductDependencies = (
-			);
 			productName = VillagesTownTests;
 			productReference = F7F1FFB41907BF1038E57E33 /* VillagesTownTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -362,6 +359,7 @@
 			mainGroup = 206A7200D1AC9277228CCD42;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
+			productRefGroup = 2C6DEECA84AADD5775F1064B /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -443,6 +441,7 @@
 				DFCA3B6A0245555EB0F3BC95 /* Village+Enums.swift in Sources */,
 				DA6805513B997BE6799A6894 /* Village.swift in Sources */,
 				FF63553E53E6EBEB015DA6FA /* VillageDetailView.swift in Sources */,
+				E2BF1A242944EE6F5EB0682C /* Army.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

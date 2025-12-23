@@ -2,7 +2,7 @@
 //  GameView.swift
 //  VillagesTown
 //
-//  Completely redesigned UX - side panel instead of modal sheets
+//  Strategic game view with army-based gameplay
 //
 
 import SwiftUI
@@ -10,11 +10,10 @@ import SwiftUI
 struct GameView: View {
     @ObservedObject var gameManager = GameManager.shared
     @State private var selectedVillage: Village?
-    @State private var selectedUnit: Unit?
-    @State private var showVictoryScreen = false
+    @State private var selectedArmy: Army?
+    @State private var showTurnSummary = false
+    @State private var showSendArmySheet = false
     @State private var isProcessingTurn = false
-    @State private var showTutorial = true
-    @State private var showSidePanel = true
 
     var winner: Player? {
         let activePlayers = gameManager.players.filter { !$0.isEliminated }
@@ -22,35 +21,38 @@ struct GameView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            // LEFT: Map + Controls (always visible)
-            VStack(spacing: 0) {
-                // Top Bar
-                topBar
-
-                // Map
-                ScrollView([.horizontal, .vertical], showsIndicators: true) {
-                    MapView_Interactive(
-                        selectedVillage: $selectedVillage,
-                        selectedUnit: $selectedUnit
-                    )
-                    .frame(
-                        width: CGFloat(gameManager.map.size.width) * 25,
-                        height: CGFloat(gameManager.map.size.height) * 25
-                    )
+        ZStack {
+            // Main game content
+            HStack(spacing: 0) {
+                // Left: Strategic Map
+                VStack(spacing: 0) {
+                    topBar
+                    strategicMapView
+                    bottomBar
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity)
 
-                // Bottom Control Panel
-                bottomBar
+                // Right: Context Panel
+                contextPanel
+                    .frame(width: 320)
             }
-            .frame(maxWidth: .infinity)
 
-            // RIGHT: Side Panel (persistent)
-            if showSidePanel {
-                sidePanelContent
-                    .frame(width: 350)
-                    .transition(.move(edge: .trailing))
+            // Turn Summary Overlay
+            if showTurnSummary && !gameManager.turnEvents.isEmpty {
+                TurnSummaryOverlay(
+                    events: gameManager.turnEvents,
+                    turn: gameManager.currentTurn,
+                    isPresented: $showTurnSummary
+                )
+            }
+
+            // Victory Screen
+            if let winner = winner {
+                VictoryScreenView(
+                    winner: winner,
+                    turns: gameManager.currentTurn,
+                    isPresented: .constant(true)
+                )
             }
         }
         .onAppear {
@@ -58,705 +60,930 @@ struct GameView: View {
                 gameManager.initializeGame()
             }
         }
-        .overlay(
-            Group {
-                if let winner = winner, showVictoryScreen {
-                    VictoryScreenView(winner: winner, turns: gameManager.currentTurn, isPresented: $showVictoryScreen)
-                        .transition(.scale.combined(with: .opacity))
+    }
+
+    // MARK: - Top Bar
+
+    var topBar: some View {
+        VStack(spacing: 8) {
+            HStack {
+                // Turn indicator
+                Text("Turn \(gameManager.currentTurn)")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.blue)
+                    .cornerRadius(10)
+
+                Spacer()
+
+                // Goal
+                let enemyCount = gameManager.map.villages.filter { $0.owner != "player" }.count
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("Conquer all villages")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Text("\(enemyCount) enemies remaining")
+                        .font(.caption)
+                        .foregroundColor(enemyCount == 0 ? .green : .orange)
                 }
             }
-        )
-        .overlay(
-            Group {
-                if showTutorial && gameManager.currentTurn == 1 && gameManager.tutorialEnabled {
-                    TutorialOverlay(isPresented: $showTutorial)
-                        .transition(.opacity.combined(with: .scale))
+            .padding(.horizontal)
+
+            // Resources
+            HStack(spacing: 20) {
+                let resources = gameManager.getGlobalResources(playerID: "player")
+                ForEach(Resource.getAll(), id: \.self) { resource in
+                    HStack(spacing: 6) {
+                        Text(resource.emoji)
+                            .font(.title3)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("\(resources[resource] ?? 0)")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                            Text(resource.name)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
             }
-        )
-        .onChange(of: gameManager.currentTurn) { _ in
-            if winner != nil {
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                    showVictoryScreen = true
+            .padding(.horizontal)
+        }
+        .padding(.vertical, 12)
+        .background(Color(NSColor.windowBackgroundColor))
+        .shadow(radius: 2)
+    }
+
+    // MARK: - Strategic Map
+
+    var strategicMapView: some View {
+        GeometryReader { geometry in
+            ZStack {
+                // Background
+                Color(NSColor.controlBackgroundColor).opacity(0.3)
+
+                // Draw connections between villages
+                ForEach(gameManager.map.villages, id: \.id) { village in
+                    ForEach(gameManager.map.villages.filter { $0.id != village.id }, id: \.id) { other in
+                        Path { path in
+                            let from = villagePosition(village, in: geometry.size)
+                            let to = villagePosition(other, in: geometry.size)
+                            path.move(to: from)
+                            path.addLine(to: to)
+                        }
+                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                    }
+                }
+
+                // Draw marching armies
+                ForEach(gameManager.armies.filter { $0.isMarching }, id: \.id) { army in
+                    if let originID = army.origin,
+                       let destID = army.destination,
+                       let origin = gameManager.map.villages.first(where: { $0.id == originID }),
+                       let destination = gameManager.map.villages.first(where: { $0.id == destID }) {
+                        let fromPos = villagePosition(origin, in: geometry.size)
+                        let toPos = villagePosition(destination, in: geometry.size)
+                        let progress = calculateMarchProgress(army: army, from: origin, to: destination)
+                        let currentPos = CGPoint(
+                            x: fromPos.x + (toPos.x - fromPos.x) * progress,
+                            y: fromPos.y + (toPos.y - fromPos.y) * progress
+                        )
+
+                        MarchingArmyView(army: army, isSelected: selectedArmy?.id == army.id)
+                            .position(currentPos)
+                            .onTapGesture {
+                                selectedArmy = army
+                                selectedVillage = nil
+                            }
+                    }
+                }
+
+                // Draw villages
+                ForEach(gameManager.map.villages, id: \.id) { village in
+                    VillageNodeView(
+                        village: village,
+                        isSelected: selectedVillage?.id == village.id,
+                        armyCount: gameManager.getArmiesAt(villageID: village.id).filter { $0.owner == village.owner }.first?.unitCount ?? 0
+                    )
+                    .position(villagePosition(village, in: geometry.size))
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.3)) {
+                            selectedVillage = village
+                            selectedArmy = nil
+                        }
+                    }
                 }
             }
         }
     }
 
-    var sidePanelContent: some View {
-        VStack(spacing: 0) {
-            // Panel Header
-            HStack {
-                Text(selectedVillage?.name ?? "Your Empire")
-                    .font(.headline)
-                    .fontWeight(.bold)
-                Spacer()
-                Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        showSidePanel = false
-                    }
-                }) {
-                    Image(systemName: "sidebar.right")
-                        .font(.title3)
+    func villagePosition(_ village: Village, in size: CGSize) -> CGPoint {
+        let mapWidth = CGFloat(gameManager.map.size.width)
+        let mapHeight = CGFloat(gameManager.map.size.height)
+        let padding: CGFloat = 60
+
+        let x = padding + (village.coordinates.x / mapWidth) * (size.width - padding * 2)
+        let y = padding + (village.coordinates.y / mapHeight) * (size.height - padding * 2)
+
+        return CGPoint(x: x, y: y)
+    }
+
+    func calculateMarchProgress(army: Army, from origin: Village, to destination: Village) -> CGFloat {
+        let totalTurns = Army.calculateTravelTime(from: origin.coordinates, to: destination.coordinates)
+        let remaining = army.turnsUntilArrival
+        return CGFloat(totalTurns - remaining) / CGFloat(totalTurns)
+    }
+
+    // MARK: - Bottom Bar
+
+    var bottomBar: some View {
+        HStack(spacing: 20) {
+            // Army summary
+            let playerArmies = gameManager.getArmiesFor(playerID: "player")
+            let totalUnits = playerArmies.reduce(0) { $0 + $1.unitCount }
+            let marchingCount = playerArmies.filter { $0.isMarching }.count
+
+            HStack(spacing: 16) {
+                Label("\(playerArmies.count) armies", systemImage: "flag.fill")
+                Label("\(totalUnits) soldiers", systemImage: "person.3.fill")
+                if marchingCount > 0 {
+                    Label("\(marchingCount) marching", systemImage: "arrow.right.circle")
+                        .foregroundColor(.orange)
                 }
+            }
+            .font(.subheadline)
+
+            Spacer()
+
+            // Next Turn Button
+            Button(action: {
+                processTurn()
+            }) {
+                HStack(spacing: 8) {
+                    Image(systemName: isProcessingTurn ? "hourglass" : "arrow.right.circle.fill")
+                        .font(.title2)
+                    Text(isProcessingTurn ? "Processing..." : "End Turn")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .background(isProcessingTurn ? Color.orange : Color.green)
+                .foregroundColor(.white)
+                .cornerRadius(12)
+            }
+            .buttonStyle(.plain)
+            .disabled(isProcessingTurn)
+        }
+        .padding()
+        .background(Color(NSColor.windowBackgroundColor))
+        .shadow(radius: 2)
+    }
+
+    func processTurn() {
+        withAnimation {
+            isProcessingTurn = true
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            gameManager.turnEngine.doTurn()
+
+            // IMPORTANT: Refresh selected village/army after turn processing
+            // The owner may have changed, or the entity may have been destroyed
+            refreshSelection()
+
+            withAnimation {
+                isProcessingTurn = false
+                // Show turn summary if there are events
+                if !gameManager.turnEvents.isEmpty {
+                    showTurnSummary = true
+                }
+            }
+
+            // Force UI refresh
+            gameManager.objectWillChange.send()
+        }
+    }
+
+    func refreshSelection() {
+        // Refresh selected village from current game state
+        if let village = selectedVillage {
+            // Find the village by ID in current map state
+            if let updatedVillage = gameManager.map.villages.first(where: { $0.id == village.id }) {
+                selectedVillage = updatedVillage
+            } else {
+                // Village was destroyed
+                selectedVillage = nil
+            }
+        }
+
+        // Refresh selected army
+        if let army = selectedArmy {
+            if let updatedArmy = gameManager.armies.first(where: { $0.id == army.id }) {
+                selectedArmy = updatedArmy
+            } else {
+                // Army was destroyed
+                selectedArmy = nil
+            }
+        }
+    }
+
+    // MARK: - Context Panel
+
+    var contextPanel: some View {
+        VStack(spacing: 0) {
+            // Panel header
+            HStack {
+                if let village = selectedVillage {
+                    Text(village.name)
+                        .font(.headline)
+                } else if let army = selectedArmy {
+                    Text(army.name)
+                        .font(.headline)
+                } else {
+                    Text("Select a village")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
             }
             .padding()
             .background(Color(NSColor.windowBackgroundColor))
 
             Divider()
 
-            // Panel Content
-            if let village = selectedVillage {
-                ScrollView {
-                    VillageDetailPanel(village: village, onUpdate: {
-                        // Refresh village
-                        if let coords = selectedVillage?.coordinates {
-                            selectedVillage = gameManager.map.getVillageAt(
-                                x: Int(coords.x),
-                                y: Int(coords.y)
-                            )
+            // Panel content
+            ScrollView {
+                if let village = selectedVillage {
+                    VillagePanel(
+                        village: village,
+                        onSendArmy: { army, destination in
+                            _ = gameManager.sendArmy(armyID: army.id, to: destination.id)
+                            // Refresh selection
+                            if let coords = selectedVillage?.coordinates {
+                                selectedVillage = gameManager.map.getVillageAt(x: Int(coords.x), y: Int(coords.y))
+                            }
+                        },
+                        onUpdate: {
+                            // Refresh village data
+                            if let id = selectedVillage?.id {
+                                selectedVillage = gameManager.map.villages.first { $0.id == id }
+                            }
                         }
-                    })
-                }
-            } else {
-                // Show all player units when no village selected
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        // Player Units Section
-                        playerUnitsSection
-
-                        Divider()
-
-                        // Quick village list
-                        playerVillagesSection
-                    }
-                    .padding()
+                    )
+                } else if let army = selectedArmy {
+                    ArmyPanel(army: army)
+                } else {
+                    EmpireOverviewPanel()
                 }
             }
         }
         .background(Color(NSColor.controlBackgroundColor))
     }
+}
 
-    var playerUnitsSection: some View {
-        let playerUnits = gameManager.map.units.filter { $0.owner == "player" }
+// MARK: - Village Node View
+
+struct VillageNodeView: View {
+    let village: Village
+    let isSelected: Bool
+    let armyCount: Int
+
+    var body: some View {
+        ZStack {
+            // Selection ring
+            if isSelected {
+                Circle()
+                    .stroke(Color.blue, lineWidth: 3)
+                    .frame(width: 70, height: 70)
+            }
+
+            // Village circle
+            Circle()
+                .fill(villageColor)
+                .frame(width: 60, height: 60)
+                .shadow(radius: isSelected ? 8 : 4)
+
+            // Flag
+            Text(village.nationality.flag)
+                .font(.title)
+
+            // Army indicator
+            if armyCount > 0 {
+                Text("\(armyCount)")
+                    .font(.caption2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .padding(4)
+                    .background(Color.red)
+                    .clipShape(Circle())
+                    .offset(x: 22, y: -22)
+            }
+
+            // Village name
+            Text(village.name)
+                .font(.caption)
+                .fontWeight(.medium)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color(NSColor.windowBackgroundColor).opacity(0.9))
+                .cornerRadius(4)
+                .offset(y: 45)
+        }
+    }
+
+    var villageColor: Color {
+        if village.owner == "player" {
+            return Color.green
+        } else {
+            return Color.red
+        }
+    }
+}
+
+// MARK: - Marching Army View
+
+struct MarchingArmyView: View {
+    let army: Army
+    let isSelected: Bool
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(army.owner == "player" ? Color.blue : Color.red)
+                .frame(width: 30, height: 30)
+                .shadow(radius: isSelected ? 6 : 3)
+
+            Text(army.emoji)
+                .font(.caption)
+
+            // Unit count
+            Text("\(army.unitCount)")
+                .font(.system(size: 8, weight: .bold))
+                .foregroundColor(.white)
+                .padding(2)
+                .background(Color.black.opacity(0.7))
+                .clipShape(Circle())
+                .offset(x: 12, y: -12)
+        }
+    }
+}
+
+// MARK: - Village Panel
+
+struct VillagePanel: View {
+    let village: Village
+    let onSendArmy: (Army, Village) -> Void
+    let onUpdate: () -> Void
+
+    @State private var showBuild = false
+    @State private var showRecruit = false
+    @State private var showSendArmy = false
+
+    var isPlayerVillage: Bool {
+        village.owner == "player"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Village info
+            HStack {
+                Text(village.nationality.flag)
+                    .font(.largeTitle)
+                VStack(alignment: .leading) {
+                    Text(village.level.displayName)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    HStack {
+                        Label("\(village.population)", systemImage: "person.3.fill")
+                        Label("\(village.totalHappiness)%", systemImage: "face.smiling")
+                    }
+                    .font(.caption)
+                }
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(8)
+
+            if isPlayerVillage {
+                // Buildings
+                VStack(alignment: .leading, spacing: 8) {
+                    Button(action: { showBuild.toggle() }) {
+                        HStack {
+                            Text("Buildings (\(village.buildings.count)/\(village.maxBuildings))")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Spacer()
+                            Image(systemName: showBuild ? "chevron.up" : "chevron.down")
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    if showBuild {
+                        BuildMenuInlineView(village: village, onUpdate: onUpdate)
+                    }
+                }
+
+                Divider()
+
+                // Army at village
+                armySection
+
+                Divider()
+
+                // Recruit
+                VStack(alignment: .leading, spacing: 8) {
+                    Button(action: { showRecruit.toggle() }) {
+                        HStack {
+                            Text("Recruit")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Spacer()
+                            Image(systemName: showRecruit ? "chevron.up" : "chevron.down")
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    if showRecruit {
+                        RecruitMenuInlineView(village: village, onUpdate: onUpdate)
+                    }
+                }
+            } else {
+                // Enemy village info
+                enemyVillageInfo
+            }
+        }
+        .padding()
+    }
+
+    var armySection: some View {
+        let armies = GameManager.shared.getArmiesAt(villageID: village.id).filter { $0.owner == "player" }
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Your Units")
-                    .font(.caption)
+                Text("Army")
+                    .font(.subheadline)
                     .fontWeight(.semibold)
                 Spacer()
-                Text("\(playerUnits.count)")
+                let totalUnits = armies.reduce(0) { $0 + $1.unitCount }
+                Text("\(totalUnits) soldiers")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
 
-            if playerUnits.isEmpty {
-                Text("No units recruited yet.\nBuild a Barracks and recruit soldiers!")
-                    .font(.caption2)
+            if armies.isEmpty {
+                Text("No army stationed here")
+                    .font(.caption)
                     .foregroundColor(.secondary)
                     .italic()
             } else {
-                ForEach(playerUnits) { unit in
-                    HStack(spacing: 8) {
-                        Text(unit.unitType.emoji)
-                            .font(.title3)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(unit.name)
-                                .font(.caption)
-                                .fontWeight(.medium)
-                            HStack(spacing: 6) {
-                                HStack(spacing: 2) {
-                                    Image(systemName: "heart.fill").font(.system(size: 8)).foregroundColor(.red)
-                                    Text("\(unit.currentHP)/\(unit.maxHP)").font(.system(size: 9))
-                                }
-                                HStack(spacing: 2) {
-                                    Image(systemName: "figure.walk").font(.system(size: 8)).foregroundColor(.blue)
-                                    Text("\(unit.movementRemaining)/\(unit.movement)").font(.system(size: 9))
-                                }
-                            }
-                            .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                        Text("(\(Int(unit.coordinates.x)),\(Int(unit.coordinates.y)))")
-                            .font(.system(size: 9))
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(6)
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .cornerRadius(6)
-                }
-            }
-        }
-    }
-
-    var playerVillagesSection: some View {
-        let playerVillages = gameManager.getPlayerVillages(playerID: "player")
-
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Your Villages")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                Spacer()
-                Text("\(playerVillages.count)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            ForEach(playerVillages, id: \.id) { village in
-                Button(action: {
-                    selectedVillage = village
-                }) {
-                    HStack(spacing: 8) {
-                        Text(village.nationality.flag)
-                            .font(.title3)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(village.name)
-                                .font(.caption)
-                                .fontWeight(.medium)
-                            Text("\(village.population) pop • \(village.buildings.count) buildings")
-                                .font(.system(size: 9))
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                    }
-                    .padding(6)
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .cornerRadius(6)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    var topBar: some View {
-        VStack(spacing: 8) {
-            HStack {
-                Text("Turn \(gameManager.currentTurn)")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.blue)
-                    .cornerRadius(8)
-
-                Spacer()
-
-                let enemyVillages = gameManager.map.villages.filter { $0.owner != "player" }
-                VStack(spacing: 2) {
-                    Text("🎯 Conquer all enemy villages")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                    Text("Enemies: \(enemyVillages.count) remaining")
-                        .font(.caption2)
-                        .foregroundColor(enemyVillages.isEmpty ? .green : .orange)
-                }
-
-                Spacer()
-
-                Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        showSidePanel.toggle()
-                    }
-                }) {
-                    Image(systemName: showSidePanel ? "sidebar.right" : "sidebar.left")
-                        .font(.title2)
-                }
-            }
-            .padding(.horizontal)
-
-            // Resources
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
-                    let globalResources = gameManager.getGlobalResources(playerID: "player")
-                    ForEach(Resource.getAll(), id: \.self) { resource in
-                        ResourceBadge(resource: resource, amount: globalResources[resource] ?? 0)
-                    }
-                }
-                .padding(.horizontal)
-            }
-
-            // Stats
-            HStack(spacing: 20) {
-                let playerVillages = gameManager.getPlayerVillages(playerID: "player")
-                let totalPop = playerVillages.reduce(0) { $0 + $1.population }
-                let avgHappiness = playerVillages.isEmpty ? 0 : playerVillages.reduce(0) { $0 + $1.totalHappiness } / playerVillages.count
-                let playerUnits = gameManager.map.units.filter { $0.owner == "player" }
-
-                Label("\(totalPop)", systemImage: "person.3.fill")
-                Label("\(avgHappiness)%", systemImage: happinessIcon(for: avgHappiness))
-                Label("\(playerVillages.count) Villages", systemImage: "house.fill")
-                Label("\(playerUnits.count) Units", systemImage: "figure.walk")
-            }
-            .font(.caption)
-            .foregroundColor(.secondary)
-        }
-        .padding(.vertical, 8)
-        .background(Color(NSColor.windowBackgroundColor))
-        .shadow(radius: 2)
-    }
-
-    var bottomBar: some View {
-        HStack(spacing: 16) {
-            Button(action: {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                    isProcessingTurn = true
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    gameManager.turnEngine.doTurn()
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                        isProcessingTurn = false
-                    }
-                }
-            }) {
-                HStack {
-                    Image(systemName: isProcessingTurn ? "hourglass" : "arrow.right.circle.fill")
-                        .font(.title2)
-                    Text(isProcessingTurn ? "Processing..." : "Next Turn")
-                        .fontWeight(.semibold)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .background(isProcessingTurn ? Color.orange : Color.green)
-                .foregroundColor(.white)
-                .cornerRadius(10)
-            }
-            .disabled(isProcessingTurn)
-
-            Spacer()
-        }
-        .padding()
-        .background(Color(NSColor.windowBackgroundColor))
-        .shadow(radius: 2)
-    }
-
-    func happinessIcon(for happiness: Int) -> String {
-        if happiness >= 80 { return "face.smiling.fill" }
-        if happiness >= 50 { return "face.smiling" }
-        return "face.dashed.fill"
-    }
-}
-
-// Simplified village detail panel (not a modal)
-struct VillageDetailPanel: View {
-    let village: Village
-    let onUpdate: () -> Void
-    @State private var showBuildSection = true
-    @State private var showRecruitSection = true
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Village Info
-            villageHeader
-
-            Divider()
-
-            // Resources
-            resourcesSection
-
-            Divider()
-
-            // Buildings
-            buildingsSection
-
-            Divider()
-
-            // Build Section
-            buildSection
-
-            Divider()
-
-            // Recruit Section
-            recruitSection
-        }
-        .padding()
-    }
-
-    var villageHeader: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(village.nationality.flag).font(.title2)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(village.name).font(.subheadline).fontWeight(.bold)
-                    Text(village.level.displayName).font(.caption2).foregroundColor(.secondary)
-                }
-            }
-
-            HStack(spacing: 12) {
-                CompactStat(icon: "person.3.fill", value: "\(village.population)/\(village.populationCapacity)")
-                CompactStat(icon: "face.smiling", value: "\(village.totalHappiness)%")
-                CompactStat(icon: "shield.fill", value: "+\(Int(village.defenseBonus * 100))%")
-            }
-        }
-    }
-
-    var resourcesSection: some View {
-        let globalResources = GameManager.shared.getGlobalResources(playerID: village.owner)
-        return VStack(alignment: .leading, spacing: 4) {
-            Text("Resources").font(.caption).fontWeight(.semibold)
-            HStack(spacing: 8) {
-                ForEach(Resource.getAll(), id: \.self) { resource in
-                    HStack(spacing: 2) {
-                        Text(resource.emoji).font(.caption2)
-                        Text("\(globalResources[resource] ?? 0)").font(.caption2).fontWeight(.medium)
-                    }
-                }
-            }
-        }
-    }
-
-    var buildingsSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("Buildings").font(.caption).fontWeight(.semibold)
-                let upgradeableCount = village.buildings.filter { building in
-                    BuildingConstructionEngine().canUpgradeBuilding(building, in: village).can
-                }.count
-                if upgradeableCount > 0 {
-                    Text("\(upgradeableCount) upgradeable")
-                        .font(.caption2)
-                        .foregroundColor(.green)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(Color.green.opacity(0.2))
-                        .cornerRadius(4)
-                }
-                Spacer()
-                Text("\(village.buildings.count)/\(village.maxBuildings)").font(.caption2).foregroundColor(.secondary)
-            }
-
-            if village.buildings.isEmpty {
-                Text("No buildings yet").foregroundColor(.secondary).italic().font(.caption2)
-            } else {
-                ForEach(village.buildings) { building in
-                    BuildingCardSimple(building: building, village: village, onUpgrade: { buildingID in
-                        var mutableVillage = village
-                        let engine = BuildingConstructionEngine()
-                        if engine.upgradeBuilding(buildingID: buildingID, in: &mutableVillage) {
-                            GameManager.shared.updateVillage(mutableVillage)
-                            onUpdate()
-                        }
+                ForEach(armies, id: \.id) { army in
+                    ArmyCard(army: army, onSend: {
+                        showSendArmy = true
                     })
                 }
             }
         }
-    }
-
-    var buildSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    showBuildSection.toggle()
-                }
-            }) {
-                HStack {
-                    Text("Build").font(.caption).fontWeight(.semibold)
-                    Spacer()
-                    Image(systemName: showBuildSection ? "chevron.up" : "chevron.down").font(.caption2)
-                }
-            }
-            .buttonStyle(.plain)
-
-            if showBuildSection {
-                BuildMenuInlineView(village: village, onUpdate: onUpdate)
-            }
-        }
-    }
-
-    var recruitSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    showRecruitSection.toggle()
-                }
-            }) {
-                HStack {
-                    Text("Recruit").font(.caption).fontWeight(.semibold)
-                    Spacer()
-                    Image(systemName: showRecruitSection ? "chevron.up" : "chevron.down").font(.caption2)
-                }
-            }
-            .buttonStyle(.plain)
-
-            if showRecruitSection {
-                RecruitMenuInlineView(village: village, onUpdate: onUpdate)
-            }
-        }
-    }
-}
-
-// New interactive map view (no modal sheets)
-struct MapView_Interactive: View {
-    @ObservedObject var viewModel: MapViewModel = MapViewModel(map: GameManager.shared.map)
-    @Binding var selectedVillage: Village?
-    @Binding var selectedUnit: Unit?
-    @State private var selectedUnitsForMovement: [Unit] = []
-    @State private var validMovementTiles: Set<String> = []
-    @State private var showAttackConfirmation = false
-    @State private var attackTarget: Village?
-    @State private var attackResult: String = ""
-    @State private var showAttackResult = false
-
-    var body: some View {
-        VStack(alignment: .center, spacing: 2.0) {
-            ForEach((0...self.viewModel.getMapHeight()), id: \.self) { y in
-                HStack(alignment: .center, spacing: 2.0) {
-                    ForEach((0...self.viewModel.getMapWidth()), id: \.self) { x in
-                        MapTile(
-                            x: x,
-                            y: y,
-                            viewModel: viewModel,
-                            isSelected: isSelectedTile(x: x, y: y),
-                            isValidMove: validMovementTiles.contains("\(x),\(y)"),
-                            onTap: {
-                                handleTileTap(x: x, y: y)
-                            }
-                        )
+        .sheet(isPresented: $showSendArmy) {
+            if let army = armies.first {
+                SendArmySheet(
+                    army: army,
+                    currentVillage: village,
+                    onSend: { destination in
+                        onSendArmy(army, destination)
+                        showSendArmy = false
                     }
-                }
-            }
-        }
-        .alert("Attack Village?", isPresented: $showAttackConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Attack", role: .destructive) {
-                executeAttack()
-            }
-        } message: {
-            if let target = attackTarget {
-                Text("Attack \(target.name)?")
-            }
-        }
-        .alert("Battle Result", isPresented: $showAttackResult) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(attackResult)
-        }
-    }
-
-    func handleTileTap(x: Int, y: Int) {
-        let destination = CGPoint(x: x, y: y)
-
-        // 1. If units are already selected → try to move/attack
-        if !selectedUnitsForMovement.isEmpty {
-            // Check if destination is a valid move
-            if validMovementTiles.contains("\(x),\(y)") {
-                // Move ALL selected units to destination
-                var mutableMap = GameManager.shared.map
-                let movementEngine = MovementEngine()
-
-                for unit in selectedUnitsForMovement {
-                    var mutableUnit = unit
-                    _ = movementEngine.moveUnit(unit: &mutableUnit, to: destination, map: &mutableMap)
-                }
-
-                GameManager.shared.map = mutableMap
-                selectedUnitsForMovement.removeAll()
-                validMovementTiles.removeAll()
-                NotificationCenter.default.post(name: NSNotification.Name("MapUpdated"), object: nil)
-                return
-            }
-
-            // Check if tapping enemy village for attack
-            if let village = viewModel.getVillageAt(x: x, y: y), village.owner != "player" {
-                if let firstUnit = selectedUnitsForMovement.first {
-                    let unitX = Int(firstUnit.coordinates.x)
-                    let unitY = Int(firstUnit.coordinates.y)
-                    let distance = max(abs(x - unitX), abs(y - unitY))
-
-                    if distance <= 1 {
-                        attackTarget = village
-                        showAttackConfirmation = true
-                        return
-                    }
-                }
-            }
-
-            // Clear selection if tapping elsewhere
-            selectedUnitsForMovement.removeAll()
-            validMovementTiles.removeAll()
-        }
-
-        // 2. Check for player units on this tile FIRST (priority over village)
-        let units = viewModel.getUnitsAt(x: x, y: y)
-        let playerUnits = units.filter { $0.owner == "player" }
-
-        if !playerUnits.isEmpty {
-            // SELECT ALL PLAYER UNITS on this tile
-            selectedUnitsForMovement = playerUnits
-            calculateValidMovementTiles(for: playerUnits)
-            return
-        }
-
-        // 3. Only check for village if no player units
-        if let village = viewModel.getVillageAt(x: x, y: y) {
-            selectedVillage = village
-            return
-        }
-    }
-
-    func isSelectedTile(x: Int, y: Int) -> Bool {
-        guard let firstUnit = selectedUnitsForMovement.first else { return false }
-        return Int(firstUnit.coordinates.x) == x && Int(firstUnit.coordinates.y) == y
-    }
-
-    func calculateValidMovementTiles(for units: [Unit]) {
-        validMovementTiles.removeAll()
-        guard let firstUnit = units.first else { return }
-
-        let movementEngine = MovementEngine()
-        // Use minimum movement among all selected units
-        let minMovement = units.map { $0.movementRemaining }.min() ?? 0
-        let unitX = Int(firstUnit.coordinates.x)
-        let unitY = Int(firstUnit.coordinates.y)
-
-        for dx in -minMovement...minMovement {
-            for dy in -minMovement...minMovement {
-                let x = unitX + dx
-                let y = unitY + dy
-                if dx == 0 && dy == 0 { continue }
-                let destination = CGPoint(x: x, y: y)
-                // Check if ALL units can move there
-                let allCanMove = units.allSatisfy { unit in
-                    movementEngine.canMoveTo(unit: unit, destination: destination, map: GameManager.shared.map).can
-                }
-                if allCanMove {
-                    validMovementTiles.insert("\(x),\(y)")
-                }
+                )
             }
         }
     }
 
-    func executeAttack() {
-        guard let target = attackTarget,
-              let firstUnit = selectedUnitsForMovement.first else {
-            return
-        }
+    var enemyVillageInfo: some View {
+        let defenderArmies = GameManager.shared.getArmiesAt(villageID: village.id).filter { $0.owner == village.owner }
+        let totalDefenders = defenderArmies.reduce(0) { $0 + $1.unitCount }
+        let armyStrength = defenderArmies.reduce(0) { $0 + $1.strength }
 
-        var attackers = GameManager.shared.map.getUnitsAt(point: firstUnit.coordinates)
-            .filter { $0.owner == "player" }
-        var defenders = GameManager.shared.map.getUnitsAt(point: target.coordinates)
-            .filter { $0.owner == target.owner }
+        // Calculate garrison strength (same formula as CombatEngine)
+        let popDefense = village.population / 10
+        let levelBonus: Double = {
+            switch village.level {
+            case .village: return 1.0
+            case .town: return 1.5
+            case .district: return 2.0
+            case .castle: return 3.0
+            case .city: return 4.0
+            }
+        }()
+        let garrisonStrength = max(Int(Double(popDefense) * levelBonus * (1.0 + village.defenseBonus)), 10)
+        let totalStrength = armyStrength + garrisonStrength
 
-        let combatEngine = CombatEngine()
-        let result = combatEngine.resolveCombat(
-            attackers: &attackers,
-            defenders: &defenders,
-            location: target.coordinates,
-            map: GameManager.shared.map,
-            defendingVillage: target
-        )
+        return VStack(alignment: .leading, spacing: 8) {
+            Label("Enemy Village", systemImage: "exclamationmark.triangle.fill")
+                .font(.subheadline)
+                .foregroundColor(.red)
 
-        for attacker in attackers {
-            GameManager.shared.map.updateUnit(attacker)
-        }
-        for defender in defenders {
-            GameManager.shared.map.updateUnit(defender)
-        }
+            Divider()
 
-        if result.attackerWon && defenders.isEmpty {
-            var mutableTarget = target
-            mutableTarget.owner = "player"
-            mutableTarget.population = Int(Double(mutableTarget.population) * 0.7)
-            mutableTarget.happiness -= 30
-            GameManager.shared.updateVillage(mutableTarget)
-            attackResult = "🎉 \(target.name) conquered!\nLost: \(result.attackerCasualties), Killed: \(result.defenderCasualties)"
-        } else if result.attackerWon {
-            attackResult = "✅ Victory!\nLost: \(result.attackerCasualties), Killed: \(result.defenderCasualties)"
-        } else {
-            attackResult = "❌ Defeat!\nLost: \(result.attackerCasualties), Killed: \(result.defenderCasualties)"
-        }
+            HStack {
+                Text("Army:")
+                Spacer()
+                if totalDefenders > 0 {
+                    Text("\(totalDefenders) soldiers (str: \(armyStrength))")
+                        .fontWeight(.medium)
+                } else {
+                    Text("None")
+                        .foregroundColor(.secondary)
+                }
+            }
+            .font(.caption)
 
-        selectedUnitsForMovement.removeAll()
-        validMovementTiles.removeAll()
-        attackTarget = nil
-        showAttackResult = true
-        NotificationCenter.default.post(name: NSNotification.Name("MapUpdated"), object: nil)
-    }
-}
+            HStack {
+                Text("Garrison:")
+                Spacer()
+                Text("\(garrisonStrength) (from \(village.population) pop)")
+                    .fontWeight(.medium)
+            }
+            .font(.caption)
 
-struct ResourceBadge: View {
-    let resource: Resource
-    let amount: Int
-    @State private var previousAmount: Int = 0
-    @State private var isChanged = false
+            HStack {
+                Text("Defense Bonus:")
+                Spacer()
+                Text("+\(Int(village.defenseBonus * 100))%")
+                    .fontWeight(.medium)
+            }
+            .font(.caption)
 
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(resource.emoji)
-                .font(.title3)
-            Text("\(amount)")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundColor(isChanged ? (amount > previousAmount ? .green : .red) : .primary)
-                .animation(.easeInOut(duration: 0.3), value: isChanged)
-            Text(resource.name)
+            Divider()
+
+            HStack {
+                Text("Total Defense:")
+                Spacer()
+                Text("\(totalStrength)")
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.red)
+            }
+
+            Text("You need ~\(Int(Double(totalStrength) * 1.5)) attack strength to win")
                 .font(.caption2)
                 .foregroundColor(.secondary)
+                .italic()
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Color(NSColor.controlBackgroundColor))
+        .padding()
+        .background(Color.red.opacity(0.1))
         .cornerRadius(8)
-        .scaleEffect(isChanged ? 1.1 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isChanged)
-        .onChange(of: amount) { newAmount in
-            if previousAmount != 0 && newAmount != previousAmount {
-                withAnimation {
-                    isChanged = true
-                }
-
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    withAnimation {
-                        isChanged = false
-                    }
-                }
-            }
-            previousAmount = newAmount
-        }
-        .onAppear {
-            previousAmount = amount
-        }
     }
 }
 
-struct TutorialOverlay: View {
+// MARK: - Army Card
+
+struct ArmyCard: View {
+    let army: Army
+    let onSend: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(army.emoji)
+                    .font(.title2)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(army.name)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Text("\(army.unitCount) soldiers")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                Button("Send") {
+                    onSend()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+
+            // Combat stats
+            HStack(spacing: 12) {
+                Label("\(army.totalAttack)", systemImage: "burst.fill")
+                    .foregroundColor(.orange)
+                Label("\(army.totalDefense)", systemImage: "shield.fill")
+                    .foregroundColor(.blue)
+                Spacer()
+                Text("Strength: \(army.strength)")
+                    .fontWeight(.bold)
+                    .foregroundColor(.green)
+            }
+            .font(.caption)
+        }
+        .padding(10)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(8)
+    }
+}
+
+// MARK: - Army Panel (for selected marching armies)
+
+struct ArmyPanel: View {
+    let army: Army
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Army info
+            HStack {
+                Text(army.emoji)
+                    .font(.largeTitle)
+                VStack(alignment: .leading) {
+                    Text(army.name)
+                        .font(.headline)
+                    Text("\(army.unitCount) soldiers")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            if army.isMarching {
+                // Marching status
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Marching", systemImage: "arrow.right.circle")
+                        .font(.subheadline)
+                        .foregroundColor(.orange)
+
+                    if let destID = army.destination,
+                       let dest = GameManager.shared.map.villages.first(where: { $0.id == destID }) {
+                        HStack {
+                            Text("Destination:")
+                            Spacer()
+                            Text(dest.name)
+                                .fontWeight(.medium)
+                        }
+
+                        HStack {
+                            Text("Arrives in:")
+                            Spacer()
+                            Text("\(army.turnsUntilArrival) turns")
+                                .fontWeight(.medium)
+                                .foregroundColor(.orange)
+                        }
+                    }
+                }
+                .font(.caption)
+                .padding()
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
+            }
+
+            // Unit breakdown
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Unit Composition")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                let grouped = Dictionary(grouping: army.units, by: { $0.unitType })
+                ForEach(Array(grouped.keys), id: \.self) { type in
+                    HStack {
+                        Text(type.emoji)
+                        Text(type.rawValue.capitalized)
+                        Spacer()
+                        Text("×\(grouped[type]?.count ?? 0)")
+                            .fontWeight(.medium)
+                    }
+                    .font(.caption)
+                }
+            }
+
+            // Stats
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Combat Stats")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                HStack {
+                    Label("\(army.totalAttack)", systemImage: "burst.fill")
+                        .foregroundColor(.red)
+                    Label("\(army.totalDefense)", systemImage: "shield.fill")
+                        .foregroundColor(.blue)
+                    Label("\(army.totalHP)", systemImage: "heart.fill")
+                        .foregroundColor(.green)
+                }
+                .font(.caption)
+            }
+        }
+        .padding()
+    }
+}
+
+// MARK: - Empire Overview Panel
+
+struct EmpireOverviewPanel: View {
+    @ObservedObject var gameManager = GameManager.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Your Empire")
+                .font(.headline)
+
+            // Villages
+            let villages = gameManager.getPlayerVillages(playerID: "player")
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Villages (\(villages.count))")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                ForEach(villages, id: \.id) { village in
+                    HStack {
+                        Text(village.nationality.flag)
+                        Text(village.name)
+                            .font(.caption)
+                        Spacer()
+                        Text("\(village.population) pop")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+
+            Divider()
+
+            // Armies
+            let armies = gameManager.getArmiesFor(playerID: "player")
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Armies (\(armies.count))")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                if armies.isEmpty {
+                    Text("No armies yet.\nBuild a Barracks and recruit soldiers!")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .italic()
+                } else {
+                    ForEach(armies, id: \.id) { army in
+                        HStack {
+                            Text(army.emoji)
+                            Text(army.name)
+                                .font(.caption)
+                            Spacer()
+                            if army.isMarching {
+                                Text("⏳ \(army.turnsUntilArrival)t")
+                                    .font(.caption2)
+                                    .foregroundColor(.orange)
+                            } else {
+                                Text("\(army.unitCount) units")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding()
+    }
+}
+
+// MARK: - Send Army Sheet
+
+struct SendArmySheet: View {
+    let army: Army
+    let currentVillage: Village
+    let onSend: (Village) -> Void
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Send \(army.name)")
+                .font(.title2)
+                .fontWeight(.bold)
+
+            Text("Select destination:")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+
+            let targets = GameManager.shared.map.villages.filter { $0.id != currentVillage.id }
+
+            ScrollView {
+                VStack(spacing: 8) {
+                    ForEach(targets, id: \.id) { target in
+                        Button(action: {
+                            onSend(target)
+                        }) {
+                            HStack {
+                                Text(target.nationality.flag)
+                                    .font(.title2)
+
+                                VStack(alignment: .leading) {
+                                    Text(target.name)
+                                        .font(.headline)
+                                    let turns = Army.calculateTravelTime(
+                                        from: currentVillage.coordinates,
+                                        to: target.coordinates
+                                    )
+                                    Text("\(turns) turns away")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                Spacer()
+
+                                if target.owner != "player" {
+                                    Label("Enemy", systemImage: "exclamationmark.triangle.fill")
+                                        .font(.caption)
+                                        .foregroundColor(.red)
+                                } else {
+                                    Label("Friendly", systemImage: "checkmark.circle.fill")
+                                        .font(.caption)
+                                        .foregroundColor(.green)
+                                }
+                            }
+                            .padding()
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding()
+            }
+
+            Button("Cancel") {
+                dismiss()
+            }
+            .buttonStyle(.bordered)
+        }
+        .frame(width: 400, height: 500)
+        .padding()
+    }
+}
+
+// MARK: - Turn Summary Overlay
+
+struct TurnSummaryOverlay: View {
+    let events: [TurnEvent]
+    let turn: Int
     @Binding var isPresented: Bool
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.7)
+            Color.black.opacity(0.6)
                 .ignoresSafeArea()
 
             VStack(spacing: 20) {
-                Text("🎮 How to Play")
+                Text("Turn \(turn) Complete")
                     .font(.title)
                     .fontWeight(.bold)
 
-                VStack(alignment: .leading, spacing: 12) {
-                    TutorialStep(icon: "🏘️", text: "Click your green village to build and recruit")
-                    TutorialStep(icon: "🏗️", text: "Build Farms for food, Barracks for units")
-                    TutorialStep(icon: "⚔️", text: "Recruit units to defend and attack")
-                    TutorialStep(icon: "🚶", text: "Tap your units to select, then tap a green tile to move")
-                    TutorialStep(icon: "💥", text: "Move next to enemy villages (red) and tap them to attack")
-                    TutorialStep(icon: "🎯", text: "Goal: Conquer all enemy villages to win!")
-                    TutorialStep(icon: "⏭️", text: "Press 'Next Turn' when ready")
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Important events first
+                        let important = events.filter { $0.isImportant }
+                        if !important.isEmpty {
+                            Text("Important")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.red)
+
+                            ForEach(important) { event in
+                                EventRow(event: event)
+                            }
+                        }
+
+                        // Other events
+                        let other = events.filter { !$0.isImportant }
+                        if !other.isEmpty {
+                            Text("Events")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+
+                            ForEach(other) { event in
+                                EventRow(event: event)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
                 }
-                .padding()
+                .frame(maxHeight: 300)
                 .background(Color(NSColor.controlBackgroundColor))
                 .cornerRadius(12)
 
                 Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation {
                         isPresented = false
                     }
                 }) {
-                    Text("Got it!")
-                        .fontWeight(.semibold)
+                    Text("Continue")
+                        .font(.headline)
                         .foregroundColor(.white)
                         .padding(.horizontal, 40)
                         .padding(.vertical, 12)
-                        .background(Color.green)
+                        .background(Color.blue)
                         .cornerRadius(10)
                 }
             }
@@ -769,93 +996,20 @@ struct TutorialOverlay: View {
     }
 }
 
-struct TutorialStep: View {
-    let icon: String
-    let text: String
+struct EventRow: View {
+    let event: TurnEvent
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Text(icon)
-                .font(.title2)
-            Text(text)
-                .font(.body)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-}
-
-struct BuildingCardSimple: View {
-    let building: Building
-    let village: Village
-    let onUpgrade: (UUID) -> Void
-
-    var body: some View {
-        let upgradeCheck = BuildingConstructionEngine().canUpgradeBuilding(building, in: village)
-        let globalResources = GameManager.shared.getGlobalResources(playerID: village.owner)
-
-        HStack(spacing: 8) {
-            Text(buildingIcon).font(.title3)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(building.name)
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                HStack(spacing: 4) {
-                    Text("L\(building.level)")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    if !building.resourcesProduction.isEmpty {
-                        ForEach(Array(building.resourcesProduction.keys), id: \.self) { resource in
-                            if let amount = building.resourcesProduction[resource] {
-                                Text("\(resource.emoji)+\(amount)")
-                                    .font(.caption2)
-                                    .foregroundColor(.green)
-                            }
-                        }
-                    }
-                }
-            }
-
+        HStack {
+            Text(event.emoji)
+                .font(.title3)
+            Text(event.message)
+                .font(.subheadline)
             Spacer()
-
-            if upgradeCheck.can {
-                Button(action: { onUpgrade(building.id) }) {
-                    VStack(spacing: 1) {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.title3)
-                            .foregroundColor(.green)
-                        HStack(spacing: 2) {
-                            ForEach(Array(upgradeCheck.cost.keys.prefix(2)), id: \.self) { resource in
-                                if let cost = upgradeCheck.cost[resource] {
-                                    let has = globalResources[resource] ?? 0
-                                    Text("\(resource.emoji)\(cost)")
-                                        .font(.system(size: 8))
-                                        .foregroundColor(has >= cost ? .secondary : .red)
-                                }
-                            }
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-            }
         }
-        .padding(6)
-        .background(Color(NSColor.controlBackgroundColor))
+        .padding(8)
+        .background(event.isImportant ? Color.red.opacity(0.1) : Color.clear)
         .cornerRadius(6)
     }
-
-    var buildingIcon: String {
-        switch building.name {
-        case "Farm": return "🌾"
-        case "Lumber Mill": return "🪵"
-        case "Mine": return "⛏️"
-        case "Barracks": return "⚔️"
-        case "Archery Range": return "🏹"
-        case "Walls": return "🏰"
-        case "Market": return "🏪"
-        case "Tavern": return "🍺"
-        case "Town Hall": return "🏛️"
-        default: return "🏠"
-        }
-    }
 }
+
