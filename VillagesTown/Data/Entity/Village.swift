@@ -27,6 +27,27 @@ struct Village: Entity, ResourceHolder, TreasuryHolder {
     // GARRISON SYSTEM - non-movable defensive units that auto-recover
     var garrisonStrength: Int = 5  // Current garrison strength
     var garrisonMaxStrength: Int = 10  // Max garrison based on buildings
+    var underSiege: Bool = false  // True if attacked this turn - prevents regen
+
+    // MOBILIZATION CAP - limits recruits per turn
+    var recruitsThisTurn: Int = 0
+
+    // Computed max based on buildings
+    var maxRecruitsPerTurn: Int {
+        var cap = 3  // Base cap
+
+        // Barracks increases cap
+        if let barracks = buildings.first(where: { $0.name == "Barracks" }) {
+            cap += barracks.level  // +1 per barracks level
+        }
+
+        // Archery Range also helps
+        if buildings.contains(where: { $0.name == "Archery Range" }) {
+            cap += 1
+        }
+
+        return cap
+    }
 
     init(name: String, nationality: Nationality, coordinates: CGPoint, owner: String) {
         self.name = name
@@ -169,6 +190,12 @@ struct Village: Entity, ResourceHolder, TreasuryHolder {
     }
 
     mutating func regenerateGarrison() {
+        // NO regeneration if under siege!
+        if underSiege {
+            underSiege = false  // Reset for next turn
+            return
+        }
+
         // Garrison recovers 1-3 per turn based on buildings
         var recovery = 1
 

@@ -268,14 +268,23 @@ struct GameView: View {
 
     // MARK: - Strategic Map
 
+    // FOG OF WAR: Get visible villages and armies
+    var visibleVillages: [Village] {
+        gameManager.getVisibleVillages(for: "player")
+    }
+
+    var visibleArmies: [Army] {
+        gameManager.getVisibleArmies(for: "player")
+    }
+
     var strategicMapView: some View {
         GeometryReader { geometry in
             ZStack {
                 // Terrain-like background
                 MapBackgroundView()
 
-                // Draw army movement paths (dashed lines)
-                ForEach(gameManager.armies.filter { $0.isMarching }, id: \.id) { army in
+                // Draw army movement paths (dashed lines) - ONLY FOR VISIBLE ARMIES
+                ForEach(visibleArmies.filter { $0.isMarching }, id: \.id) { army in
                     if let originID = army.origin,
                        let destID = army.destination,
                        let origin = gameManager.map.villages.first(where: { $0.id == originID }),
@@ -289,9 +298,11 @@ struct GameView: View {
                     }
                 }
 
-                // Draw subtle connections between villages
-                ForEach(gameManager.map.villages, id: \.id) { village in
-                    ForEach(getConnectedVillages(for: village), id: \.id) { other in
+                // Draw subtle connections between VISIBLE villages only
+                ForEach(visibleVillages, id: \.id) { village in
+                    ForEach(getConnectedVillages(for: village).filter { other in
+                        visibleVillages.contains { $0.id == other.id }
+                    }, id: \.id) { other in
                         Path { path in
                             let from = villagePosition(village, in: geometry.size)
                             let to = villagePosition(other, in: geometry.size)
@@ -305,8 +316,16 @@ struct GameView: View {
                     }
                 }
 
-                // Draw marching armies
-                ForEach(gameManager.armies.filter { $0.isMarching }, id: \.id) { army in
+                // Draw HIDDEN villages (fog markers)
+                ForEach(gameManager.map.villages.filter { village in
+                    !visibleVillages.contains { $0.id == village.id }
+                }, id: \.id) { village in
+                    FoggedVillageView()
+                        .position(villagePosition(village, in: geometry.size))
+                }
+
+                // Draw marching armies - ONLY VISIBLE
+                ForEach(visibleArmies.filter { $0.isMarching }, id: \.id) { army in
                     if let originID = army.origin,
                        let destID = army.destination,
                        let origin = gameManager.map.villages.first(where: { $0.id == originID }),
@@ -334,10 +353,11 @@ struct GameView: View {
                     }
                 }
 
-                // Draw villages
-                ForEach(gameManager.map.villages, id: \.id) { village in
+                // Draw VISIBLE villages
+                ForEach(visibleVillages, id: \.id) { village in
                     let armies = gameManager.getArmiesAt(villageID: village.id).filter { $0.owner == village.owner }
                     let armyStrength = armies.reduce(0) { $0 + $1.strength }
+                    let allUnits = armies.flatMap { $0.units }
 
                     VillageNodeView(
                         village: village,
@@ -345,6 +365,7 @@ struct GameView: View {
                         isHovered: hoveredVillage?.id == village.id,
                         armyCount: armies.first?.unitCount ?? 0,
                         armyStrength: armyStrength,
+                        unitComposition: allUnits,
                         hasIncomingThreat: hasIncomingThreat(to: village)
                     )
                     .position(villagePosition(village, in: geometry.size))
@@ -647,6 +668,35 @@ struct GameView: View {
 
 // MARK: - Supporting Views
 
+// MARK: - Fogged Village (hidden by fog of war)
+
+struct FoggedVillageView: View {
+    @State private var pulse = false
+
+    var body: some View {
+        ZStack {
+            // Fog circle
+            Circle()
+                .fill(Color.gray.opacity(0.2))
+                .frame(width: 50, height: 50)
+                .blur(radius: 8)
+
+            // Mystery marker
+            Circle()
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 40, height: 40)
+
+            Text("?")
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(.white.opacity(0.4))
+        }
+        .opacity(pulse ? 0.6 : 0.8)
+        .animation(.easeInOut(duration: 2).repeatForever(autoreverses: true), value: pulse)
+        .onAppear { pulse = true }
+    }
+}
+
 struct MapBackgroundView: View {
     var body: some View {
         ZStack {
@@ -873,9 +923,17 @@ struct VillageNodeView: View {
     let isHovered: Bool
     let armyCount: Int
     let armyStrength: Int
+    let unitComposition: [Unit]
     let hasIncomingThreat: Bool
 
     @State private var pulseAnimation = false
+
+    // Group units by type for display
+    var unitGroups: [(type: Unit.UnitType, count: Int)] {
+        let grouped = Dictionary(grouping: unitComposition, by: { $0.unitType })
+        return grouped.map { (type: $0.key, count: $0.value.count) }
+            .sorted { $0.count > $1.count }  // Sort by count descending
+    }
 
     var ownerColor: Color {
         switch village.owner {
@@ -990,22 +1048,34 @@ struct VillageNodeView: View {
             .cornerRadius(8)
             .offset(x: -24, y: 24)
 
-            // Army indicator (top right)
+            // Army indicator (top right) - shows unit composition
             if armyCount > 0 {
-                HStack(spacing: 2) {
-                    Image(systemName: "person.3.fill")
-                        .font(.system(size: 8))
-                    Text("\(armyCount)")
-                        .font(.system(size: 10, weight: .bold))
+                HStack(spacing: 3) {
+                    // Show up to 3 unit type emojis
+                    ForEach(unitGroups.prefix(3), id: \.type) { group in
+                        HStack(spacing: 1) {
+                            Text(group.type.emoji)
+                                .font(.system(size: 9))
+                            if group.count > 1 {
+                                Text("\(group.count)")
+                                    .font(.system(size: 7, weight: .bold))
+                            }
+                        }
+                    }
+                    // If more than 3 types, show +
+                    if unitGroups.count > 3 {
+                        Text("+")
+                            .font(.system(size: 8, weight: .bold))
+                    }
                 }
                 .foregroundColor(.white)
-                .padding(.horizontal, 6)
+                .padding(.horizontal, 5)
                 .padding(.vertical, 3)
                 .background(
                     Capsule()
                         .fill(Color.blue)
                 )
-                .offset(x: 26, y: -26)
+                .offset(x: 30, y: -26)
             }
 
             // Village name + owner label
@@ -1048,6 +1118,13 @@ struct MarchingArmyView: View {
         }
     }
 
+    // Group units by type for display
+    var unitGroups: [(type: Unit.UnitType, count: Int)] {
+        let grouped = Dictionary(grouping: army.units, by: { $0.unitType })
+        return grouped.map { (type: $0.key, count: $0.value.count) }
+            .sorted { $0.count > $1.count }
+    }
+
     var body: some View {
         ZStack {
             // Selection ring
@@ -1075,19 +1152,18 @@ struct MarchingArmyView: View {
                 .frame(width: 36, height: 36)
                 .shadow(color: ownerColor.opacity(0.5), radius: 6)
 
-            // Army emoji
-            Text(army.emoji)
-                .font(.system(size: 16))
-
-            // Unit count badge
-            Text("\(army.unitCount)")
-                .font(.system(size: 9, weight: .bold))
-                .foregroundColor(.white)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(Color.black.opacity(0.7))
-                .cornerRadius(8)
-                .offset(x: 18, y: -16)
+            // Unit composition icons (top of circle)
+            HStack(spacing: 2) {
+                ForEach(unitGroups.prefix(3), id: \.type) { group in
+                    Text(group.type.emoji)
+                        .font(.system(size: 8))
+                }
+            }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(Color.black.opacity(0.7))
+            .cornerRadius(6)
+            .offset(y: -24)
 
             // Turns remaining
             Text("\(turnsRemaining)t")
@@ -1267,7 +1343,7 @@ struct VillagePanel: View {
                 .fontWeight(.bold)
                 .foregroundColor(.secondary)
 
-            // ONE-CLICK BUILD BUTTONS
+            // ONE-CLICK BUILD BUTTONS - Row 1: Economy
             HStack(spacing: 8) {
                 QuickBuildButton(
                     icon: "🌾",
@@ -1284,11 +1360,11 @@ struct VillagePanel: View {
                     onBuild: { quickBuild(Building.ironMine) }
                 )
                 QuickBuildButton(
-                    icon: "⚔️",
-                    name: "Barracks",
-                    building: Building.barracks,
+                    icon: "🪵",
+                    name: "Lumber",
+                    building: Building.lumberMill,
                     village: village,
-                    onBuild: { quickBuild(Building.barracks) }
+                    onBuild: { quickBuild(Building.lumberMill) }
                 )
                 QuickBuildButton(
                     icon: "🏪",
@@ -1299,35 +1375,115 @@ struct VillagePanel: View {
                 )
             }
 
-            // COMPACT RECRUIT ROW
+            // Row 2: Military
+            HStack(spacing: 8) {
+                QuickBuildButton(
+                    icon: "⚔️",
+                    name: "Barracks",
+                    building: Building.barracks,
+                    village: village,
+                    onBuild: { quickBuild(Building.barracks) }
+                )
+                QuickBuildButton(
+                    icon: "🏹",
+                    name: "Archery",
+                    building: Building.archeryRange,
+                    village: village,
+                    onBuild: { quickBuild(Building.archeryRange) }
+                )
+                QuickBuildButton(
+                    icon: "🐴",
+                    name: "Stables",
+                    building: Building.stables,
+                    village: village,
+                    onBuild: { quickBuild(Building.stables) }
+                )
+                QuickBuildButton(
+                    icon: "🏰",
+                    name: "Fortress",
+                    building: Building.fortress,
+                    village: village,
+                    onBuild: { quickBuild(Building.fortress) }
+                )
+            }
+
+            // COMPACT RECRUIT ROW with mobilization limit
             let hasBarracks = village.buildings.contains { $0.name == "Barracks" }
-            if hasBarracks {
-                HStack(spacing: 6) {
-                    Text("Recruit:")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+            let hasArcheryRange = village.buildings.contains { $0.name == "Archery Range" }
+            let hasStables = village.buildings.contains { $0.name == "Stables" }
+            let remainingRecruits = village.maxRecruitsPerTurn - village.recruitsThisTurn
 
-                    CompactRecruitButton(emoji: "🗡️", count: 3, unitType: .militia, village: village) {
-                        quickRecruit(.militia, quantity: 3)
-                    }
-                    CompactRecruitButton(emoji: "⚔️", count: 2, unitType: .swordsman, village: village) {
-                        quickRecruit(.swordsman, quantity: 2)
-                    }
-                    CompactRecruitButton(emoji: "🛡️", count: 2, unitType: .spearman, village: village) {
-                        quickRecruit(.spearman, quantity: 2)
-                    }
-                    CompactRecruitButton(emoji: "🏹", count: 2, unitType: .archer, village: village) {
-                        quickRecruit(.archer, quantity: 2)
+            if hasBarracks || hasArcheryRange || hasStables {
+                VStack(alignment: .leading, spacing: 6) {
+                    // Show remaining recruits
+                    HStack {
+                        Text("Recruit")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        HStack(spacing: 2) {
+                            Text("\(remainingRecruits)/\(village.maxRecruitsPerTurn)")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(remainingRecruits > 0 ? .green : .red)
+                            Text("left")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
                     }
 
-                    Spacer()
+                    if remainingRecruits > 0 {
+                        // Infantry (Barracks)
+                        if hasBarracks {
+                            HStack(spacing: 6) {
+                                CompactRecruitButton(emoji: "🗡️", count: min(2, remainingRecruits), unitType: .militia, village: village) {
+                                    quickRecruit(.militia, quantity: min(2, remainingRecruits))
+                                }
+                                CompactRecruitButton(emoji: "⚔️", count: min(1, remainingRecruits), unitType: .swordsman, village: village) {
+                                    quickRecruit(.swordsman, quantity: min(1, remainingRecruits))
+                                }
+                                CompactRecruitButton(emoji: "🛡️", count: min(1, remainingRecruits), unitType: .spearman, village: village) {
+                                    quickRecruit(.spearman, quantity: min(1, remainingRecruits))
+                                }
+                                Spacer()
+                            }
+                        }
+                        // Ranged (Archery Range)
+                        if hasArcheryRange {
+                            HStack(spacing: 6) {
+                                CompactRecruitButton(emoji: "🏹", count: min(1, remainingRecruits), unitType: .archer, village: village) {
+                                    quickRecruit(.archer, quantity: min(1, remainingRecruits))
+                                }
+                                CompactRecruitButton(emoji: "🎯", count: min(1, remainingRecruits), unitType: .crossbowman, village: village) {
+                                    quickRecruit(.crossbowman, quantity: min(1, remainingRecruits))
+                                }
+                                Spacer()
+                            }
+                        }
+                        // Cavalry (Stables)
+                        if hasStables {
+                            HStack(spacing: 6) {
+                                CompactRecruitButton(emoji: "🐴", count: min(1, remainingRecruits), unitType: .lightCavalry, village: village) {
+                                    quickRecruit(.lightCavalry, quantity: min(1, remainingRecruits))
+                                }
+                                CompactRecruitButton(emoji: "🐎", count: min(1, remainingRecruits), unitType: .knight, village: village) {
+                                    quickRecruit(.knight, quantity: min(1, remainingRecruits))
+                                }
+                                Spacer()
+                            }
+                        }
+                    } else {
+                        Text("Mobilization limit reached - wait for next turn")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                    }
                 }
             } else {
                 HStack(spacing: 6) {
                     Image(systemName: "info.circle")
                         .font(.caption)
                         .foregroundColor(.orange)
-                    Text("Build Barracks to recruit")
+                    Text("Build Barracks/Archery/Stables to recruit")
                         .font(.caption)
                         .foregroundColor(.orange)
                 }
@@ -1728,7 +1884,7 @@ struct CompactRecruitButton: View {
         }
         .buttonStyle(.plain)
         .disabled(!canRecruit)
-        .help(canRecruit ? "Recruit \(count) \(unitType.rawValue) for \(unitCost) gold" : recruitCheck.reason)
+        .help(canRecruit ? "\(unitType.rawValue.capitalized) (\(unitCost)g) - \(unitType.counterInfo)" : recruitCheck.reason)
     }
 }
 
@@ -2082,7 +2238,7 @@ struct ArmyPanel: View {
                 .cornerRadius(12)
             }
 
-            // Unit breakdown
+            // Unit breakdown with counter info
             VStack(alignment: .leading, spacing: 8) {
                 Text("Unit Composition")
                     .font(.caption)
@@ -2094,8 +2250,13 @@ struct ArmyPanel: View {
                     HStack {
                         Text(type.emoji)
                             .font(.title3)
-                        Text(type.rawValue.capitalized)
-                            .font(.subheadline)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(type.rawValue.capitalized)
+                                .font(.subheadline)
+                            Text(type.counterInfo)
+                                .font(.caption2)
+                                .foregroundColor(.orange)
+                        }
                         Spacer()
                         Text("×\(grouped[type]?.count ?? 0)")
                             .font(.subheadline)
@@ -2317,10 +2478,11 @@ struct SendArmySheet: View {
             .padding()
             .background(Color.cardBackground)
 
-            // Targets
+            // Targets - ONLY VISIBLE VILLAGES (fog of war)
             ScrollView {
                 VStack(spacing: 8) {
-                    let targets = GameManager.shared.map.villages.filter { $0.id != currentVillage.id }
+                    let visibleVillages = GameManager.shared.getVisibleVillages(for: "player")
+                    let targets = visibleVillages.filter { $0.id != currentVillage.id }
                     let sorted = targets.sorted { v1, v2 in
                         let d1 = Army.calculateTravelTime(from: currentVillage.coordinates, to: v1.coordinates)
                         let d2 = Army.calculateTravelTime(from: currentVillage.coordinates, to: v2.coordinates)
@@ -2360,55 +2522,103 @@ struct DestinationCard: View {
         target.owner != "player"
     }
 
+    // BATTLE PREDICTION
+    var defenderStrength: Int {
+        let defenders = GameManager.shared.getArmiesAt(villageID: target.id).filter { $0.owner == target.owner }
+        let armyStr = defenders.reduce(0) { $0 + $1.strength }
+        let garrisonStr = target.garrisonStrength * 3
+        let popStr = target.population / 10
+        return armyStr + garrisonStr + popStr
+    }
+
+    var attackerStrength: Int {
+        army.strength
+    }
+
+    var winChance: Int {
+        guard defenderStrength > 0 else { return 100 }
+        let ratio = Double(attackerStrength) / Double(defenderStrength)
+        // Simple win chance calculation
+        if ratio >= 2.0 { return 95 }
+        if ratio >= 1.5 { return 80 }
+        if ratio >= 1.2 { return 65 }
+        if ratio >= 1.0 { return 50 }
+        if ratio >= 0.8 { return 35 }
+        if ratio >= 0.5 { return 20 }
+        return 10
+    }
+
+    var winChanceColor: Color {
+        if winChance >= 70 { return .green }
+        if winChance >= 40 { return .yellow }
+        return .red
+    }
+
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: 12) {
                 // Flag and name
                 Text(target.nationality.flag)
-                    .font(.title)
+                    .font(.title2)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(target.name)
-                        .font(.headline)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
                         .foregroundColor(.white)
 
-                    HStack {
-                        Image(systemName: "clock")
+                    HStack(spacing: 8) {
+                        HStack(spacing: 2) {
+                            Image(systemName: "clock")
+                                .font(.system(size: 9))
+                            Text("\(turns)t")
+                                .font(.caption2)
+                        }
+                        .foregroundColor(.secondary)
+
+                        if isEnemy {
+                            Text("•")
+                                .foregroundColor(.secondary)
+                            HStack(spacing: 2) {
+                                Text("\(attackerStrength)")
+                                    .foregroundColor(.green)
+                                Text("vs")
+                                    .foregroundColor(.secondary)
+                                Text("\(defenderStrength)")
+                                    .foregroundColor(.red)
+                            }
                             .font(.caption2)
-                        Text("\(turns) turns")
-                            .font(.caption)
+                        }
                     }
-                    .foregroundColor(.secondary)
                 }
 
                 Spacer()
 
-                // Status
+                // Battle prediction
                 if isEnemy {
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Label("Enemy", systemImage: "exclamationmark.triangle.fill")
-                            .font(.caption)
-                            .foregroundColor(.red)
-
-                        let defenders = GameManager.shared.getArmiesAt(villageID: target.id)
-                        let strength = defenders.reduce(0) { $0 + $1.strength } + target.garrisonStrength * 3
-                        Text("Def: \(strength)")
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(winChance)%")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundColor(winChanceColor)
+                        Text("win")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
+                    .frame(width: 50)
                 } else {
-                    Label("Friendly", systemImage: "checkmark.circle.fill")
-                        .font(.caption)
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title2)
                         .foregroundColor(.green)
                 }
             }
-            .padding()
+            .padding(12)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 10)
                     .fill(Color.cardBackground)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(isEnemy ? Color.red.opacity(0.3) : Color.green.opacity(0.3), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(isEnemy ? winChanceColor.opacity(0.4) : Color.green.opacity(0.3), lineWidth: 1)
                     )
             )
         }

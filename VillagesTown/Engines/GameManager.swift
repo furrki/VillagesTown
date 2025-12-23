@@ -32,6 +32,10 @@ class GameManager: ObservableObject {
     // Turn events for summary
     @Published var turnEvents: [TurnEvent] = []
 
+    // FOG OF WAR - tracks what player has discovered
+    @Published var discoveredVillageIDs: Set<UUID> = []
+    let visionRange: CGFloat = 8.0  // How far you can see from your villages/armies
+
     // Tutorial settings
     var tutorialEnabled: Bool = true
     var tutorialStep: Int = 0
@@ -155,6 +159,7 @@ class GameManager: ObservableObject {
         armies.removeAll()
         turnEvents.removeAll()
         globalResources.removeAll()
+        discoveredVillageIDs.removeAll()  // Reset fog of war
 
         // Reset map
         map = VirtualMap(size: CGSize(width: 20, height: 20), villages: [])
@@ -367,6 +372,83 @@ class GameManager: ObservableObject {
 
     func clearTurnEvents() {
         turnEvents.removeAll()
+    }
+
+    // MARK: - Fog of War
+
+    func isVillageVisible(village: Village, for playerID: String) -> Bool {
+        // Your own villages are always visible
+        if village.owner == playerID { return true }
+
+        // Already discovered villages stay visible
+        if discoveredVillageIDs.contains(village.id) { return true }
+
+        // Check if within vision range of any player village
+        let playerVillages = getPlayerVillages(playerID: playerID)
+        for pv in playerVillages {
+            let dist = distance(from: pv.coordinates, to: village.coordinates)
+            if dist <= visionRange {
+                discoveredVillageIDs.insert(village.id)
+                return true
+            }
+        }
+
+        // Check if within vision range of any player army
+        let playerArmies = getArmiesFor(playerID: playerID)
+        for army in playerArmies {
+            if let stationedAt = army.stationedAt,
+               let stationedVillage = map.villages.first(where: { $0.id == stationedAt }) {
+                let dist = distance(from: stationedVillage.coordinates, to: village.coordinates)
+                if dist <= visionRange {
+                    discoveredVillageIDs.insert(village.id)
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+    func isArmyVisible(army: Army, for playerID: String) -> Bool {
+        // Your own armies always visible
+        if army.owner == playerID { return true }
+
+        // Get army location
+        guard let locationID = army.stationedAt ?? army.destination,
+              let locationVillage = map.villages.first(where: { $0.id == locationID }) else {
+            return false
+        }
+
+        // Check vision from player villages
+        let playerVillages = getPlayerVillages(playerID: playerID)
+        for pv in playerVillages {
+            let dist = distance(from: pv.coordinates, to: locationVillage.coordinates)
+            if dist <= visionRange { return true }
+        }
+
+        // Check vision from player armies
+        let playerArmies = getArmiesFor(playerID: playerID)
+        for pa in playerArmies {
+            if let paLocation = pa.stationedAt,
+               let paVillage = map.villages.first(where: { $0.id == paLocation }) {
+                let dist = distance(from: paVillage.coordinates, to: locationVillage.coordinates)
+                if dist <= visionRange { return true }
+            }
+        }
+
+        return false
+    }
+
+    private func distance(from: CGPoint, to: CGPoint) -> CGFloat {
+        sqrt(pow(to.x - from.x, 2) + pow(to.y - from.y, 2))
+    }
+
+    func getVisibleVillages(for playerID: String) -> [Village] {
+        map.villages.filter { isVillageVisible(village: $0, for: playerID) }
+    }
+
+    func getVisibleArmies(for playerID: String) -> [Army] {
+        armies.filter { isArmyVisible(army: $0, for: playerID) }
     }
 }
 

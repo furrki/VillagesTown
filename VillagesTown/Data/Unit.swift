@@ -31,14 +31,18 @@ struct Unit: Entity, Identifiable {
     }
 
     enum UnitType: String {
-        // Infantry - Simplified to 3 types
+        // Infantry
         case militia
         case spearman
         case swordsman
 
-        // Ranged - Simplified to 2 types
+        // Ranged
         case archer
         case crossbowman
+
+        // Cavalry
+        case lightCavalry
+        case knight
 
         var category: String {
             switch self {
@@ -46,15 +50,59 @@ struct Unit: Entity, Identifiable {
                 return "Infantry"
             case .archer, .crossbowman:
                 return "Ranged"
+            case .lightCavalry, .knight:
+                return "Cavalry"
             }
         }
 
         var emoji: String {
             switch self {
-            case .militia, .spearman, .swordsman:
-                return "🗡️"
+            case .militia: return "🗡️"
+            case .spearman: return "🛡️"
+            case .swordsman: return "⚔️"
+            case .archer: return "🏹"
+            case .crossbowman: return "🎯"
+            case .lightCavalry: return "🐴"
+            case .knight: return "🐎"
+            }
+        }
+
+        // UNIT COUNTER SYSTEM
+        // Returns damage multiplier against target type
+        func damageMultiplier(against target: UnitType) -> Double {
+            switch self {
+            // Spearmen are STRONG vs Cavalry
+            case .spearman:
+                if target.category == "Cavalry" { return 1.5 }
+
+            // Cavalry STRONG vs Ranged, WEAK vs Spearmen
+            case .lightCavalry, .knight:
+                if target.category == "Ranged" { return 1.5 }
+                if target == .spearman { return 0.6 }
+
+            // Archers STRONG vs Infantry (except shields)
             case .archer, .crossbowman:
-                return "🏹"
+                if target == .militia { return 1.3 }
+                if target == .swordsman { return 1.2 }
+
+            // Swordsmen balanced, slight bonus vs militia
+            case .swordsman:
+                if target == .militia { return 1.2 }
+
+            default:
+                break
+            }
+            return 1.0  // No modifier
+        }
+
+        // Text description of counters
+        var counterInfo: String {
+            switch self {
+            case .spearman: return "Strong vs Cavalry"
+            case .lightCavalry, .knight: return "Strong vs Ranged"
+            case .archer, .crossbowman: return "Strong vs Infantry"
+            case .swordsman: return "Balanced fighter"
+            case .militia: return "Cheap, weak"
             }
         }
     }
@@ -73,22 +121,28 @@ struct Unit: Entity, Identifiable {
         self.coordinates = coordinates
     }
 
-    // MARK: - Unit Stats (Simplified)
+    // MARK: - Unit Stats
     static func getStats(for type: UnitType) -> (name: String, attack: Int, defense: Int, hp: Int, movement: Int, cost: [Resource: Int], upkeep: [Resource: Int]) {
         switch type {
         // Infantry
         case .militia:
             return ("Militia", 5, 3, 50, 2, [.gold: 20, .food: 5], [.gold: 2, .food: 1])
         case .spearman:
-            return ("Spearman", 8, 6, 70, 2, [.gold: 25, .iron: 5], [.gold: 2, .food: 1])
+            return ("Spearman", 7, 8, 70, 2, [.gold: 30, .iron: 5], [.gold: 2, .food: 1])  // High defense, anti-cav
         case .swordsman:
-            return ("Swordsman", 10, 7, 80, 2, [.gold: 30, .iron: 10], [.gold: 2, .food: 1])
+            return ("Swordsman", 10, 6, 80, 2, [.gold: 35, .iron: 10], [.gold: 2, .food: 1])
 
         // Ranged
         case .archer:
-            return ("Archer", 8, 4, 60, 2, [.gold: 40, .iron: 8], [.gold: 2, .food: 1])
+            return ("Archer", 9, 3, 50, 2, [.gold: 35, .wood: 10], [.gold: 2, .food: 1])  // High attack, fragile
         case .crossbowman:
-            return ("Crossbowman", 12, 5, 70, 2, [.gold: 50, .iron: 12], [.gold: 2, .food: 1])
+            return ("Crossbowman", 12, 4, 60, 2, [.gold: 50, .iron: 10], [.gold: 3, .food: 1])
+
+        // Cavalry - Fast, expensive, strong but countered by spears
+        case .lightCavalry:
+            return ("Light Cavalry", 9, 5, 70, 4, [.gold: 60, .food: 15], [.gold: 4, .food: 2])
+        case .knight:
+            return ("Knight", 14, 8, 100, 3, [.gold: 100, .iron: 20], [.gold: 6, .food: 2])
         }
     }
 

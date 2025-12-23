@@ -11,6 +11,15 @@ class RecruitmentEngine {
 
     // MARK: - Recruitment
     func canRecruit(unitType: Unit.UnitType, quantity: Int, in village: Village) -> (can: Bool, reason: String) {
+        // Check MOBILIZATION CAP first
+        let remainingRecruits = village.maxRecruitsPerTurn - village.recruitsThisTurn
+        if remainingRecruits <= 0 {
+            return (false, "Recruit limit reached (0/\(village.maxRecruitsPerTurn))")
+        }
+        if quantity > remainingRecruits {
+            return (false, "Can only recruit \(remainingRecruits) more this turn")
+        }
+
         // Check if village has required military building
         let requiredBuilding = getRequiredBuilding(for: unitType)
 
@@ -20,7 +29,7 @@ class RecruitmentEngine {
 
         // Check population for recruitment
         if village.population < quantity {
-            return (false, "Not enough population. Need \(quantity), have \(village.population)")
+            return (false, "Not enough population")
         }
 
         // Get unit stats
@@ -32,7 +41,7 @@ class RecruitmentEngine {
         for (resource, amount) in totalCost {
             let available = globalResources[resource] ?? 0
             if available < amount {
-                return (false, "Not enough \(resource.name). Need \(amount), have \(available)")
+                return (false, "Need \(amount) \(resource.name)")
             }
         }
 
@@ -59,6 +68,9 @@ class RecruitmentEngine {
 
         // Reduce population
         village.modifyPopulation(by: -quantity)
+
+        // INCREMENT MOBILIZATION COUNTER
+        village.recruitsThisTurn += quantity
 
         // Create units
         var units: [Unit] = []
@@ -89,6 +101,8 @@ class RecruitmentEngine {
             return "Barracks"
         case "Ranged":
             return "Archery Range"
+        case "Cavalry":
+            return "Stables"
         default:
             return "Barracks"
         }
@@ -100,6 +114,7 @@ class RecruitmentEngine {
         // Check which military buildings exist
         let hasBarracks = village.buildings.contains(where: { $0.name == "Barracks" })
         let hasArcheryRange = village.buildings.contains(where: { $0.name == "Archery Range" })
+        let hasStables = village.buildings.contains(where: { $0.name == "Stables" })
 
         // Infantry
         if hasBarracks {
@@ -109,6 +124,11 @@ class RecruitmentEngine {
         // Ranged
         if hasArcheryRange {
             available.append(contentsOf: [.archer, .crossbowman])
+        }
+
+        // Cavalry
+        if hasStables {
+            available.append(contentsOf: [.lightCavalry, .knight])
         }
 
         return available

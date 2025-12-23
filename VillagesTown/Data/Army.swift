@@ -112,7 +112,7 @@ extension Army {
         let dy = abs(destination.y - origin.y)
         let distance = sqrt(dx * dx + dy * dy)
 
-        // 1 turn per 5 tiles of distance, minimum 1 turn
-        return max(1, Int(ceil(distance / 5.0)))
+        // FASTER: 1 turn per 8 tiles, minimum 1 turn
+        return max(1, Int(ceil(distance / 8.0)))
     }
 }

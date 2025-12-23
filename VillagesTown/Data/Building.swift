@@ -82,6 +82,14 @@ struct Building: Identifiable {
         canRecruitUnits: true
     )
 
+    static let stables = Building(
+        type: .military,
+        name: "Stables",
+        baseCost: [.gold: 200, .wood: 80, .food: 30],
+        description: "Enables recruitment of cavalry units",
+        canRecruitUnits: true
+    )
+
     static let fortress = Building(
         type: .military,
         name: "Fortress",

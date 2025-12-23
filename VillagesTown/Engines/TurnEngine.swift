@@ -23,6 +23,11 @@ class TurnEngine {
         print("🎲 TURN \(game.currentTurn)")
         print(String(repeating: "=", count: 60) + "\n")
 
+        // 0. Reset mobilization counters for all villages
+        for i in game.map.villages.indices {
+            game.map.villages[i].recruitsThisTurn = 0
+        }
+
         // 1. Building Production
         print("\n📦 Phase 1: Building Production")
         doBuildingProduction()
@@ -167,6 +172,10 @@ class TurnEngine {
         let game = GameManager.shared
         let combatEngine = CombatEngine()
 
+        // MARK VILLAGE AS UNDER SIEGE - prevents garrison regen
+        var mutableVillage = village
+        mutableVillage.underSiege = true
+
         // Get defending armies
         let defenderArmies = game.getArmiesAt(villageID: village.id).filter { $0.owner == village.owner }
         var defenderUnits: [Unit] = defenderArmies.flatMap { $0.units }
@@ -203,21 +212,17 @@ class TurnEngine {
             _ = game.createArmy(units: survivingDefenders, stationedAt: village.id, owner: village.owner)
         }
 
-        // Damage garrison
-        var mutableVillage = village
-        let garrisonDamage = result.attackerWon ? mutableVillage.garrisonStrength : mutableVillage.garrisonStrength / 2
-        mutableVillage.damageGarrison(amount: garrisonDamage)
-        game.updateVillage(mutableVillage)
-
-        // Handle village conquest - need garrison to be 0 as well
-        let canConquer = result.attackerWon && survivingDefenders.isEmpty && mutableVillage.garrisonStrength == 0
+        // SIMPLIFIED CONQUEST: If attacker wins AND no army defenders left, conquer!
+        // Garrison provides defense bonus but doesn't block conquest anymore
+        let canConquer = result.attackerWon && survivingDefenders.isEmpty
 
         if canConquer {
             let oldOwner = mutableVillage.owner
             mutableVillage.owner = attacker.owner
-            mutableVillage.population = Int(Double(mutableVillage.population) * 0.7)
-            mutableVillage.happiness -= 30
-            mutableVillage.garrisonStrength = 3 // New owner gets small garrison
+            mutableVillage.population = Int(Double(mutableVillage.population) * 0.8)  // Less population loss
+            mutableVillage.happiness = max(30, mutableVillage.happiness - 20)
+            mutableVillage.garrisonStrength = 5  // New owner gets garrison
+            mutableVillage.underSiege = false
             game.updateVillage(mutableVillage)
 
             // Station attacking army at village
@@ -231,21 +236,30 @@ class TurnEngine {
             } else if oldOwner == "player" {
                 game.addTurnEvent(.villageLost(villageName: village.name))
             }
-            print("   🏆 \(attacker.name) conquered \(village.name)!")
+            print("   🏆 \(attacker.name) CONQUERED \(village.name)!")
         } else if result.attackerWon {
+            // Won battle but defenders survived - damage garrison, stay sieging
+            let garrisonDamage = max(3, mutableVillage.garrisonStrength / 2)
+            mutableVillage.damageGarrison(amount: garrisonDamage)
+            game.updateVillage(mutableVillage)
+
             if attacker.owner == "player" {
                 game.addTurnEvent(.battleWon(location: village.name, casualties: result.attackerCasualties))
             } else if village.owner == "player" {
                 game.addTurnEvent(.battleLost(location: village.name, casualties: result.defenderCasualties))
             }
-            print("   ⚔️ \(attacker.name) won battle at \(village.name) but defenders remain")
+            print("   ⚔️ \(attacker.name) won but \(survivingDefenders.count) defenders remain")
         } else {
+            // Lost the battle
+            mutableVillage.underSiege = false  // Siege broken
+            game.updateVillage(mutableVillage)
+
             if attacker.owner == "player" {
                 game.addTurnEvent(.battleLost(location: village.name, casualties: result.attackerCasualties))
             } else if village.owner == "player" {
                 game.addTurnEvent(.battleWon(location: village.name, casualties: result.defenderCasualties))
             }
-            print("   ❌ \(attacker.name) defeated at \(village.name)")
+            print("   ❌ \(attacker.name) DEFEATED at \(village.name)")
         }
     }
 

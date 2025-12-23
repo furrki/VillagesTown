@@ -41,9 +41,9 @@ class CombatEngine {
         print("Attackers: \(attackers.count) units")
         print("Defenders: \(defenders.count) units")
 
-        // Calculate total strength
-        let attackerStrength = calculateArmyStrength(units: attackers, isAttacking: true, location: location, map: map, village: nil)
-        var defenderStrength = calculateArmyStrength(units: defenders, isAttacking: false, location: location, map: map, village: defendingVillage)
+        // Calculate total strength WITH COUNTER BONUSES
+        let attackerStrength = calculateArmyStrength(units: attackers, isAttacking: true, location: location, map: map, village: nil, enemyUnits: defenders)
+        var defenderStrength = calculateArmyStrength(units: defenders, isAttacking: false, location: location, map: map, village: defendingVillage, enemyUnits: attackers)
 
         // GARRISON BONUS: Villages have population that fights back
         // Even undefended villages aren't free!
@@ -128,11 +128,21 @@ class CombatEngine {
     }
 
     // MARK: - Strength Calculation
-    private func calculateArmyStrength(units: [Unit], isAttacking: Bool, location: CGPoint, map: Map, village: Village?) -> Int {
+    private func calculateArmyStrength(units: [Unit], isAttacking: Bool, location: CGPoint, map: Map, village: Village?, enemyUnits: [Unit] = []) -> Int {
         var totalStrength = 0
 
         for unit in units {
             var strength = isAttacking ? unit.attack : unit.defense
+
+            // UNIT COUNTER BONUS - average multiplier against enemy composition
+            if !enemyUnits.isEmpty {
+                var counterMultiplier = 0.0
+                for enemy in enemyUnits {
+                    counterMultiplier += unit.unitType.damageMultiplier(against: enemy.unitType)
+                }
+                counterMultiplier /= Double(enemyUnits.count)
+                strength = Int(Double(strength) * counterMultiplier)
+            }
 
             // Terrain modifier
             if !isAttacking, let virtualMap = map as? VirtualMap,
