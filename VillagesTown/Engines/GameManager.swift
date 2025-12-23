@@ -30,22 +30,22 @@ class GameManager: ObservableObject {
 
     // MARK: - Initializers
     init() {
-        // Create 50x50 map
-        let mapSize = CGSize(width: 50.0, height: 50.0)
+        // Create 20x20 map (smaller for better UX)
+        let mapSize = CGSize(width: 20.0, height: 20.0)
 
         // Each player starts with 1 village
         let nationalities = Nationality.getAll()
 
         let playerVillages = [
-            Village(name: "Argithan", nationality: nationalities[0], coordinates: CGPoint(x: 10, y: 10), owner: "player")
+            Village(name: "Argithan", nationality: nationalities[0], coordinates: CGPoint(x: 3, y: 3), owner: "player")
         ]
 
         let ai1Villages = [
-            Village(name: "Athens", nationality: nationalities[1], coordinates: CGPoint(x: 40, y: 10), owner: "ai1")
+            Village(name: "Athens", nationality: nationalities[1], coordinates: CGPoint(x: 16, y: 3), owner: "ai1")
         ]
 
         let ai2Villages = [
-            Village(name: "Sofia", nationality: nationalities[2], coordinates: CGPoint(x: 25, y: 40), owner: "ai2")
+            Village(name: "Sofia", nationality: nationalities[2], coordinates: CGPoint(x: 10, y: 16), owner: "ai2")
         ]
 
         let allVillages = playerVillages + ai1Villages + ai2Villages

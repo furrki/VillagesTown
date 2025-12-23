@@ -36,6 +36,7 @@ enum BuildingCategory: String, CaseIterable {
 // Inline version for use within VillageDetailView
 struct BuildMenuInlineView: View {
     let village: Village
+    let onUpdate: () -> Void
     @State private var showAlert = false
     @State private var alertMessage = ""
 
@@ -94,6 +95,7 @@ struct BuildMenuInlineView: View {
             if engine.buildBuilding(building: building, in: &mutableVillage) {
                 GameManager.shared.updateVillage(mutableVillage)
                 NotificationCenter.default.post(name: NSNotification.Name("MapUpdated"), object: nil)
+                onUpdate()
             }
         } else {
             alertMessage = result.reason
@@ -134,7 +136,7 @@ struct BuildMenuView: View {
             ScrollView {
                 LazyVStack(spacing: 12) {
                     ForEach(selectedCategory.buildings) { building in
-                        BuildingCard(
+                        BuildableBuildingCard(
                             building: building,
                             village: village,
                             onBuild: { buildBuilding in
@@ -247,7 +249,7 @@ struct CompactBuildingCard: View {
     }
 }
 
-struct BuildingCard: View {
+struct BuildableBuildingCard: View {
     let building: Building
     let village: Village
     let onBuild: (Building) -> Void

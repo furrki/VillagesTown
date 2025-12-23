@@ -139,4 +139,36 @@ extension Map {
             units[index] = unit
         }
     }
+
+    func findEmptyAdjacentTile(to point: CGPoint) -> CGPoint {
+        let x = Int(point.x)
+        let y = Int(point.y)
+        let width = Int(size.width)
+        let height = Int(size.height)
+
+        // Check all 8 adjacent tiles + the tile itself
+        let adjacentOffsets = [
+            (0, 0),   // Same tile (fallback)
+            (1, 0), (-1, 0), (0, 1), (0, -1),  // Cardinal directions
+            (1, 1), (-1, -1), (1, -1), (-1, 1)  // Diagonals
+        ]
+
+        for (dx, dy) in adjacentOffsets {
+            let newX = x + dx
+            let newY = y + dy
+
+            // Check bounds
+            guard newX >= 0, newY >= 0, newX < width, newY < height else { continue }
+
+            let checkPoint = CGPoint(x: newX, y: newY)
+
+            // Check if tile is empty (no village)
+            if getVillageAt(x: newX, y: newY) == nil {
+                return checkPoint
+            }
+        }
+
+        // If no empty tile found, return original point
+        return point
+    }
 }

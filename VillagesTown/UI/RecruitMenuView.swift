@@ -10,6 +10,7 @@ import SwiftUI
 // Inline version for use within VillageDetailView
 struct RecruitMenuInlineView: View {
     let village: Village
+    let onUpdate: () -> Void
     @State private var selectedUnitType: Unit.UnitType?
     @State private var showAlert = false
     @State private var alertMessage = ""
@@ -89,6 +90,9 @@ struct RecruitMenuInlineView: View {
 
             // Post notification to refresh UI
             NotificationCenter.default.post(name: NSNotification.Name("MapUpdated"), object: nil)
+
+            // Update parent view
+            onUpdate()
 
             let stats = Unit.getStats(for: unitType)
             alertMessage = "Successfully recruited \(quantity) \(stats.name)!"
@@ -259,7 +263,8 @@ struct UnitRecruitCard: View {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                     ForEach(Array(unitStats.cost.keys.sorted(by: { $0.name < $1.name })), id: \.self) { resource in
                         let cost = unitStats.cost[resource]! * quantity
-                        let has = village.resources[resource] ?? 0
+                        let globalResources = GameManager.shared.getGlobalResources(playerID: village.owner)
+                        let has = globalResources[resource] ?? 0
                         let canAfford = has >= cost
 
                         HStack(spacing: 4) {

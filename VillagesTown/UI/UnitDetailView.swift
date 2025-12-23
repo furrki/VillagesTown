@@ -32,10 +32,11 @@ struct UnitDetailView: View {
                     // Units List
                     unitsSection
 
-                    Divider()
-
-                    // Actions
-                    actionsSection
+                    // Actions (only for player units)
+                    if units.first?.owner == "player" {
+                        Divider()
+                        actionsSection
+                    }
 
                     Spacer()
                 }

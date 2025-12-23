@@ -91,28 +91,32 @@ struct VillageDetailView: View {
     }
 
     var buildingsSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("Buildings").font(.caption).fontWeight(.semibold)
                 let upgradeableCount = village.buildings.filter { building in
                     BuildingConstructionEngine().canUpgradeBuilding(building, in: village).can
                 }.count
                 if upgradeableCount > 0 {
-                    Circle().fill(Color.green).frame(width: 6, height: 6)
+                    Text("\(upgradeableCount) upgradeable")
+                        .font(.caption2)
+                        .foregroundColor(.green)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(Color.green.opacity(0.2))
+                        .cornerRadius(4)
                 }
                 Spacer()
                 Text("\(village.buildings.count)/\(village.maxBuildings)").font(.caption2).foregroundColor(.secondary)
             }
 
             if village.buildings.isEmpty {
-                Text("Empty").foregroundColor(.secondary).italic().font(.caption2)
+                Text("No buildings yet").foregroundColor(.secondary).italic().font(.caption2)
             } else {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 3), count: 6), spacing: 3) {
-                    ForEach(village.buildings) { building in
-                        BuildingMicroSlot(building: building, village: village, onUpgrade: { buildingID in
-                            attemptUpgrade(buildingID: buildingID)
-                        })
-                    }
+                ForEach(village.buildings) { building in
+                    BuildingCard(building: building, village: village, onUpgrade: { buildingID in
+                        attemptUpgrade(buildingID: buildingID)
+                    })
                 }
             }
         }
@@ -195,7 +199,7 @@ struct VillageDetailView: View {
             .buttonStyle(.plain)
 
             if showBuildSection {
-                BuildMenuInlineView(village: village)
+                BuildMenuInlineView(village: village, onUpdate: onUpdate)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
@@ -217,7 +221,7 @@ struct VillageDetailView: View {
             .buttonStyle(.plain)
 
             if showRecruitSection {
-                RecruitMenuInlineView(village: village)
+                RecruitMenuInlineView(village: village, onUpdate: onUpdate)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
@@ -236,7 +240,7 @@ struct CompactStat: View {
     }
 }
 
-struct BuildingMicroSlot: View {
+struct BuildingCard: View {
     let building: Building
     let village: Village
     let onUpgrade: (UUID) -> Void
@@ -245,87 +249,114 @@ struct BuildingMicroSlot: View {
         let upgradeCheck = BuildingConstructionEngine().canUpgradeBuilding(building, in: village)
         let globalResources = GameManager.shared.getGlobalResources(playerID: village.owner)
 
-        Button(action: {
-            if upgradeCheck.can {
-                onUpgrade(building.id)
-            }
-        }) {
-            VStack(spacing: 1) {
-                // Building name
-                Text(building.name)
-                    .font(.system(size: 9, weight: .semibold))
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.6)
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(.white)
-                    .frame(width: 50, height: 24)
-                    .background(buildingColor)
-                    .cornerRadius(3)
-
-                // Level + upgrade indicator
-                HStack(spacing: 2) {
-                    Text("L\(building.level)")
-                        .font(.system(size: 7))
-                        .foregroundColor(.secondary)
-                    if upgradeCheck.can {
-                        Circle().fill(Color.green).frame(width: 3, height: 3)
-                    }
+        HStack(spacing: 8) {
+            // Building icon + info
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(buildingIcon)
+                        .font(.title3)
+                    Text(building.name)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
                 }
 
-                // Upgrade cost
-                if !upgradeCheck.cost.isEmpty {
-                    VStack(spacing: 0) {
-                        ForEach(Array(upgradeCheck.cost.keys.prefix(2)), id: \.self) { resource in
-                            if let cost = upgradeCheck.cost[resource] {
-                                let has = globalResources[resource] ?? 0
-                                let canAfford = has >= cost
-                                Text("\(resource.emoji)\(cost)")
-                                    .font(.system(size: 6))
-                                    .foregroundColor(canAfford ? .secondary : .red)
+                HStack(spacing: 8) {
+                    Text("Level \(building.level)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    // Show production/bonuses
+                    if !building.resourcesProduction.isEmpty {
+                        ForEach(Array(building.resourcesProduction.keys), id: \.self) { resource in
+                            if let amount = building.resourcesProduction[resource] {
+                                Text("\(resource.emoji)+\(amount)")
+                                    .font(.caption2)
+                                    .foregroundColor(.green)
+                            }
+                        }
+                    }
+                    if building.defenseBonus > 0 {
+                        Text("🛡️+\(Int(building.defenseBonus * 100))%")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                    }
+                    if building.happinessBonus > 0 {
+                        Text("😊+\(building.happinessBonus)")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                    }
+                }
+            }
+
+            Spacer()
+
+            // Upgrade button (prominent!)
+            if upgradeCheck.can {
+                Button(action: { onUpgrade(building.id) }) {
+                    VStack(spacing: 2) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.green)
+                        Text("Upgrade")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .foregroundColor(.green)
+                        // Show cost
+                        HStack(spacing: 2) {
+                            ForEach(Array(upgradeCheck.cost.keys.prefix(3)), id: \.self) { resource in
+                                if let cost = upgradeCheck.cost[resource] {
+                                    let has = globalResources[resource] ?? 0
+                                    Text("\(resource.emoji)\(cost)")
+                                        .font(.system(size: 9))
+                                        .foregroundColor(has >= cost ? .secondary : .red)
+                                }
                             }
                         }
                     }
                 }
+                .buttonStyle(.plain)
+            } else {
+                Text("Max")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 8)
             }
         }
-        .buttonStyle(.plain)
-        .help(buildingTooltip)
+        .padding(8)
+        .background(buildingColor.opacity(0.15))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(buildingColor.opacity(0.3), lineWidth: 1)
+        )
+    }
+
+    var buildingIcon: String {
+        switch building.name {
+        case "Farm": return "🌾"
+        case "Lumber Mill": return "🪵"
+        case "Mine": return "⛏️"
+        case "Barracks": return "⚔️"
+        case "Archery Range": return "🏹"
+        case "Walls": return "🏰"
+        case "Market": return "🏪"
+        case "Tavern": return "🍺"
+        case "Town Hall": return "🏛️"
+        default: return "🏠"
+        }
     }
 
     var buildingColor: Color {
         if !building.resourcesProduction.isEmpty {
-            return Color.green.opacity(0.7)
+            return Color.green
         } else if building.defenseBonus > 0 {
-            return Color.blue.opacity(0.7)
+            return Color.blue
         } else if building.happinessBonus > 0 {
-            return Color.orange.opacity(0.7)
+            return Color.orange
         } else if building.productionBonus > 0 {
-            return Color.purple.opacity(0.7)
+            return Color.purple
         }
-        return Color.gray.opacity(0.7)
-    }
-
-    var buildingTooltip: String {
-        var tooltip = building.name + " (Level \(building.level))"
-
-        if !building.resourcesProduction.isEmpty {
-            tooltip += "\n"
-            for (resource, amount) in building.resourcesProduction {
-                tooltip += "\(resource.emoji) +\(amount) "
-            }
-        }
-
-        if building.productionBonus > 0 {
-            tooltip += "\n📈 +\(Int(building.productionBonus * 100))%"
-        }
-        if building.defenseBonus > 0 {
-            tooltip += "\n🛡️ +\(Int(building.defenseBonus * 100))%"
-        }
-        if building.happinessBonus > 0 {
-            tooltip += "\n😊 +\(building.happinessBonus)"
-        }
-
-        return tooltip
+        return Color.gray
     }
 }
 

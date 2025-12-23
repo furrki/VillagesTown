@@ -27,9 +27,10 @@ class RecruitmentEngine {
         let stats = Unit.getStats(for: unitType)
         let totalCost = stats.cost.mapValues { $0 * quantity }
 
-        // Check resources
+        // Check global resources
+        let globalResources = GameManager.shared.getGlobalResources(playerID: village.owner)
         for (resource, amount) in totalCost {
-            let available = village.resources[resource] ?? 0
+            let available = globalResources[resource] ?? 0
             if available < amount {
                 return (false, "Not enough \(resource.name). Need \(amount), have \(available)")
             }
@@ -50,22 +51,26 @@ class RecruitmentEngine {
         let stats = Unit.getStats(for: unitType)
         let totalCost = stats.cost.mapValues { $0 * quantity }
 
-        // Pay costs
-        for (resource, amount) in totalCost {
-            _ = village.substract(resource, amount: amount)
+        // Pay costs from global pool
+        guard GameManager.shared.spendResources(playerID: village.owner, cost: totalCost) else {
+            print("❌ \(village.name): Failed to spend resources")
+            return []
         }
 
         // Reduce population
         village.modifyPopulation(by: -quantity)
 
+        // Find empty adjacent tile for spawning units
+        let spawnLocation = GameManager.shared.map.findEmptyAdjacentTile(to: coordinates)
+
         // Create units
         var units: [Unit] = []
         for _ in 0..<quantity {
-            let unit = Unit(type: unitType, owner: village.owner, coordinates: coordinates)
+            let unit = Unit(type: unitType, owner: village.owner, coordinates: spawnLocation)
             units.append(unit)
         }
 
-        print("⚔️ \(village.name): Recruited \(quantity) \(stats.name)!")
+        print("⚔️ \(village.name): Recruited \(quantity) \(stats.name) at (\(Int(spawnLocation.x)), \(Int(spawnLocation.y)))!")
         return units
     }
 
