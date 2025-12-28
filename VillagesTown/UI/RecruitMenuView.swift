@@ -128,7 +128,7 @@ struct RecruitMenuView: View {
                 }
             }
             .padding()
-            .background(Color(NSColor.windowBackgroundColor))
+            .background(Color(white: 0.1))
 
             Divider()
 

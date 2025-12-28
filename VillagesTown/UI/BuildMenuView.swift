@@ -125,7 +125,7 @@ struct BuildMenuView: View {
                 }
             }
             .padding()
-            .background(Color(NSColor.windowBackgroundColor))
+            .background(Color(white: 0.1))
 
             Divider()
 
@@ -169,7 +169,7 @@ struct BuildMenuView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(selectedCategory == category ? Color.blue : Color(NSColor.controlBackgroundColor))
+                        .background(selectedCategory == category ? Color.blue : Color(.systemGray).opacity(0.2))
                         .foregroundColor(selectedCategory == category ? .white : .primary)
                         .cornerRadius(20)
                     }
@@ -177,7 +177,7 @@ struct BuildMenuView: View {
             }
             .padding()
         }
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(Color(white: 0.1))
         .shadow(radius: 1)
     }
 
@@ -311,7 +311,7 @@ struct BuildableBuildingCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity)
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(Color(.systemGray).opacity(0.2))
         .cornerRadius(8)
     }
 

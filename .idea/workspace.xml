@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="e35c6ed2-4577-4a45-9af0-49c7bb7c1f40" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.claude/settings.local.json" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/settings.local.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VillagesTown.xcodeproj/project.pbxproj" beforeDir="false" afterPath="$PROJECT_DIR$/VillagesTown.xcodeproj/project.pbxproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VillagesTown/AppDelegate.swift" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/VillagesTown/ContentView.swift" beforeDir="false" afterPath="$PROJECT_DIR$/VillagesTown/ContentView.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VillagesTown/Info.plist" beforeDir="false" afterPath="$PROJECT_DIR$/VillagesTown/Info.plist" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VillagesTown/UI/BuildMenuView.swift" beforeDir="false" afterPath="$PROJECT_DIR$/VillagesTown/UI/BuildMenuView.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VillagesTown/UI/GameView.swift" beforeDir="false" afterPath="$PROJECT_DIR$/VillagesTown/UI/GameView.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VillagesTown/UI/GameView_Old.swift" beforeDir="false" afterPath="$PROJECT_DIR$/VillagesTown/UI/GameView_Old.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VillagesTown/UI/NationalitySelectionView.swift" beforeDir="false" afterPath="$PROJECT_DIR$/VillagesTown/UI/NationalitySelectionView.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VillagesTown/UI/RecruitMenuView.swift" beforeDir="false" afterPath="$PROJECT_DIR$/VillagesTown/UI/RecruitMenuView.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VillagesTown/UI/UnitDetailView.swift" beforeDir="false" afterPath="$PROJECT_DIR$/VillagesTown/UI/UnitDetailView.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VillagesTown/UI/VillageDetailView.swift" beforeDir="false" afterPath="$PROJECT_DIR$/VillagesTown/UI/VillageDetailView.swift" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 4
+}]]></component>
+  <component name="ProjectId" id="37JcBew4nR61yORdpVcM3gUhG8K" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "git-widget-placeholder": "develop"
+  }
+}]]></component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="e35c6ed2-4577-4a45-9af0-49c7bb7c1f40" name="Changes" comment="" />
+      <created>1766624481185</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1766624481185</updated>
+    </task>
+    <servers />
+  </component>
+</project>

@@ -4,6 +4,7 @@ options:
   bundleIdPrefix: com.yourcompany
   deploymentTarget:
     macOS: "13.0"
+    iOS: "16.0"
 
 targets:
   VillagesTown:
@@ -18,6 +19,19 @@ targets:
       testTargets:
         - VillagesTownTests
         - VillagesTownUITests
+
+  VillagesTownMobile:
+    type: application
+    platform: iOS
+    sources:
+      - path: VillagesTown
+        excludes:
+          - "Base.lproj/**"
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.yourcompany.VillagesTown
+      INFOPLIST_FILE: VillagesTown/Info.plist
+      TARGETED_DEVICE_FAMILY: "1,2" # iPhone and iPad
+    scheme: {}
 
   VillagesTownTests:
     type: bundle.unit-test

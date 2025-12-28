@@ -166,7 +166,7 @@ struct UnitRow: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(Color(.systemGray).opacity(0.2))
         .cornerRadius(10)
     }
 }
@@ -191,7 +191,7 @@ struct StatBadge: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(Color(.systemGray).opacity(0.2))
         .cornerRadius(10)
     }
 }
@@ -226,7 +226,7 @@ struct ActionButton: View {
                     .foregroundColor(.secondary)
             }
             .padding()
-            .background(Color(NSColor.controlBackgroundColor))
+            .background(Color(.systemGray).opacity(0.2))
             .cornerRadius(12)
         }
         .buttonStyle(PlainButtonStyle())

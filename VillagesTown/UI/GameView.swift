@@ -7,8 +7,9 @@
 
 import SwiftUI
 
-// MARK: - Keyboard Shortcuts (macOS 14+)
+// MARK: - Keyboard Shortcuts (macOS only)
 
+#if os(macOS)
 struct KeyboardShortcutsModifier: ViewModifier {
     let onEndTurn: () -> Void
     let onEscape: () -> Void
@@ -31,6 +32,7 @@ struct KeyboardShortcutsModifier: ViewModifier {
         }
     }
 }
+#endif
 
 // MARK: - Color Theme
 extension Color {
@@ -176,6 +178,7 @@ struct GameView: View {
                 selectedVillage = gameManager.getPlayerVillages(playerID: "player").first
             }
         }
+        #if os(macOS)
         .modifier(KeyboardShortcutsModifier(
             onEndTurn: { if !isProcessingTurn { processTurn() } },
             onEscape: { selectedVillage = nil; selectedArmy = nil },
@@ -187,6 +190,7 @@ struct GameView: View {
                 }
             }
         ))
+        #endif
     }
 
     // MARK: - Top Bar
@@ -375,11 +379,13 @@ struct GameView: View {
                             selectedArmy = nil
                         }
                     }
+                    #if os(macOS)
                     .onHover { hovering in
                         withAnimation(.easeInOut(duration: 0.15)) {
                             hoveredVillage = hovering ? village : nil
                         }
                     }
+                    #endif
                 }
             }
             .scaleEffect(mapScale)

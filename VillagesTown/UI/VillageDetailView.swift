@@ -29,7 +29,7 @@ struct VillageDetailView: View {
                 }
             }
             .padding()
-            .background(Color(NSColor.windowBackgroundColor))
+            .background(Color(white: 0.1))
 
             Divider()
 
@@ -58,7 +58,7 @@ struct VillageDetailView: View {
                     }
                 }
                 .padding(6)
-                .background(Color(NSColor.controlBackgroundColor))
+                .background(Color(.systemGray).opacity(0.2))
                 .cornerRadius(4)
 
                 // Resources in compact row
@@ -145,7 +145,7 @@ struct VillageDetailView: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
-        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .background(Color(.systemGray).opacity(0.2).opacity(0.5))
         .cornerRadius(4)
     }
 
@@ -384,7 +384,7 @@ struct UnitMiniCard: View {
             .foregroundColor(.secondary)
         }
         .padding(4)
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(Color(.systemGray).opacity(0.2))
         .cornerRadius(4)
     }
 }
