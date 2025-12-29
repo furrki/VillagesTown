@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -137,7 +137,7 @@
 		60A8CE8FE77C715092640F5A /* VillagesTown.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = VillagesTown.entitlements; sourceTree = "<group>"; };
 		654817E1DA2C8BFCD60618B6 /* MapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapView.swift; sourceTree = "<group>"; };
 		69C7FE21010DB40B3A6A355A /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
-		718FEA6DCE05FF347F8C1BB5 /* VillagesTownMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VillagesTownMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		718FEA6DCE05FF347F8C1BB5 /* VillagesTownMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VillagesTownMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7357B9B839BEE6BEAB63F22E /* Player.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Player.swift; sourceTree = "<group>"; };
 		768F9D4B97D090BDF2926F31 /* Resource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Resource.swift; sourceTree = "<group>"; };
 		7DF97B5E24930E4347A26B13 /* Unit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Unit.swift; sourceTree = "<group>"; };
@@ -453,7 +453,6 @@
 			);
 			mainGroup = 206A7200D1AC9277228CCD42;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -652,6 +651,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = TU6A9VFP8M;
 				INFOPLIST_FILE = VillagesTown/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -868,6 +868,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = TU6A9VFP8M;
 				INFOPLIST_FILE = VillagesTown/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
