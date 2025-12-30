@@ -463,6 +463,7 @@ enum TurnEvent: Identifiable {
     case villageConquered(villageName: String)
     case villageLost(villageName: String)
     case enemyApproaching(enemyName: String, target: String, turns: Int)
+    case general(message: String)
 
     var id: String {
         switch self {
@@ -474,6 +475,7 @@ enum TurnEvent: Identifiable {
         case .villageConquered(let v): return "conquered_\(v)"
         case .villageLost(let v): return "lost_v_\(v)"
         case .enemyApproaching(let e, let t, _): return "enemy_\(e)_\(t)"
+        case .general(let m): return "general_\(m.hashValue)"
         }
     }
 
@@ -487,6 +489,7 @@ enum TurnEvent: Identifiable {
         case .villageConquered: return "🎉"
         case .villageLost: return "😢"
         case .enemyApproaching: return "⚠️"
+        case .general: return "ℹ️"
         }
     }
 
@@ -508,12 +511,14 @@ enum TurnEvent: Identifiable {
             return "\(name) was lost!"
         case .enemyApproaching(let enemy, let target, let turns):
             return "⚠️ \(enemy) approaching \(target)! \(turns) turns away"
+        case .general(let message):
+            return message
         }
     }
 
     var isImportant: Bool {
         switch self {
-        case .villageConquered, .villageLost, .enemyApproaching:
+        case .villageConquered, .villageLost, .enemyApproaching, .general:
             return true
         default:
             return false

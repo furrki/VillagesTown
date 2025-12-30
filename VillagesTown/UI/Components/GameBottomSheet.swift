@@ -431,71 +431,201 @@ struct MobileSendArmySheet: View {
     let onSend: (Village) -> Void
     @Environment(\.dismiss) var dismiss
 
-    var destinations: [Village] {
-        GameManager.shared.map.villages.filter { $0.id != currentVillage.id }
+    let neighborDistance: CGFloat = 8.0  // Max distance for "neighboring"
+
+    // Only show neighboring villages (within range)
+    var neighboringVillages: [Village] {
+        GameManager.shared.map.villages.filter { other in
+            guard other.id != currentVillage.id else { return false }
+            let dx = other.coordinates.x - currentVillage.coordinates.x
+            let dy = other.coordinates.y - currentVillage.coordinates.y
+            return sqrt(dx*dx + dy*dy) <= neighborDistance
+        }.sorted { v1, v2 in
+            let d1 = distance(to: v1)
+            let d2 = distance(to: v2)
+            return d1 < d2
+        }
+    }
+
+    func distance(to village: Village) -> CGFloat {
+        let dx = village.coordinates.x - currentVillage.coordinates.x
+        let dy = village.coordinates.y - currentVillage.coordinates.y
+        return sqrt(dx*dx + dy*dy)
     }
 
     var body: some View {
         NavigationView {
-            List {
-                ForEach(destinations, id: \.id) { village in
-                    Button(action: { onSend(village) }) {
-                        HStack {
-                            Text(village.nationality.flag)
-                                .font(.title2)
-
-                            VStack(alignment: .leading) {
-                                Text(village.name)
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
-
-                                HStack(spacing: 8) {
-                                    Text(village.owner == "player" ? "Your village" : ownerLabel(village.owner))
-                                        .font(.caption)
-                                        .foregroundColor(village.owner == "player" ? .green : .red)
-
-                                    Text("🛡️ \(village.garrisonStrength)")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-
-                            Spacer()
-
-                            let turns = Army.calculateTravelTime(from: currentVillage.coordinates, to: village.coordinates)
-                            Text("\(turns) turns")
+            ScrollView {
+                VStack(spacing: 12) {
+                    if neighboringVillages.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "map")
+                                .font(.system(size: 40))
+                                .foregroundColor(.white.opacity(0.3))
+                            Text("No nearby villages")
+                                .font(.headline)
+                                .foregroundColor(.white.opacity(0.5))
+                            Text("Villages must be within range to send armies")
                                 .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.orange)
-                                .foregroundColor(.white)
-                                .cornerRadius(8)
+                                .foregroundColor(.white.opacity(0.3))
                         }
-                        .padding(.vertical, 4)
+                        .padding(.top, 60)
+                    } else {
+                        ForEach(neighboringVillages, id: \.id) { village in
+                            MobileDestinationCard(
+                                village: village,
+                                currentVillage: currentVillage,
+                                armyStrength: army.strength,
+                                onSelect: { onSend(village) }
+                            )
+                        }
                     }
-                    .buttonStyle(.plain)
                 }
+                .padding()
             }
-            .navigationTitle("Send Army")
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle("Send \(army.name)")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
+                    Button("Cancel") { dismiss() }
                 }
             }
         }
+        .preferredColorScheme(.dark)
+    }
+}
+
+struct MobileDestinationCard: View {
+    let village: Village
+    let currentVillage: Village
+    let armyStrength: Int
+    let onSelect: () -> Void
+
+    var turns: Int {
+        Army.calculateTravelTime(from: currentVillage.coordinates, to: village.coordinates)
     }
 
-    func ownerLabel(_ owner: String) -> String {
-        switch owner {
-        case "neutral": return "Neutral"
-        case "ai1": return "Enemy AI-1"
-        case "ai2": return "Enemy AI-2"
-        default: return owner
+    var ownerColor: Color {
+        switch village.owner {
+        case "player": return .green
+        case "neutral": return .gray
+        default: return .red
         }
+    }
+
+    var ownerNationality: Nationality? {
+        GameManager.shared.players.first { $0.id == village.owner }?.nationality
+    }
+
+    var ownerFlag: String {
+        ownerNationality?.flag ?? "🏳️"
+    }
+
+    var ownerLabel: String {
+        switch village.owner {
+        case "player": return "Your Village"
+        case "neutral": return "Neutral"
+        case "ai1": return "Enemy"
+        case "ai2": return "Enemy"
+        default: return village.owner
+        }
+    }
+
+    // Show battle prediction for enemy/neutral
+    var battlePrediction: String? {
+        guard village.owner != "player" else { return nil }
+        let enemyStrength = village.garrisonStrength
+        if armyStrength > enemyStrength * 2 {
+            return "Easy victory"
+        } else if armyStrength > enemyStrength {
+            return "Favorable odds"
+        } else if armyStrength > enemyStrength / 2 {
+            return "Risky battle"
+        } else {
+            return "Likely defeat"
+        }
+    }
+
+    var predictionColor: Color {
+        guard let pred = battlePrediction else { return .clear }
+        switch pred {
+        case "Easy victory": return .green
+        case "Favorable odds": return .green.opacity(0.7)
+        case "Risky battle": return .orange
+        default: return .red
+        }
+    }
+
+    var body: some View {
+        Button(action: {
+            LayoutConstants.impactFeedback()
+            onSelect()
+        }) {
+            HStack(spacing: 14) {
+                // Flag - shows OWNER's flag
+                ZStack {
+                    Circle()
+                        .fill(ownerColor.opacity(0.3))
+                        .frame(width: 36, height: 36)
+                    Text(ownerFlag)
+                        .font(.system(size: 24))
+                }
+
+                // Info
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(village.name)
+                        .font(.headline)
+                        .foregroundColor(.white)
+
+                    HStack(spacing: 10) {
+                        Text(ownerLabel)
+                            .font(.caption)
+                            .foregroundColor(ownerColor)
+
+                        HStack(spacing: 3) {
+                            Image(systemName: "shield.fill")
+                                .font(.system(size: 10))
+                            Text("\(village.garrisonStrength)")
+                        }
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.6))
+                    }
+
+                    if let prediction = battlePrediction {
+                        Text(prediction)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(predictionColor)
+                    }
+                }
+
+                Spacer()
+
+                // Travel time
+                VStack(spacing: 2) {
+                    Text("\(turns)")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.orange)
+                    Text("turns")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                .frame(width: 50)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14))
+                    .foregroundColor(.white.opacity(0.3))
+            }
+            .padding()
+            .background(Color.white.opacity(0.05))
+            .cornerRadius(14)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(ownerColor.opacity(0.3), lineWidth: 1)
+            )
+        }
+        .buttonStyle(ScaleButtonStyle())
     }
 }

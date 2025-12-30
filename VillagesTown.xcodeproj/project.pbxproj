@@ -99,6 +99,12 @@
 		F61DA2F01044BCD3552B9D13 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EC74DFAFEC008D7355433FD0 /* Assets.xcassets */; };
 		FEC358AEE1D5B2577DEB2BE7 /* BuildingProductionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CD66B14E14B08445474B9BF /* BuildingProductionEngine.swift */; };
 		FF63553E53E6EBEB015DA6FA /* VillageDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87BFDBC69DFE08E51E0961D4 /* VillageDetailView.swift */; };
+		B1C2D3E4F5678901234567A9 /* RadialContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012345678 /* RadialContextMenu.swift */; };
+		C1D2E3F4567890123456789A /* RadialContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012345678 /* RadialContextMenu.swift */; };
+		E1F234567890123456789012 /* BottomActionBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F3456789012345678901 /* BottomActionBar.swift */; };
+		F123456789012345678901A2 /* BottomActionBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F3456789012345678901 /* BottomActionBar.swift */; };
+		234567890123456789012345 /* MobileActionSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 123456789012345678901234 /* MobileActionSheets.swift */; };
+		345678901234567890123456 /* MobileActionSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 123456789012345678901234 /* MobileActionSheets.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -133,6 +139,9 @@
 		492FD4ECAF778AFD43FEA488 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		5752C0D87ACDCBD2489F6D22 /* BuildingConstructionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildingConstructionEngine.swift; sourceTree = "<group>"; };
 		5B06C7312F40727759D7BBA8 /* LayoutConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutConstants.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6789012345678 /* RadialContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadialContextMenu.swift; sourceTree = "<group>"; };
+		D1E2F3456789012345678901 /* BottomActionBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomActionBar.swift; sourceTree = "<group>"; };
+		123456789012345678901234 /* MobileActionSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileActionSheets.swift; sourceTree = "<group>"; };
 		5B5FA1F4A74EEC0218148798 /* VictoryScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VictoryScreenView.swift; sourceTree = "<group>"; };
 		60A8CE8FE77C715092640F5A /* VillagesTown.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = VillagesTown.entitlements; sourceTree = "<group>"; };
 		654817E1DA2C8BFCD60618B6 /* MapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapView.swift; sourceTree = "<group>"; };
@@ -192,9 +201,12 @@
 		23E535760DDB48D5ABCEE11B /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				D1E2F3456789012345678901 /* BottomActionBar.swift */,
 				F23C98D5428F1267CF44830A /* FloatingHUD.swift */,
 				864D08626005A30C9FA5EC37 /* GameBottomSheet.swift */,
 				5B06C7312F40727759D7BBA8 /* LayoutConstants.swift */,
+				123456789012345678901234 /* MobileActionSheets.swift */,
+				A1B2C3D4E5F6789012345678 /* RadialContextMenu.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -527,6 +539,9 @@
 				312F5DE818A19E29C0A261B9 /* GameView.swift in Sources */,
 				E504F3E20104ED6651518555 /* GameView_Old.swift in Sources */,
 				4587EDD76D7602399C421D22 /* LayoutConstants.swift in Sources */,
+				C1D2E3F4567890123456789A /* RadialContextMenu.swift in Sources */,
+				F123456789012345678901A2 /* BottomActionBar.swift in Sources */,
+				345678901234567890123456 /* MobileActionSheets.swift in Sources */,
 				E9D49AA884B78A47694546CF /* Map.swift in Sources */,
 				9081A4F45D303517D95F1A8B /* MapView.swift in Sources */,
 				658EB3FDF0CA4438F3CEF44D /* MobileGameLayout.swift in Sources */,
@@ -575,6 +590,9 @@
 				A44ED3C271A1873D33B48901 /* GameView.swift in Sources */,
 				F56B14394F1E2C381E404854 /* GameView_Old.swift in Sources */,
 				5D2D4A4BCC365D93D6E502E6 /* LayoutConstants.swift in Sources */,
+				B1C2D3E4F5678901234567A9 /* RadialContextMenu.swift in Sources */,
+				E1F234567890123456789012 /* BottomActionBar.swift in Sources */,
+				234567890123456789012345 /* MobileActionSheets.swift in Sources */,
 				5740C8762107F1C7A51024F0 /* Map.swift in Sources */,
 				CD6A264A51E7C73BBEDF02DA /* MapView.swift in Sources */,
 				0D6BC71CFEEFE3F627BAE5A9 /* MobileGameLayout.swift in Sources */,
