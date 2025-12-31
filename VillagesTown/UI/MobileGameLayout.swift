@@ -23,6 +23,13 @@ struct MobileGameLayout: View {
     // Send army state
     @State private var showSendArmySheet = false
 
+    // Army drag-and-drop state
+    @State private var isDraggingArmy = false
+    @State private var dragArmySource: Village?
+    @State private var dragArmy: Army?
+    @State private var dragPosition: CGPoint = .zero
+    @State private var mapSize: CGSize = .zero
+
     var body: some View {
         GeometryReader { geo in
             ZStack {
@@ -86,10 +93,13 @@ struct MobileGameLayout: View {
             Color(red: 0.15, green: 0.2, blue: 0.15)
 
             GeometryReader { geo in
+                let visibleVillages = gameManager.getVisibleVillages(for: "player")
+                let visibleArmies = gameManager.getVisibleArmies(for: "player")
+
                 ZStack {
-                    // Connections
-                    ForEach(gameManager.map.villages, id: \.id) { village in
-                        ForEach(getConnectedVillages(for: village), id: \.id) { other in
+                    // Connections (only between visible villages)
+                    ForEach(visibleVillages, id: \.id) { village in
+                        ForEach(getConnectedVillages(for: village).filter { v in visibleVillages.contains { $0.id == v.id } }, id: \.id) { other in
                             Path { path in
                                 path.move(to: villagePosition(village, in: geo.size))
                                 path.addLine(to: villagePosition(other, in: geo.size))
@@ -98,8 +108,33 @@ struct MobileGameLayout: View {
                         }
                     }
 
-                    // Marching armies
-                    ForEach(gameManager.armies.filter { $0.isMarching }, id: \.id) { army in
+                    // Drag line (when dragging army)
+                    if isDraggingArmy, let source = dragArmySource {
+                        let sourcePos = villagePosition(source, in: geo.size)
+                        Path { path in
+                            path.move(to: sourcePos)
+                            path.addLine(to: screenToMap(dragPosition, in: geo.size))
+                        }
+                        .stroke(Color.orange, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [8, 4]))
+
+                        // Glow effect on valid destinations
+                        ForEach(getConnectedVillages(for: source), id: \.id) { dest in
+                            let destPos = villagePosition(dest, in: geo.size)
+                            Circle()
+                                .stroke(Color.orange, lineWidth: 3)
+                                .frame(width: 80, height: 80)
+                                .position(destPos)
+                                .opacity(0.6)
+
+                            Circle()
+                                .fill(Color.orange.opacity(0.2))
+                                .frame(width: 80, height: 80)
+                                .position(destPos)
+                        }
+                    }
+
+                    // Marching armies (only visible)
+                    ForEach(visibleArmies.filter { $0.isMarching }, id: \.id) { army in
                         if let origin = gameManager.map.villages.first(where: { $0.id == army.origin }),
                            let dest = gameManager.map.villages.first(where: { $0.id == army.destination }) {
                             let progress = calculateMarchProgress(army: army, from: origin, to: dest)
@@ -115,27 +150,63 @@ struct MobileGameLayout: View {
                         }
                     }
 
-                    // Villages
-                    ForEach(gameManager.map.villages, id: \.id) { village in
+                    // Villages (only visible)
+                    ForEach(visibleVillages, id: \.id) { village in
                         let pos = villagePosition(village, in: geo.size)
                         let armies = gameManager.getArmiesAt(villageID: village.id)
+                        let playerArmy = armies.first { $0.owner == "player" && !$0.isMarching }
                         let armyStrength = armies.reduce(0) { $0 + $1.strength }
 
-                        VillageMarker(
+                        DraggableVillageMarker(
                             village: village,
                             isSelected: selectedVillage?.id == village.id,
                             armyStrength: armyStrength,
-                            hasThreat: hasIncomingThreat(to: village)
+                            hasThreat: hasIncomingThreat(to: village),
+                            hasPlayerArmy: playerArmy != nil,
+                            isDragging: isDraggingArmy && dragArmySource?.id == village.id,
+                            onTap: { selectVillage(village) },
+                            onDragStart: {
+                                if let army = playerArmy {
+                                    isDraggingArmy = true
+                                    dragArmySource = village
+                                    dragArmy = army
+                                    dragPosition = mapToScreen(pos, in: geo.size)
+                                    LayoutConstants.impactFeedback(style: .medium)
+                                }
+                            },
+                            onDragChange: { location in
+                                dragPosition = location
+                            },
+                            onDragEnd: { location in
+                                handleArmyDrop(at: screenToMap(location, in: geo.size), in: geo.size)
+                            }
                         )
                         .position(pos)
-                        .onTapGesture { selectVillage(village) }
                     }
                 }
                 .scaleEffect(mapScale * magnifyBy)
                 .offset(x: mapOffset.width + dragOffset.width, y: mapOffset.height + dragOffset.height)
+                .onAppear { mapSize = geo.size }
+                .onChange(of: geo.size) { newSize in mapSize = newSize }
             }
-            .gesture(mapGestures)
+            .coordinateSpace(name: "mapArea")
+            .gesture(isDraggingArmy ? nil : mapGestures)
             .clipped()
+
+            // Floating army indicator during drag (in screen space, outside transformed content)
+            if isDraggingArmy, let army = dragArmy {
+                VStack(spacing: 4) {
+                    Text(army.emoji)
+                        .font(.system(size: 32))
+                    Text("\(army.strength)")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.orange))
+                }
+                .position(dragPosition)
+            }
 
             // Compact top HUD
             VStack {
@@ -144,6 +215,40 @@ struct MobileGameLayout: View {
             }
         }
         .frame(height: height)
+    }
+
+    // Handle army drop
+    func handleArmyDrop(at location: CGPoint, in size: CGSize) {
+        defer {
+            isDraggingArmy = false
+            dragArmySource = nil
+            dragArmy = nil
+        }
+
+        guard let source = dragArmySource, let army = dragArmy else { return }
+
+        // Find which village was dropped on
+        let destinations = getConnectedVillages(for: source)
+        for dest in destinations {
+            let destPos = villagePosition(dest, in: size)
+            let distance = sqrt(pow(location.x - destPos.x, 2) + pow(location.y - destPos.y, 2))
+
+            if distance < 50 { // Within 50pt of village center
+                // Send army!
+                _ = gameManager.sendArmy(armyID: army.id, to: dest.id)
+                showToast("Army sent to \(dest.name)")
+                LayoutConstants.impactFeedback(style: .heavy)
+
+                // Refresh selection
+                if let sv = selectedVillage {
+                    selectedVillage = gameManager.map.villages.first { $0.id == sv.id }
+                }
+                return
+            }
+        }
+
+        // Dropped outside valid target
+        LayoutConstants.impactFeedback(style: .light)
     }
 
     // MARK: - Compact HUD (single row)
@@ -261,6 +366,34 @@ struct MobileGameLayout: View {
         return CGPoint(
             x: padX + (village.coordinates.x / mapW) * (size.width - padX * 2),
             y: padY + (village.coordinates.y / mapH) * (size.height - padY * 2)
+        )
+    }
+
+    // Convert screen position to map position (accounting for scale/offset)
+    func screenToMap(_ screenPos: CGPoint, in size: CGSize) -> CGPoint {
+        let scale = mapScale * magnifyBy
+        let offsetX = mapOffset.width + dragOffset.width
+        let offsetY = mapOffset.height + dragOffset.height
+        let centerX = size.width / 2
+        let centerY = size.height / 2
+
+        return CGPoint(
+            x: (screenPos.x - centerX - offsetX) / scale + centerX,
+            y: (screenPos.y - centerY - offsetY) / scale + centerY
+        )
+    }
+
+    // Convert map position to screen position
+    func mapToScreen(_ mapPos: CGPoint, in size: CGSize) -> CGPoint {
+        let scale = mapScale * magnifyBy
+        let offsetX = mapOffset.width + dragOffset.width
+        let offsetY = mapOffset.height + dragOffset.height
+        let centerX = size.width / 2
+        let centerY = size.height / 2
+
+        return CGPoint(
+            x: (mapPos.x - centerX) * scale + centerX + offsetX,
+            y: (mapPos.y - centerY) * scale + centerY + offsetY
         )
     }
 
@@ -861,6 +994,84 @@ struct VillageMarker: View {
                     .offset(x: 25, y: -25)
             }
         }
+    }
+}
+
+// MARK: - Draggable Village Marker
+
+struct DraggableVillageMarker: View {
+    let village: Village
+    let isSelected: Bool
+    let armyStrength: Int
+    let hasThreat: Bool
+    let hasPlayerArmy: Bool
+    let isDragging: Bool
+    let onTap: () -> Void
+    let onDragStart: () -> Void
+    let onDragChange: (CGPoint) -> Void
+    let onDragEnd: (CGPoint) -> Void
+
+    @GestureState private var isLongPressing = false
+
+    var body: some View {
+        ZStack {
+            // Base village marker (faded during drag)
+            VillageMarker(
+                village: village,
+                isSelected: isSelected,
+                armyStrength: isDragging ? 0 : armyStrength,
+                hasThreat: hasThreat
+            )
+            .opacity(isDragging ? 0.4 : 1)
+
+            // Drag hint for villages with player armies
+            if hasPlayerArmy && !isDragging {
+                Image(systemName: "hand.draw.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(.orange)
+                    .offset(x: 30, y: 20)
+                    .opacity(0.8)
+            }
+
+            // Long press feedback ring
+            if isLongPressing && hasPlayerArmy {
+                Circle()
+                    .stroke(Color.orange, lineWidth: 3)
+                    .frame(width: 80, height: 80)
+                    .scaleEffect(1.2)
+                    .opacity(0.8)
+            }
+        }
+        .contentShape(Circle().size(width: 80, height: 80))
+        .onTapGesture {
+            if !isDragging {
+                onTap()
+            }
+        }
+        .gesture(
+            LongPressGesture(minimumDuration: 0.25)
+                .updating($isLongPressing) { current, state, _ in
+                    state = current
+                }
+                .onEnded { _ in
+                    if hasPlayerArmy {
+                        onDragStart()
+                    }
+                }
+                .sequenced(before:
+                    DragGesture(minimumDistance: 10, coordinateSpace: .named("mapArea"))
+                        .onChanged { value in
+                            if hasPlayerArmy {
+                                onDragChange(value.location)
+                            }
+                        }
+                        .onEnded { value in
+                            if hasPlayerArmy {
+                                onDragEnd(value.location)
+                            }
+                        }
+                )
+        )
     }
 }
 
