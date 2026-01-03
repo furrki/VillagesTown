@@ -61,42 +61,38 @@ class GameManager extends ChangeNotifier {
     players[1] = players[1].copyWith(nationality: ai1Nationality);
     players[2] = players[2].copyWith(nationality: ai2Nationality);
 
-    // Player village
+    // Fixed capital positions (don't change based on nationality)
     final playerVillage = Village(
       name: _getCapitalName(nationality),
       nationality: nationality,
-      coordinates: const Offset(3, 3),
+      coordinates: const Offset(2, 2),
       owner: 'player',
     );
 
     final ai1Village = Village(
       name: _getCapitalName(ai1Nationality!),
       nationality: ai1Nationality!,
-      coordinates: const Offset(17, 3),
+      coordinates: const Offset(12, 2),
       owner: 'ai1',
     );
 
     final ai2Village = Village(
       name: _getCapitalName(ai2Nationality!),
       nationality: ai2Nationality!,
-      coordinates: const Offset(10, 17),
+      coordinates: const Offset(7, 12),
       owner: 'ai2',
     );
 
-    // Neutral villages
+    // Neutral villages - spread across 15x15 map
     final neutralVillages = [
-      Village(name: 'Thessaloniki', nationality: nationalities[1], coordinates: const Offset(10, 2), owner: 'neutral'),
-      Village(name: 'Alexandroupoli', nationality: nationalities[1], coordinates: const Offset(14, 4), owner: 'neutral'),
-      Village(name: 'Kavala', nationality: nationalities[1], coordinates: const Offset(2, 10), owner: 'neutral'),
-      Village(name: 'Ioannina', nationality: nationalities[1], coordinates: const Offset(5, 7), owner: 'neutral'),
-      Village(name: 'Edirne', nationality: nationalities[0], coordinates: const Offset(8, 8), owner: 'neutral'),
-      Village(name: 'Bursa', nationality: nationalities[0], coordinates: const Offset(12, 10), owner: 'neutral'),
-      Village(name: 'Plovdiv', nationality: nationalities[2], coordinates: const Offset(10, 13), owner: 'neutral'),
-      Village(name: 'Varna', nationality: nationalities[2], coordinates: const Offset(18, 8), owner: 'neutral'),
-      Village(name: 'Constanta', nationality: nationalities[2], coordinates: const Offset(16, 14), owner: 'neutral'),
-      Village(name: 'Izmir', nationality: nationalities[0], coordinates: const Offset(6, 15), owner: 'neutral'),
-      Village(name: 'Antalya', nationality: nationalities[0], coordinates: const Offset(14, 18), owner: 'neutral'),
-      Village(name: 'Patras', nationality: nationalities[1], coordinates: const Offset(2, 17), owner: 'neutral'),
+      Village(name: 'Thessaloniki', nationality: nationalities[1], coordinates: const Offset(7, 2), owner: 'neutral'),
+      Village(name: 'Kavala', nationality: nationalities[1], coordinates: const Offset(2, 7), owner: 'neutral'),
+      Village(name: 'Edirne', nationality: nationalities[0], coordinates: const Offset(7, 7), owner: 'neutral'),
+      Village(name: 'Varna', nationality: nationalities[2], coordinates: const Offset(12, 7), owner: 'neutral'),
+      Village(name: 'Plovdiv', nationality: nationalities[2], coordinates: const Offset(4, 10), owner: 'neutral'),
+      Village(name: 'Bursa', nationality: nationalities[0], coordinates: const Offset(10, 10), owner: 'neutral'),
+      Village(name: 'Patras', nationality: nationalities[1], coordinates: const Offset(2, 12), owner: 'neutral'),
+      Village(name: 'Izmir', nationality: nationalities[0], coordinates: const Offset(12, 12), owner: 'neutral'),
     ];
 
     final allVillages = [playerVillage, ai1Village, ai2Village, ...neutralVillages];

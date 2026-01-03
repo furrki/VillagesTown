@@ -150,6 +150,7 @@ class _VillageInfoSection extends StatelessWidget {
         final armyStrength = armies.fold(0, (sum, a) => sum + a.strength);
 
         return SingleChildScrollView(
+          key: PageStorageKey('village_${village.id}'),
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -382,8 +383,7 @@ class _BuildButton extends StatelessWidget {
       case 'Stables': return '🐴';
       case 'Fortress': return '🏰';
       case 'Granary': return '🏛️';
-      case 'Temple': return '⛪';
-      case 'Library': return '📚';
+      // Temple and Library removed
       default: return '🏠';
     }
   }
@@ -447,8 +447,7 @@ class _UpgradeButton extends StatelessWidget {
       case 'Stables': return '🐴';
       case 'Fortress': return '🏰';
       case 'Granary': return '🏛️';
-      case 'Temple': return '⛪';
-      case 'Library': return '📚';
+      // Temple and Library removed
       default: return '🏠';
     }
   }
@@ -570,6 +569,7 @@ class _ArmyInfoSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      key: PageStorageKey('army_${army.id}'),
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

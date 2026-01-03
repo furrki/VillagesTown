@@ -167,7 +167,13 @@ class _MobileGameLayoutState extends State<MobileGameLayout> {
     return Stack(
       children: [
         Container(
-          color: const Color(0xFF1A2A1A),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF1A2A1A), Color(0xFF0D1A0D), Color(0xFF152015)],
+            ),
+          ),
           child: MapView(
             selectedVillage: _selectedVillage,
             selectedArmy: _selectedArmy,

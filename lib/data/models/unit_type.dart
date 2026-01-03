@@ -67,6 +67,8 @@ enum UnitType {
       };
 
   Map<Resource, int> get cost => stats.cost;
+  
+  int get strength => stats.attack; // Proxy for display
 
   double damageMultiplier(UnitType target) {
     return switch (this) {

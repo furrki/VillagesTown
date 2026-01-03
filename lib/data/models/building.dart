@@ -11,9 +11,9 @@ class Building {
   final Map<Resource, int> resourcesProduction;
   final Map<Resource, int> resourcesConsumption;
   final String description;
-  final double productionBonus;
+  // final double productionBonus; // Dead feature
   final double defenseBonus;
-  final int happinessBonus;
+  // final int happinessBonus; // Dead feature
   final bool canRecruitUnits;
 
   Building({
@@ -25,9 +25,9 @@ class Building {
     this.resourcesProduction = const {},
     this.resourcesConsumption = const {},
     required this.description,
-    this.productionBonus = 0.0,
+    // this.productionBonus = 0.0, // Removed unused
     this.defenseBonus = 0.0,
-    this.happinessBonus = 0,
+    // this.happinessBonus = 0, // Removed unused
     this.canRecruitUnits = false,
   }) : id = id ?? const Uuid().v4();
 
@@ -40,9 +40,9 @@ class Building {
     Map<Resource, int>? resourcesProduction,
     Map<Resource, int>? resourcesConsumption,
     String? description,
-    double? productionBonus,
+    // double? productionBonus,
     double? defenseBonus,
-    int? happinessBonus,
+    // int? happinessBonus,
     bool? canRecruitUnits,
   }) {
     return Building(
@@ -54,9 +54,9 @@ class Building {
       resourcesProduction: resourcesProduction ?? this.resourcesProduction,
       resourcesConsumption: resourcesConsumption ?? this.resourcesConsumption,
       description: description ?? this.description,
-      productionBonus: productionBonus ?? this.productionBonus,
+      // productionBonus: productionBonus ?? this.productionBonus,
       defenseBonus: defenseBonus ?? this.defenseBonus,
-      happinessBonus: happinessBonus ?? this.happinessBonus,
+      // happinessBonus: happinessBonus ?? this.happinessBonus,
       canRecruitUnits: canRecruitUnits ?? this.canRecruitUnits,
     );
   }
@@ -126,35 +126,17 @@ class Building {
         defenseBonus: 0.5,
       );
 
-  static Building get granary => Building(
-        type: BuildingType.infrastructure,
-        name: 'Granary',
-        baseCost: const {Resource.gold: 80, Resource.wood: 40},
-        resourcesProduction: const {Resource.food: 5},
-        description: 'Increases food storage and production',
-        productionBonus: 0.1,
-      );
 
-  static Building get temple => Building(
-        type: BuildingType.special,
-        name: 'Temple',
-        baseCost: const {Resource.gold: 200, Resource.wood: 60},
-        description: 'Increases happiness and culture',
-        happinessBonus: 15,
-      );
 
-  static Building get library => Building(
-        type: BuildingType.special,
-        name: 'Library',
-        baseCost: const {Resource.gold: 150, Resource.wood: 50},
-        description: 'Generates science points for research',
-      );
+  // Granary, Temple and Library removed as dead features
+
+  // Temple and Library removed as dead features
 
   static List<Building> get allEconomic => [farm, lumberMill, ironMine, market];
   static List<Building> get allMilitary => [barracks, archeryRange, stables, fortress];
-  static List<Building> get allInfrastructure => [granary];
-  static List<Building> get allSpecial => [temple, library];
-  static List<Building> get all => [...allEconomic, ...allMilitary, ...allInfrastructure, ...allSpecial];
+  static List<Building> get allInfrastructure => [];
+  // static List<Building> get allSpecial => [temple, library];
+  static List<Building> get all => [...allEconomic, ...allMilitary];
 
   static List<Building> starter() => [farm, lumberMill, ironMine, barracks];
 }

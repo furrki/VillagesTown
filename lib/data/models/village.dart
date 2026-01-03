@@ -81,19 +81,11 @@ class Village with ResourceHolder, TreasuryHolder {
     return bonus;
   }
 
-  int get totalHappiness {
-    var total = happiness;
-    for (final b in buildings) {
-      total += b.happinessBonus;
-    }
-    return min(total, 100);
-  }
+  // totalHappiness getter removed (happinessBonus unused)
 
   int get populationCapacity {
     var cap = level.populationCap;
-    if (buildings.any((b) => b.name == 'Aqueduct')) {
-      cap = (cap * 1.5).toInt();
-    }
+    // Aqueduct logic removed (dead feature)
     return cap;
   }
 

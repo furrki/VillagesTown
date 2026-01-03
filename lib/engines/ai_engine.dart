@@ -57,8 +57,7 @@ class AIEngine {
           Building.market,
           Building.lumberMill,
           Building.barracks,
-          Building.granary,
-          Building.temple,
+
           Building.ironMine,
         ];
       case AIPersonality.balanced:

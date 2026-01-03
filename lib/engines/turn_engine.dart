@@ -40,10 +40,13 @@ class TurnEngine {
     // 6. Garrison Regeneration
     _processGarrisonRegeneration();
 
-    // 7. Mid-route Army Interception
+    // 7. Siege Combat (armies stationed at enemy villages)
+    _processSiegeCombat();
+
+    // 8. Mid-route Army Interception
     _processArmyInterception();
 
-    // 8. Army Movement & Combat
+    // 9. Army Movement & Combat
     _processArmyMovement();
 
     // 9. AI Turns
@@ -114,6 +117,34 @@ class TurnEngine {
       if (game.map.villages[i].owner != 'neutral') {
         game.map.villages[i].regenerateGarrison();
       }
+    }
+  }
+
+  void _processSiegeCombat() {
+    final game = GameManager.shared;
+
+    // Find armies stationed at enemy villages
+    final siegeArmies = <(Army, Village)>[];
+    for (final army in game.armies) {
+      if (army.isMarching) continue;
+      final villageId = army.stationedAt;
+      if (villageId == null) continue;
+
+      final village = game.map.villages.cast<Village?>().firstWhere(
+        (v) => v!.id == villageId,
+        orElse: () => null,
+      );
+      if (village == null) continue;
+
+      // Army at enemy village - should attack
+      if (army.owner != village.owner) {
+        siegeArmies.add((army, village));
+      }
+    }
+
+    // Resolve siege combat
+    for (final (army, village) in siegeArmies) {
+      _resolveCombat(army, village);
     }
   }
 
@@ -290,7 +321,7 @@ class TurnEngine {
         game.addTurnEvent(VillageLostEvent(villageName: village.name));
       }
     } else if (result.attackerWon) {
-      // Won battle but defenders survived
+      // Won battle but defenders survived - damage garrison
       final garrisonDamage = max(3, village.garrisonStrength ~/ 2);
       village.damageGarrison(garrisonDamage);
       game.updateVillage(village);
@@ -301,9 +332,20 @@ class TurnEngine {
         game.addTurnEvent(BattleLostEvent(location: village.name, casualties: result.defenderCasualties));
       }
     } else {
-      // Lost the battle
+      // Lost the battle - garrison still takes some damage from the attack
+      final garrisonDamage = max(1, village.garrisonStrength ~/ 4);
+      village.damageGarrison(garrisonDamage);
       village.underSiege = false;
       game.updateVillage(village);
+
+      // Losing army retreats (is destroyed if it can't retreat)
+      final survivingAttacker = game.armies.cast<Army?>().firstWhere(
+        (a) => a!.id == attacker.id,
+        orElse: () => null,
+      );
+      if (survivingAttacker != null) {
+        game.removeArmy(survivingAttacker.id);
+      }
 
       if (attacker.owner == 'player') {
         game.addTurnEvent(BattleLostEvent(location: village.name, casualties: result.attackerCasualties));
