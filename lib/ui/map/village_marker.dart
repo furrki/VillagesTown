@@ -6,7 +6,7 @@ import '../components/owner_flag_view.dart';
 class VillageMarker extends StatelessWidget {
   final Village village;
   final bool isSelected;
-  final int armyStrength;
+  final int armyCount;
   final bool hasThreat;
   final VoidCallback onTap;
 
@@ -14,7 +14,7 @@ class VillageMarker extends StatelessWidget {
     super.key,
     required this.village,
     required this.isSelected,
-    required this.armyStrength,
+    required this.armyCount,
     required this.hasThreat,
     required this.onTap,
   });
@@ -78,7 +78,7 @@ class VillageMarker extends StatelessWidget {
               ),
             ),
             // Army badge
-            if (armyStrength > 0)
+            if (armyCount > 0)
               Positioned(
                 right: 0,
                 top: 0,
@@ -89,7 +89,7 @@ class VillageMarker extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    '$armyStrength',
+                    '$armyCount',
                     style: const TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.bold,

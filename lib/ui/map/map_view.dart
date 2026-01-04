@@ -177,7 +177,7 @@ class _MapViewState extends State<MapView> {
                                 builder: (context) {
                                   final pos = _villagePosition(village, size);
                                   final armies = game.getArmiesAt(village.id);
-                                  final armyStrength = armies.fold(0, (sum, a) => sum + a.strength);
+                                  final armyCount = armies.fold(0, (sum, a) => sum + a.unitCount);
 
                                   return Positioned(
                                     left: pos.dx - 35,
@@ -194,24 +194,31 @@ class _MapViewState extends State<MapView> {
                                       },
                                       builder: (context, candidateData, rejectedData) {
                                         final isDropTarget = candidateData.isNotEmpty;
+                                        final isMarchTarget = widget.selectedArmy != null && widget.selectedArmy!.stationedAt != village.id;
+
                                         return AnimatedContainer(
-                                          duration: const Duration(milliseconds: 150),
-                                          decoration: isDropTarget
+                                          duration: const Duration(milliseconds: 300),
+                                          decoration: (isDropTarget || isMarchTarget)
                                               ? BoxDecoration(
                                                   shape: BoxShape.circle,
                                                   boxShadow: [
                                                     BoxShadow(
-                                                      color: Colors.yellow.withValues(alpha: 0.5),
-                                                      blurRadius: 20,
-                                                      spreadRadius: 5,
+                                                      color: isDropTarget 
+                                                          ? Colors.yellow.withValues(alpha: 0.6) 
+                                                          : Colors.greenAccent.withValues(alpha: 0.3),
+                                                      blurRadius: isDropTarget ? 20 : 15,
+                                                      spreadRadius: isDropTarget ? 5 : 2,
                                                     ),
                                                   ],
+                                                  border: isMarchTarget 
+                                                      ? Border.all(color: Colors.greenAccent.withValues(alpha: 0.5), width: 2)
+                                                      : null,
                                                 )
                                               : null,
                                           child: VillageMarker(
                                             village: village,
                                             isSelected: widget.selectedVillage?.id == village.id,
-                                            armyStrength: armyStrength,
+                                            armyCount: armyCount,
                                             hasThreat: _hasIncomingThreat(village, game.armies),
                                             onTap: () => widget.onVillageSelected(village),
                                           ),

@@ -76,7 +76,7 @@ class ArmyVisualMarker extends StatelessWidget {
                 boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 2)],
               ),
               child: Text(
-                '${army.strength}',
+                '${army.unitCount}',
                 style: const TextStyle(
                   color: Colors.amberAccent,
                   fontSize: 10,

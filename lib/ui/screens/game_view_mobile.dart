@@ -15,6 +15,7 @@ import '../panels/army_action_panel.dart';
 import '../panels/empty_selection_panel.dart';
 import '../components/floating_hud.dart';
 import 'victory_screen.dart';
+import 'battle_screen.dart';
 
 class MobileGameLayout extends StatefulWidget {
   const MobileGameLayout({super.key});
@@ -136,26 +137,44 @@ class _MobileGameLayoutState extends State<MobileGameLayout> {
           return VictoryScreen(winner: winner);
         }
 
+        // Dynamic layout: Soldiers get more map space (Drawer Down), Villages get equal space.
+        final isSoldierMode = _selectedArmy != null;
+        final mapFlex = isSoldierMode ? 13 : 1;
+        final panelFlex = isSoldierMode ? 7 : 1;
+
         return Scaffold(
           backgroundColor: Colors.black,
           body: Stack(
             children: [
               Column(
                 children: [
-                  // Map Section (50%)
+                  // Map Section
                   Expanded(
+                    flex: mapFlex,
                     child: _buildMapSection(game),
                   ),
                   // Divider
-                  Container(height: 1, color: Colors.white.withOpacity(0.15)),
-                  // Action Panel (50%)
+                  Container(height: 1, color: Colors.white.withValues(alpha: 0.15)),
+                  // Action Panel
                   Expanded(
+                    flex: panelFlex,
                     child: _buildActionPanel(game),
                   ),
                 ],
               ),
               // Toast overlay
               if (_toastMessage != null) _buildToast(),
+
+              // Battle Screen Overlay
+              if (game.pendingBattles.isNotEmpty)
+                BattleScreen(
+                  record: game.pendingBattles.first,
+                  onDismiss: () {
+                    setState(() {
+                      // finalizeBattle already removes the record, just trigger rebuild
+                    });
+                  },
+                ),
             ],
           ),
         );
@@ -205,9 +224,7 @@ class _MobileGameLayoutState extends State<MobileGameLayout> {
               onBuild: (b) => _quickBuild(b, _currentVillage!),
               onUpgrade: (b) => _quickUpgrade(b, _currentVillage!),
               onRecruit: (t) => _quickRecruit(t, _currentVillage!),
-              onSendArmy: () {
-                // TODO: Show send army sheet
-              },
+              onSelectArmy: _selectArmy,
               onEndTurn: _processTurn,
               isProcessingTurn: _isProcessingTurn,
               showToast: _showToast,

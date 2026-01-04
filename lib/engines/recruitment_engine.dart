@@ -53,8 +53,10 @@ class RecruitmentEngine {
       units.add(Unit.create(unitType, village.owner, coordinates));
     }
 
-    // Add to army at village
-    final armiesAtVillage = game.getArmiesAt(village.id);
+    // Add to army at village (owned by same player!)
+    final armiesAtVillage = game.getArmiesAt(village.id)
+        .where((a) => a.owner == village.owner)
+        .toList();
     if (armiesAtVillage.isNotEmpty) {
       final army = armiesAtVillage.first;
       army.addUnits(units);

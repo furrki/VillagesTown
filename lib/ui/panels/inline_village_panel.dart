@@ -6,16 +6,17 @@ import '../../data/models/army.dart';
 import '../../data/models/building.dart';
 import '../../data/models/unit_type.dart';
 import '../../data/models/resource.dart';
+import '../../data/models/unit.dart';
 import '../../providers/game_provider.dart';
 import '../components/owner_flag_view.dart';
-import '../map/army_visual_marker.dart';
+
 
 class InlineVillagePanel extends StatelessWidget {
   final Village village;
   final void Function(Building) onBuild;
   final void Function(Building) onUpgrade;
   final void Function(UnitType) onRecruit;
-  final VoidCallback onSendArmy;
+  final void Function(Army) onSelectArmy;
   final VoidCallback onEndTurn;
   final bool isProcessingTurn;
   final void Function(String) showToast;
@@ -26,7 +27,7 @@ class InlineVillagePanel extends StatelessWidget {
     required this.onBuild,
     required this.onUpgrade,
     required this.onRecruit,
-    required this.onSendArmy,
+    required this.onSelectArmy,
     required this.onEndTurn,
     required this.isProcessingTurn,
     required this.showToast,
@@ -68,16 +69,18 @@ class InlineVillagePanel extends StatelessWidget {
         final game = provider.gameManager;
         final resources = game.getGlobalResources('player');
         final armies = game.getArmiesAt(village.id);
-        final playerArmy = armies.where((a) => a.owner == 'player' && !a.isMarching).isNotEmpty
-            ? armies.firstWhere((a) => a.owner == 'player' && !a.isMarching)
-            : null;
+        // Get ALL stationed armies (Groups)
+        final stationedArmies = armies.where((a) => a.owner == 'player' && !a.isMarching).toList();
+        
+        // Pass primary army to header for stats if needed, or first
+        final primaryArmy = stationedArmies.isNotEmpty ? stationedArmies.first : null;
 
         return Column(
           children: [
             // Fixed Header
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-              child: _buildHeader(playerArmy),
+              child: _buildHeader(primaryArmy),
             ),
             const SizedBox(height: 12),
             // Scrollable Content
@@ -94,9 +97,8 @@ class InlineVillagePanel extends StatelessWidget {
                       
                       const SizedBox(height: 12),
                       
-                      // Stationed Army (if present)
-                      if (playerArmy != null)
-                        _buildArmySection(playerArmy),
+                      // 2. WAR ROOM (Stack Management)
+                      _buildWarRoom(context, stationedArmies, provider),
 
                     ] else
                       _buildEnemySection(), 
@@ -106,6 +108,7 @@ class InlineVillagePanel extends StatelessWidget {
             ),
           ],
         );
+
       },
     );
   }
@@ -375,36 +378,57 @@ class InlineVillagePanel extends StatelessWidget {
     );
   }
 
-  Widget _buildArmySection(Army army) {
+  Widget _buildWarRoom(BuildContext context, List<Army> armies, GameProvider provider) {
      return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.blue.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          // Use the refined visual marker
-          ArmyVisualMarker(army: army, isSelected: false),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(army.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
-                Text('${army.strength} Power • ${army.unitCount} Units', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: onSendArmy,
-            icon: const Icon(Icons.send_rounded, color: Colors.orange),
-            tooltip: 'Send Army',
-          ),
-        ],
-      ),
-    );
+       padding: const EdgeInsets.all(10),
+       decoration: BoxDecoration(
+         color: const Color(0xFF1E1E1E),
+         borderRadius: BorderRadius.circular(16),
+         border: Border.all(color: Colors.white10),
+       ),
+       child: Column(
+         crossAxisAlignment: CrossAxisAlignment.start,
+         children: [
+           Row(
+             children: [
+               const Text('COMMAND CENTER', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+               const Spacer(),
+               // Button to merge all? Maybe later.
+             ],
+           ),
+           
+           const SizedBox(height: 8),
+
+           if (armies.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Center(
+                  child: Text(
+                    'No troops stationed here.\nRecruit units from the side panel.', 
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
+                    textAlign: TextAlign.center,
+                  )
+                ),
+              ),
+
+           ...armies.map((army) => Padding(
+             padding: const EdgeInsets.only(bottom: 4.0),
+             child: _ArmyStackCard(
+               army: army,
+               onMarch: () => onSelectArmy(army),
+               onMuster: () => _showMusterDialog(context, army, provider),
+             ),
+           )),
+         ],
+       ),
+     );
+  }
+
+  void _showMusterDialog(BuildContext context, Army army, GameProvider provider) {
+      showDialog(
+        context: context, 
+        builder: (ctx) => _MusterDialog(army: army, provider: provider)
+      );
   }
 
   Widget _buildEnemySection() {
@@ -436,7 +460,9 @@ class InlineVillagePanel extends StatelessWidget {
       ),
     );
   }
-}
+} // End InlineVillagePanel
+
+
 
 class _GameActionTile extends StatelessWidget {
   final String icon;
@@ -551,6 +577,184 @@ class _GameActionTile extends StatelessWidget {
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ArmyStackCard extends StatelessWidget {
+  final Army army;
+  final VoidCallback onMarch;
+  final VoidCallback onMuster;
+
+  const _ArmyStackCard({required this.army, required this.onMarch, required this.onMuster});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        children: [
+          // Icon Stack
+          Container(
+             width: 32, height: 32,
+             decoration: BoxDecoration(
+               color: Colors.blue.withValues(alpha: 0.2),
+               shape: BoxShape.circle,
+               border: Border.all(color: Colors.blueAccent),
+             ),
+             child: Center(child: Text(army.emoji, style: const TextStyle(fontSize: 16))),
+          ),
+          const SizedBox(width: 8),
+          // Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(army.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                Text('${army.unitCount} Units • ${army.strength} Power', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10)),
+              ],
+            ),
+          ),
+          // Actions
+          IconButton(
+            icon: const Icon(Icons.call_split_rounded, color: Colors.white70, size: 18),
+            tooltip: 'Muster / Split',
+            constraints: const BoxConstraints(), 
+            padding: const EdgeInsets.all(4),
+            onPressed: onMuster,
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: onMarch,
+            style: ElevatedButton.styleFrom(
+               backgroundColor: Colors.blue[800],
+               foregroundColor: Colors.white,
+               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+               minimumSize: const Size(0, 28),
+               textStyle: const TextStyle(fontSize: 11),
+            ),
+            child: const Text('March'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MusterDialog extends StatefulWidget {
+  final Army army;
+  final GameProvider provider;
+
+  const _MusterDialog({required this.army, required this.provider});
+
+  @override
+  State<_MusterDialog> createState() => _MusterDialogState();
+}
+
+class _MusterDialogState extends State<_MusterDialog> {
+  // Track selection: Unit -> Count
+  final Map<Unit, bool> _selection = {};
+
+  @override
+  void initState() {
+    super.initState();
+    for (var u in widget.army.units) {
+      _selection[u] = false;
+    }
+  }
+
+  void _submit() {
+    final selectedUnits = widget.army.units.where((u) => _selection[u] == true).toList();
+    if (selectedUnits.isEmpty) return;
+    
+    // Logic: Remove from current army, create new army.
+    final game = widget.provider.gameManager;
+    final remainingUnits = widget.army.units.where((u) => _selection[u] == false).toList();
+    
+    if (remainingUnits.isEmpty) {
+       // Moving ALL units? Just keep the army.
+       Navigator.of(context).pop();
+       return; 
+    }
+
+    // 1. Update current army (remove units)
+    // Use removeWhere on the passed reference (assuming it's mutable in memory)
+    // Ideally we should use a proper manager method, but mutation works if object is shared
+    widget.army.units.removeWhere((u) => selectedUnits.contains(u));
+    game.updateArmy(widget.army); // Notify changes
+    
+    // 2. Create new army
+    game.createArmy(selectedUnits, widget.army.stationedAt!, widget.army.owner);
+    game.notifyListeners(); // Force UI update
+
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final units = widget.army.units;
+    
+    return Dialog(
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Muster Field Army', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text('Select units to split into a new group:', style: TextStyle(color: Colors.white54, fontSize: 12)),
+            const SizedBox(height: 16),
+            
+            // List of units
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 300),
+              child: SingleChildScrollView(
+                child: Column(
+                  children: units.map((u) {
+                    final isSelected = _selection[u] ?? false;
+                    return CheckboxListTile(
+                      value: isSelected,
+                      onChanged: (val) {
+                        setState(() => _selection[u] = val ?? false);
+                      },
+                      title: Text(u.unitType.displayName, style: const TextStyle(color: Colors.white)),
+                      secondary: Text(u.unitType.emoji, style: const TextStyle(fontSize: 20)),
+                      activeColor: Colors.blue,
+                      checkColor: Colors.white,
+                      contentPadding: EdgeInsets.zero,
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(), 
+                  child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _submit,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                  child: const Text('Form Army', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

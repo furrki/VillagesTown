@@ -3,7 +3,9 @@
     "allow": [
       "Bash(xcodebuild:*)",
       "Bash(cat:*)",
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

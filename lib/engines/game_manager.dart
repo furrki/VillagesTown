@@ -12,6 +12,7 @@ import '../data/models/turn_event.dart';
 import '../data/models/unit.dart';
 import '../data/models/unit_type.dart';
 import '../data/models/village.dart';
+import '../data/models/combat_log.dart';
 import 'turn_engine.dart';
 
 class GameManager extends ChangeNotifier {
@@ -40,6 +41,7 @@ class GameManager extends ChangeNotifier {
   Map<String, Map<Resource, int>> globalResources = {};
   List<Army> armies = [];
   List<TurnEvent> turnEvents = [];
+  List<BattleRecord> pendingBattles = [];
   Set<String> discoveredVillageIDs = {};
   double visionRange = GameConstants.visionRange;
 
@@ -291,12 +293,27 @@ class GameManager extends ChangeNotifier {
         );
     if (originVillage == null) return false;
 
-    final turns = Army.calculateTravelTime(originVillage.coordinates, destination.coordinates);
+    final army = armies[armyIndex];
 
-    armies[armyIndex].marchTo(destinationVillageId, turns, origin);
+    // If attacking enemy village, trigger combat immediately
+    if (destination.owner != army.owner && destination.owner != 'neutral') {
+      // Move army to destination for combat
+      army.station(destinationVillageId);
+      army.origin = origin; // Preserve origin for retreat
+
+      // Trigger combat via TurnEngine
+      turnEngine.triggerImmediateCombat(army, destination, origin);
+
+      notifyListeners();
+      return true;
+    }
+
+    // Normal march for friendly/neutral destinations
+    final turns = Army.calculateTravelTime(originVillage.coordinates, destination.coordinates);
+    army.marchTo(destinationVillageId, turns, origin);
 
     addTurnEvent(ArmySentEvent(
-      armyName: armies[armyIndex].name,
+      armyName: army.name,
       destination: destination.name,
       turns: turns,
     ));
@@ -403,5 +420,149 @@ class GameManager extends ChangeNotifier {
   bool get isPlayerDefeated {
     final player = players.firstWhere((p) => p.isHuman);
     return player.isEliminated;
+  }
+
+  void finalizeBattle(BattleRecord record, int roundsPlayed, bool retreated) {
+    // 1. Get Participants
+    final attacker = armies.cast<Army?>().firstWhere((a) => a!.id == record.attackerId, orElse: () => null);
+    
+    // Defender logic is tricky because it might be a Village (Siege) or Army (Field).
+    // We used 'defenderId' which is either Army.id or Village.id.
+    Army? defenderArmy = armies.cast<Army?>().firstWhere((a) => a!.id == record.defenderId, orElse: () => null);
+    Village? defenderVillage;
+    if (defenderArmy == null) {
+      defenderVillage = map.villages.cast<Village?>().firstWhere((v) => v!.id == record.defenderId, orElse: () => null);
+    }
+    
+    if (attacker == null) return; // Should not happen
+
+    // 2. Calculate Actual Losses based on rounds played
+    int attLosses = 0;
+    int defLosses = 0;
+    
+    for (var i = 0; i < roundsPlayed; i++) {
+      if (i < record.rounds.length) {
+        attLosses += record.rounds[i].attackerLosses;
+        defLosses += record.rounds[i].defenderLosses;
+      }
+    }
+    
+    // 3. Apply Losses
+    _applyCasualtiesToArmy(attacker, attLosses);
+    
+    if (defenderArmy != null) {
+      _applyCasualtiesToArmy(defenderArmy, defLosses);
+      if (defenderArmy.units.isEmpty) {
+        removeArmy(defenderArmy.id);
+      } else {
+        updateArmy(defenderArmy);
+      }
+    } else if (defenderVillage != null) {
+       // Siege defense involves potentially multiple armies + garrison.
+       // For MVP simplicity, we kill garrison units from the 'defenderId' context if we could (but we don't have the list easily without reconstructing).
+       // Actually, CombatEngine passed us a list of defenders. We need to apply damage to the entities that owned those units.
+       // In the simple siege model, we just damage the garrison strength of the village directly proportional to losses?
+       // OR we assume the TurnEngine passed us a transient list of units composed of garrison.
+       
+       // Simplified Siege Result Application:
+       // If Attacker Won (roundsPlayed == record.rounds.length && record.attackerWon), we conquer.
+       // If Retreat, we don't.
+       
+       // Determine if defenders (garrison) were wiped out.
+       // We don't track persistent unit objects for garrison easily here.
+       // So we rely on the simulation result for conquest state.
+       
+       // If we played ALL rounds, we trust the record's boolean outcome for potential conquest.
+       // But we must account for retreat.
+    }
+    
+    // 4. Handle Retreat
+    if (retreated) {
+      // 10% attrition penalty for retreating? Optional.
+      // Move attacker back.
+      if (record.originVillageId != null) {
+        attacker.station(record.originVillageId!);
+        updateArmy(attacker);
+      }
+      
+      addTurnEvent(BattleLostEvent(
+        location: record.locationName, 
+        casualties: attLosses
+      ));
+      return; 
+    }
+    
+    // 5. Handle Victory/Defeat (Non-Retreat)
+    // Update Attacker
+    if (attacker.units.isEmpty) {
+      removeArmy(attacker.id);
+      addTurnEvent(BattleLostEvent(location: record.locationName, casualties: attLosses));
+    } else {
+      updateArmy(attacker);
+      if (defenderArmy == null && defenderVillage == null) {
+         // Should not happen
+      } else if (defenderArmy != null) {
+        // Field Battle Victory if defender dead
+        if (defenderArmy.units.isEmpty) {
+           addTurnEvent(BattleWonEvent(location: record.locationName, casualties: attLosses));
+        }
+      } else {
+        // Siege Victory?
+        bool conquest = roundsPlayed == record.rounds.length && record.attackerWon;
+        if (conquest && defenderVillage != null) {
+             _conquerVillage(attacker, defenderVillage);
+        } else {
+             // Garrison damage
+             if (defenderVillage != null) {
+                defenderVillage.damageGarrison(max(1, defLosses ~/ 2));
+                defenderVillage.underSiege = false;
+                updateVillage(defenderVillage);
+             }
+             // Attacker bounces or stays for siege? 
+             // Logic: failed siege usually stays outside? Or bounces?
+             // "Risk" bounces if you don't take it.
+             if (record.originVillageId != null) {
+                attacker.station(record.originVillageId!);
+             }
+             addTurnEvent(BattleLostEvent(location: record.locationName, casualties: attLosses));
+        }
+      }
+    }
+    
+    // Mark record as processed
+    record.isPending = false;
+    pendingBattles.remove(record);
+    notifyListeners();
+  }
+  
+  void _applyCasualtiesToArmy(Army army, int count) {
+    int killed = 0;
+    for (var i = 0; i < army.units.length && killed < count; i++) {
+       if (army.units[i].isAlive) {
+         army.units[i].takeDamage(9999);
+         killed++;
+       }
+    }
+    army.removeDeadUnits();
+  }
+
+  void _conquerVillage(Army attacker, Village village) {
+      final oldOwner = village.owner;
+      village.owner = attacker.owner;
+      village.population = (village.population * 0.8).toInt();
+      village.happiness = max(30, village.happiness - 20);
+      village.garrisonStrength = 5;
+      village.underSiege = false;
+      updateVillage(village);
+
+      // Station attacking army
+      attacker.station(village.id);
+      updateArmy(attacker);
+
+      if (attacker.owner == 'player') {
+        addTurnEvent(VillageConqueredEvent(villageName: village.name));
+      } else if (oldOwner == 'player') {
+        addTurnEvent(VillageLostEvent(villageName: village.name));
+      }
   }
 }

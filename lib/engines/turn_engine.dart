@@ -3,6 +3,7 @@ import '../data/models/army.dart';
 import '../data/models/resource.dart';
 import '../data/models/turn_event.dart';
 import '../data/models/village.dart';
+import '../data/models/combat_log.dart';
 import 'ai_engine.dart';
 import 'building_production_engine.dart';
 import 'combat_engine.dart';
@@ -204,36 +205,35 @@ class TurnEngine {
 
     if (army1 == null || army2 == null) return;
 
-    _combatEngine.resolveCombat(
+    final result = _combatEngine.resolveCombat(
+      attackerName: army1.name,
+      defenderName: army2.name,
+      attackerId: army1.id,
+      defenderId: army2.id,
+      originVillageId: army1.stationedAt,
       attackers: army1.units,
       defenders: army2.units,
       map: game.map,
       defendingVillage: null,
     );
-
-    army1.removeDeadUnits();
-    army2.removeDeadUnits();
-
-    if (army1.units.isEmpty) {
-      game.removeArmy(army1.id);
-    } else {
-      game.updateArmy(army1);
+    
+    // Store record for later viewing only if actual combat occurred
+    if (result.rounds.isNotEmpty) {
+      game.pendingBattles.add(result);
     }
-
-    if (army2.units.isEmpty) {
-      game.removeArmy(army2.id);
-    } else {
-      game.updateArmy(army2);
-    }
+    
+    // Defer consequences to GameManager.finalizeBattle
   }
 
   void _processArmyMovement() {
     final game = GameManager.shared;
-    final arrivedArmies = <(Army, Village)>[];
+    final arrivedArmies = <(Army, Village, String?)>[]; // Added origin
 
     // Advance all marching armies
     for (var i = 0; i < game.armies.length; i++) {
       if (game.armies[i].isMarching) {
+        // Save origin BEFORE advancing (advanceMarch clears it)
+        final originBeforeAdvance = game.armies[i].origin;
         game.armies[i].advanceMarch();
 
         if (!game.armies[i].isMarching) {
@@ -244,7 +244,7 @@ class TurnEngine {
                   orElse: () => null,
                 );
             if (destination != null) {
-              arrivedArmies.add((game.armies[i], destination));
+              arrivedArmies.add((game.armies[i], destination, originBeforeAdvance));
             }
           }
         }
@@ -252,9 +252,9 @@ class TurnEngine {
     }
 
     // Process arrivals
-    for (final (army, destination) in arrivedArmies) {
+    for (final (army, destination, origin) in arrivedArmies) {
       if (army.owner != destination.owner) {
-        _resolveCombat(army, destination);
+        _resolveCombat(army, destination, savedOrigin: origin);
       } else {
         game.mergeArmiesAt(destination.id, army.owner);
         game.addTurnEvent(ArmyArrivedEvent(armyName: army.name, destination: destination.name));
@@ -262,97 +262,40 @@ class TurnEngine {
     }
   }
 
-  void _resolveCombat(Army attacker, Village village) {
+  void _resolveCombat(Army attacker, Village village, {String? savedOrigin}) {
     final game = GameManager.shared;
 
     // Mark village as under siege
     village.underSiege = true;
 
-    // Get defending armies
-    final defenderArmies = game.getArmiesAt(village.id).where((a) => a.owner == village.owner).toList();
+    // Get defending armies (exclude the attacker!)
+    final defenderArmies = game.getArmiesAt(village.id)
+        .where((a) => a.owner == village.owner && a.id != attacker.id)
+        .toList();
     final defenderUnits = defenderArmies.expand((a) => a.units).toList();
 
     final result = _combatEngine.resolveCombat(
+      attackerName: attacker.name,
+      defenderName: village.name,
+      attackerId: attacker.id,
+      defenderId: village.id,
+      originVillageId: savedOrigin ?? attacker.origin,
       attackers: attacker.units,
       defenders: defenderUnits,
       map: game.map,
       defendingVillage: village,
     );
-
-    // Update attacker army
-    attacker.removeDeadUnits();
-    if (attacker.units.isEmpty) {
-      game.removeArmy(attacker.id);
-    } else {
-      game.updateArmy(attacker);
+    
+    if (result.rounds.isNotEmpty) {
+      game.pendingBattles.add(result);
     }
 
-    // Update defender armies
-    for (final defArmy in defenderArmies) {
-      game.removeArmy(defArmy.id);
-    }
-    final survivingDefenders = defenderUnits.where((u) => u.isAlive).toList();
-    if (survivingDefenders.isNotEmpty) {
-      game.createArmy(survivingDefenders, village.id, village.owner);
-    }
+    // Defer consequences to GameManager.finalizeBattle
+  }
 
-    // Check for conquest
-    final canConquer = result.attackerWon && survivingDefenders.isEmpty;
-
-    if (canConquer) {
-      final oldOwner = village.owner;
-      village.owner = attacker.owner;
-      village.population = (village.population * 0.8).toInt();
-      village.happiness = max(30, village.happiness - 20);
-      village.garrisonStrength = 5;
-      village.underSiege = false;
-      game.updateVillage(village);
-
-      // Station attacking army
-      final attackingArmy = game.armies.cast<Army?>().firstWhere((a) => a!.id == attacker.id, orElse: () => null);
-      if (attackingArmy != null) {
-        attackingArmy.station(village.id);
-        game.updateArmy(attackingArmy);
-      }
-
-      if (attacker.owner == 'player') {
-        game.addTurnEvent(VillageConqueredEvent(villageName: village.name));
-      } else if (oldOwner == 'player') {
-        game.addTurnEvent(VillageLostEvent(villageName: village.name));
-      }
-    } else if (result.attackerWon) {
-      // Won battle but defenders survived - damage garrison
-      final garrisonDamage = max(3, village.garrisonStrength ~/ 2);
-      village.damageGarrison(garrisonDamage);
-      game.updateVillage(village);
-
-      if (attacker.owner == 'player') {
-        game.addTurnEvent(BattleWonEvent(location: village.name, casualties: result.attackerCasualties));
-      } else if (village.owner == 'player') {
-        game.addTurnEvent(BattleLostEvent(location: village.name, casualties: result.defenderCasualties));
-      }
-    } else {
-      // Lost the battle - garrison still takes some damage from the attack
-      final garrisonDamage = max(1, village.garrisonStrength ~/ 4);
-      village.damageGarrison(garrisonDamage);
-      village.underSiege = false;
-      game.updateVillage(village);
-
-      // Losing army retreats (is destroyed if it can't retreat)
-      final survivingAttacker = game.armies.cast<Army?>().firstWhere(
-        (a) => a!.id == attacker.id,
-        orElse: () => null,
-      );
-      if (survivingAttacker != null) {
-        game.removeArmy(survivingAttacker.id);
-      }
-
-      if (attacker.owner == 'player') {
-        game.addTurnEvent(BattleLostEvent(location: village.name, casualties: result.attackerCasualties));
-      } else if (village.owner == 'player') {
-        game.addTurnEvent(BattleWonEvent(location: village.name, casualties: result.defenderCasualties));
-      }
-    }
+  /// Trigger combat immediately (called when attacking enemy village)
+  void triggerImmediateCombat(Army attacker, Village village, String originVillageId) {
+    _resolveCombat(attacker, village, savedOrigin: originVillageId);
   }
 
   void _processAITurns() {
