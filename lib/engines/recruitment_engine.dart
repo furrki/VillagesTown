@@ -1,4 +1,4 @@
-import 'dart:ui';
+import '../data/models/geo_coordinate.dart';
 import '../data/models/unit.dart';
 import '../data/models/unit_type.dart';
 import '../data/models/village.dart';
@@ -33,7 +33,7 @@ class RecruitmentEngine {
     return (true, '');
   }
 
-  List<Unit> recruitUnits(UnitType unitType, int quantity, Village village, Offset coordinates) {
+  List<Unit> recruitUnits(UnitType unitType, int quantity, Village village, GeoCoordinate coordinates) {
     final (can, _) = canRecruit(unitType, quantity, village);
     if (!can) return [];
 

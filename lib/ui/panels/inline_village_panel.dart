@@ -75,38 +75,28 @@ class InlineVillagePanel extends StatelessWidget {
         // Pass primary army to header for stats if needed, or first
         final primaryArmy = stationedArmies.isNotEmpty ? stationedArmies.first : null;
 
-        return Column(
-          children: [
-            // Fixed Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-              child: _buildHeader(primaryArmy),
-            ),
-            const SizedBox(height: 12),
-            // Scrollable Content
-            Expanded(
-              child: SingleChildScrollView(
-                key: PageStorageKey('inline_village_${village.id}'),
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 30),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    if (isPlayerVillage) ...[
-                      // 1. Village Architecture (Radial Control Pad + Army)
-                      _buildRadialVillage(resources),
-                      
-                      const SizedBox(height: 12),
-                      
-                      // 2. WAR ROOM (Stack Management)
-                      _buildWarRoom(context, stationedArmies, provider),
+        return SingleChildScrollView(
+          key: PageStorageKey('inline_village_${village.id}'),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Header
+              _buildHeader(primaryArmy),
+              const SizedBox(height: 12),
+              // Content
+              if (isPlayerVillage) ...[
+                // 1. Village Architecture (Radial Control Pad + Army)
+                _buildRadialVillage(resources),
 
-                    ] else
-                      _buildEnemySection(), 
-                  ],
-                ),
-              ),
-            ),
-          ],
+                const SizedBox(height: 12),
+
+                // 2. WAR ROOM (Stack Management)
+                _buildWarRoom(context, stationedArmies, provider),
+              ] else
+                _buildEnemySection(),
+            ],
+          ),
         );
 
       },

@@ -4,7 +4,6 @@ class Nationality {
   final String id;
   final String name;
   final String flag;
-
   final Color color;
 
   const Nationality({
@@ -14,28 +13,28 @@ class Nationality {
     required this.color,
   });
 
-  static const turkish = Nationality(
-    id: 'tr',
-    name: 'Turkish',
-    flag: '🇹🇷',
-    color: Color(0xFFE30A17),
+  static const ottomans = Nationality(
+    id: 'ottoman',
+    name: 'Ottomans',
+    flag: '☪️',
+    color: Color(0xFF2E7D32),
   );
 
-  static const greek = Nationality(
-    id: 'gr',
-    name: 'Greek',
-    flag: '🇬🇷',
-    color: Color(0xFF0D5EAF),
+  static const byzantines = Nationality(
+    id: 'byzantine',
+    name: 'Byzantines',
+    flag: '🦅',
+    color: Color(0xFF7B1FA2),
   );
 
-  static const bulgarian = Nationality(
-    id: 'bg',
-    name: 'Bulgarian',
-    flag: '🇧🇬',
-    color: Color(0xFF00966E),
+  static const crusaders = Nationality(
+    id: 'crusader',
+    name: 'Crusaders',
+    flag: '✝️',
+    color: Color(0xFFD32F2F),
   );
 
-  static List<Nationality> getAll() => [turkish, greek, bulgarian];
+  static List<Nationality> getAll() => [ottomans, byzantines, crusaders];
 
   @override
   bool operator ==(Object other) =>

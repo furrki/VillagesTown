@@ -1,8 +1,9 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/army.dart';
-import '../../data/models/tile.dart';
+import '../../data/models/geo_coordinate.dart';
 import '../../data/models/village.dart';
 import '../../engines/game_manager.dart';
 import '../../providers/game_provider.dart';
@@ -30,51 +31,33 @@ class MapView extends StatefulWidget {
 }
 
 class _MapViewState extends State<MapView> {
-  final TransformationController _transformController = TransformationController();
-  Army? _draggingArmy;
-  bool _initialPositionSet = false;
+  final MapController _mapController = MapController();
 
-  void _setInitialPosition(Size size) {
-    if (_initialPositionSet) return;
-    _initialPositionSet = true;
+  // Map bounds for the Byzantine/Ottoman region
+  static const _initialCenter = LatLng(38.5, 30.0);
+  static const _initialZoom = 5.0;
+  static const _minZoom = 4.0;
+  static const _maxZoom = 8.0;
 
-    // Start with view shifted down so player village (top area) is centered
-    const offsetY = 100.0;
+  // Connection distance in km
+  static const _maxConnectionDistanceKm = 400.0;
 
-    _transformController.value = Matrix4.identity()
-      ..translate(0.0, offsetY);
-  }
-
-  Offset _villagePosition(Village village, Size size) {
-    final game = GameManager.shared;
-    final mapW = game.map.size.width;
-    final mapH = game.map.size.height;
-    final padX = size.width * 0.12;
-    final padY = size.height * 0.12;
-
-    return Offset(
-      padX + (village.coordinates.dx / mapW) * (size.width - padX * 2),
-      padY + (village.coordinates.dy / mapH) * (size.height - padY * 2),
-    );
+  bool _hasIncomingThreat(Village village, List<Army> armies) {
+    return armies.any((a) => a.isMarching && a.destination == village.id && a.owner != village.owner);
   }
 
   List<Village> _getConnectedVillages(Village village, List<Village> allVillages) {
     return allVillages.where((other) {
       if (other.id == village.id) return false;
-      final dx = other.coordinates.dx - village.coordinates.dx;
-      final dy = other.coordinates.dy - village.coordinates.dy;
-      return sqrt(dx * dx + dy * dy) < 6;
+      final distKm = GeoCoordinate.distanceKm(village.coordinates, other.coordinates);
+      return distKm < _maxConnectionDistanceKm;
     }).toList();
   }
 
   double _calculateMarchProgress(Army army, Village from, Village to) {
     final total = Army.calculateTravelTime(from.coordinates, to.coordinates);
     final remaining = army.turnsUntilArrival;
-    return (total - remaining) / max(total, 1);
-  }
-
-  bool _hasIncomingThreat(Village village, List<Army> armies) {
-    return armies.any((a) => a.isMarching && a.destination == village.id && a.owner != village.owner);
+    return (total - remaining) / (total > 0 ? total : 1);
   }
 
   @override
@@ -82,403 +65,250 @@ class _MapViewState extends State<MapView> {
     return Consumer<GameProvider>(
       builder: (context, provider, _) {
         final game = provider.gameManager;
-        final visibleVillages = game.getVisibleVillages('player');
+        final visibleVillages = game.map.villages; // Show all cities
         final visibleArmies = game.getVisibleArmies('player');
         final stationedArmies = visibleArmies.where((a) => !a.isMarching && a.owner == 'player').toList();
 
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final size = Size(constraints.maxWidth, constraints.maxHeight);
+        return FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: _initialCenter,
+            initialZoom: _initialZoom,
+            minZoom: _minZoom,
+            maxZoom: _maxZoom,
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+            ),
+            backgroundColor: const Color(0xFF1a1a2e),
+          ),
+          children: [
+            // Dark map tiles
+            TileLayer(
+              urlTemplate: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png',
+              subdomains: const ['a', 'b', 'c', 'd'],
+              userAgentPackageName: 'com.villages.town',
+              retinaMode: true,
+            ),
 
-            // Set initial zoom/position once
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _setInitialPosition(size);
-            });
+            // Connection lines between nearby villages
+            PolylineLayer(
+              polylines: _buildConnectionLines(visibleVillages),
+            ),
 
-            return Container(
-              width: double.infinity,
-              height: double.infinity,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF1A2A1A), Color(0xFF0D1A0D), Color(0xFF152015)],
-                ),
-              ),
-              child: InteractiveViewer(
-                transformationController: _transformController,
-                minScale: 0.5,
-                maxScale: 3.0,
-                boundaryMargin: const EdgeInsets.all(double.infinity), // Allow infinite panning
-                child: SizedBox(
-                  width: size.width,
-                  height: size.height,
-                  child: CustomPaint(
-                    painter: _TerrainPainter(
-                      tiles: game.map.tiles,
-                      mapSize: game.map.size,
-                    ),
-                    child: CustomPaint(
-                      painter: _ConnectionsPainter(
-                        villages: visibleVillages,
-                        positionForVillage: (v) => _villagePosition(v, size),
-                        connectedVillages: (v) => _getConnectedVillages(v, visibleVillages),
-                      ),
-                      child: CustomPaint(
-                        painter: _MarchPathPainter(
-                          marchingArmies: visibleArmies.where((a) => a.isMarching).toList(),
-                          villages: {for (var v in game.map.villages) v.id: v},
-                          positionForVillage: (v) => _villagePosition(v, size),
-                          progressCalculator: _calculateMarchProgress,
-                        ),
-                        child: Stack(
-                          children: [
-                            // Marching armies (Using builder for position calc)
-                            for (final army in visibleArmies.where((a) => a.isMarching))
-                              if (army.origin != null && army.destination != null)
-                                Builder(
-                                  builder: (context) {
-                                    final origin = game.map.villages.cast<Village?>().firstWhere(
-                                          (v) => v!.id == army.origin,
-                                          orElse: () => null,
-                                        );
-                                    final dest = game.map.villages.cast<Village?>().firstWhere(
-                                          (v) => v!.id == army.destination,
-                                          orElse: () => null,
-                                        );
+            // March paths for moving armies
+            PolylineLayer(
+              polylines: _buildMarchPaths(visibleArmies, game),
+            ),
 
-                                    if (origin == null || dest == null) return const SizedBox();
+            // Village markers
+            MarkerLayer(
+              markers: _buildVillageMarkers(visibleVillages, game),
+            ),
 
-                                    final progress = _calculateMarchProgress(army, origin, dest);
-                                    final fromPos = _villagePosition(origin, size);
-                                    final toPos = _villagePosition(dest, size);
-                                    final pos = Offset(
-                                      fromPos.dx + (toPos.dx - fromPos.dx) * progress,
-                                      fromPos.dy + (toPos.dy - fromPos.dy) * progress,
-                                    );
+            // Marching army markers
+            MarkerLayer(
+              markers: _buildMarchingArmyMarkers(visibleArmies, game),
+            ),
 
-                                    return Positioned(
-                                      left: pos.dx - 25, 
-                                      top: pos.dy - 25,
-                                      child: GestureDetector(
-                                        onTap: () => widget.onArmySelected(army),
-                                        child: ArmyVisualMarker(
-                                          army: army,
-                                          isSelected: widget.selectedArmy?.id == army.id,
-                                          isMarching: true,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                            // Villages with drag targets
-                            for (final village in visibleVillages)
-                              Builder(
-                                builder: (context) {
-                                  final pos = _villagePosition(village, size);
-                                  final armies = game.getArmiesAt(village.id);
-                                  final armyCount = armies.fold(0, (sum, a) => sum + a.unitCount);
-
-                                  return Positioned(
-                                    left: pos.dx - 35,
-                                    top: pos.dy - 35,
-                                    child: DragTarget<Army>(
-                                      onWillAcceptWithDetails: (details) {
-                                        final army = details.data;
-                                        // Can't send to same village
-                                        return army.stationedAt != village.id;
-                                      },
-                                      onAcceptWithDetails: (details) {
-                                        final army = details.data;
-                                        widget.onArmySent?.call(army, village);
-                                      },
-                                      builder: (context, candidateData, rejectedData) {
-                                        final isDropTarget = candidateData.isNotEmpty;
-                                        final isMarchTarget = widget.selectedArmy != null && widget.selectedArmy!.stationedAt != village.id;
-
-                                        return AnimatedContainer(
-                                          duration: const Duration(milliseconds: 300),
-                                          decoration: (isDropTarget || isMarchTarget)
-                                              ? BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: isDropTarget 
-                                                          ? Colors.yellow.withValues(alpha: 0.6) 
-                                                          : Colors.greenAccent.withValues(alpha: 0.3),
-                                                      blurRadius: isDropTarget ? 20 : 15,
-                                                      spreadRadius: isDropTarget ? 5 : 2,
-                                                    ),
-                                                  ],
-                                                  border: isMarchTarget 
-                                                      ? Border.all(color: Colors.greenAccent.withValues(alpha: 0.5), width: 2)
-                                                      : null,
-                                                )
-                                              : null,
-                                          child: VillageMarker(
-                                            village: village,
-                                            isSelected: widget.selectedVillage?.id == village.id,
-                                            armyCount: armyCount,
-                                            hasThreat: _hasIncomingThreat(village, game.armies),
-                                            onTap: () => widget.onVillageSelected(village),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  );
-                                },
-                              ),
-                            // Draggable stationed armies (shown on their villages)
-                            for (final army in stationedArmies)
-                              Builder(
-                                builder: (context) {
-                                  final village = game.map.villages.cast<Village?>().firstWhere(
-                                        (v) => v!.id == army.stationedAt,
-                                        orElse: () => null,
-                                      );
-                                  if (village == null) return const SizedBox();
-
-                                  final pos = _villagePosition(village, size);
-
-                                  return Positioned(
-                                    left: pos.dx + 15,
-                                    top: pos.dy - 40,
-                                    child: Draggable<Army>(
-                                      data: army,
-                                      onDragStarted: () => setState(() => _draggingArmy = army),
-                                      onDragEnd: (_) => setState(() => _draggingArmy = null),
-                                      feedback: Material(
-                                        color: Colors.transparent,
-                                        child: ArmyVisualMarker(
-                                          army: army,
-                                          isSelected: true, // Highlight when dragging
-                                        ),
-                                      ),
-                                      childWhenDragging: Opacity(
-                                        opacity: 0.3,
-                                        child: ArmyVisualMarker(army: army, isSelected: false),
-                                      ),
-                                      child: GestureDetector(
-                                        onTap: () => widget.onArmySelected(army),
-                                        child: ArmyVisualMarker(
-                                          army: army,
-                                          isSelected: widget.selectedArmy?.id == army.id,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
+            // Stationed army markers (draggable)
+            MarkerLayer(
+              markers: _buildStationedArmyMarkers(stationedArmies, game),
+            ),
+          ],
         );
       },
     );
   }
-}
 
-class _TerrainPainter extends CustomPainter {
-  final List<List<Tile>> tiles;
-  final Size mapSize;
-
-  _TerrainPainter({required this.tiles, required this.mapSize});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (tiles.isEmpty) return;
-
-    final rows = tiles.length;
-    final cols = tiles.first.length;
-
-    // Sample at lower resolution for smoother look
-    const sampleStep = 4;
-    final blobRadius = size.width / (cols / sampleStep) * 0.8;
-
-    for (var y = 0; y < rows; y += sampleStep) {
-      for (var x = 0; x < cols; x += sampleStep) {
-        final tile = tiles[y][x];
-        final centerX = (x + sampleStep / 2) / cols * size.width;
-        final centerY = (y + sampleStep / 2) / rows * size.height;
-
-        // Muted, darker terrain colors
-        final baseColor = _getMutedColor(tile.terrain.color);
-
-        // Radial gradient blob
-        final gradient = RadialGradient(
-          colors: [
-            baseColor.withAlpha(60),
-            baseColor.withAlpha(20),
-            baseColor.withAlpha(0),
-          ],
-          stops: const [0.0, 0.5, 1.0],
-        );
-
-        final blobPaint = Paint()
-          ..shader = gradient.createShader(
-            Rect.fromCircle(center: Offset(centerX, centerY), radius: blobRadius),
-          );
-
-        canvas.drawCircle(Offset(centerX, centerY), blobRadius, blobPaint);
-      }
-    }
-  }
-
-  Color _getMutedColor(Color color) {
-    // Darken and desaturate
-    final hsl = HSLColor.fromColor(color);
-    return hsl
-        .withSaturation((hsl.saturation * 0.5).clamp(0, 1))
-        .withLightness((hsl.lightness * 0.4).clamp(0, 1))
-        .toColor();
-  }
-
-  @override
-  bool shouldRepaint(covariant _TerrainPainter oldDelegate) => false;
-}
-
-class _ConnectionsPainter extends CustomPainter {
-  final List<Village> villages;
-  final Offset Function(Village) positionForVillage;
-  final List<Village> Function(Village) connectedVillages;
-
-  _ConnectionsPainter({
-    required this.villages,
-    required this.positionForVillage,
-    required this.connectedVillages,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.12)
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
-
+  List<Polyline> _buildConnectionLines(List<Village> villages) {
+    final lines = <Polyline>[];
     final drawn = <String>{};
 
     for (final village in villages) {
-      final from = positionForVillage(village);
-      for (final other in connectedVillages(village)) {
+      for (final other in _getConnectedVillages(village, villages)) {
         final key = [village.id, other.id]..sort();
         final drawKey = key.join('-');
         if (drawn.contains(drawKey)) continue;
         drawn.add(drawKey);
 
-        final to = positionForVillage(other);
-
-        final path = Path()
-          ..moveTo(from.dx, from.dy)
-          ..lineTo(to.dx, to.dy);
-
-        canvas.drawPath(
-          dashPath(path, 4, 4),
-          paint,
-        );
+        lines.add(Polyline(
+          points: [
+            village.coordinates.toLatLng(),
+            other.coordinates.toLatLng(),
+          ],
+          color: Colors.white.withValues(alpha: 0.15),
+          strokeWidth: 1,
+          pattern: const StrokePattern.dotted(),
+        ));
       }
     }
+    return lines;
   }
 
-  Path dashPath(Path source, double dashLength, double gapLength) {
-    final dest = Path();
-    final metrics = source.computeMetrics();
+  List<Polyline> _buildMarchPaths(List<Army> armies, GameManager game) {
+    final lines = <Polyline>[];
 
-    for (final metric in metrics) {
-      var distance = 0.0;
-      while (distance < metric.length) {
-        final length = min(dashLength, metric.length - distance);
-        dest.addPath(metric.extractPath(distance, distance + length), Offset.zero);
-        distance += dashLength + gapLength;
-      }
-    }
-    return dest;
-  }
+    for (final army in armies.where((a) => a.isMarching)) {
+      final origin = game.map.villages.cast<Village?>().firstWhere(
+        (v) => v!.id == army.origin,
+        orElse: () => null,
+      );
+      final dest = game.map.villages.cast<Village?>().firstWhere(
+        (v) => v!.id == army.destination,
+        orElse: () => null,
+      );
 
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}
-
-class _MarchPathPainter extends CustomPainter {
-  final List<Army> marchingArmies;
-  final Map<String, Village> villages;
-  final Offset Function(Village) positionForVillage;
-  final double Function(Army, Village, Village) progressCalculator;
-
-  _MarchPathPainter({
-    required this.marchingArmies,
-    required this.villages,
-    required this.positionForVillage,
-    required this.progressCalculator,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (final army in marchingArmies) {
-      final origin = villages[army.origin];
-      final dest = villages[army.destination];
-      
       if (origin == null || dest == null) continue;
 
-      final from = positionForVillage(origin);
-      final to = positionForVillage(dest);
-      // final progress = progressCalculator(army, origin, dest);
+      final color = army.owner == 'player'
+          ? const Color(0xFF3B82F6)
+          : const Color(0xFFEF4444);
 
-      // Determine color based on owner
-      final color = army.owner == 'player' ? const Color(0xFF3B82F6) : const Color(0xFFEF4444);
-
-      final paint = Paint()
-        ..color = color.withValues(alpha: 0.6)
-        ..strokeWidth = 2
-        ..style = PaintingStyle.stroke;
-
-      // Draw dashed line from Start to End
-      final path = Path()
-        ..moveTo(from.dx, from.dy)
-        ..lineTo(to.dx, to.dy);
-
-      final dashed = _dashPath(path, 10, 8);
-      canvas.drawPath(dashed, paint);
-
-      // Draw faint "trace" of progress (solid line behind the dash up to current pos?)
-      // Or just a target marker at destination
-      
-      // Target Marker
-      final targetPaint = Paint()
-        ..color = color.withValues(alpha: 0.3)
-        ..style = PaintingStyle.fill;
-      
-      canvas.drawCircle(to, 6, targetPaint);
-      
-      final targetStroke = Paint()
-         ..color = color.withValues(alpha: 0.8)
-         ..strokeWidth = 1.5
-         ..style = PaintingStyle.stroke;
-
-      canvas.drawCircle(to, 6, targetStroke);
+      lines.add(Polyline(
+        points: [
+          origin.coordinates.toLatLng(),
+          dest.coordinates.toLatLng(),
+        ],
+        color: color.withValues(alpha: 0.6),
+        strokeWidth: 2,
+        pattern: const StrokePattern.dotted(),
+      ));
     }
+    return lines;
   }
 
-  Path _dashPath(Path source, double dashLength, double gapLength) {
-    final dest = Path();
-    final metrics = source.computeMetrics();
+  List<Marker> _buildVillageMarkers(List<Village> villages, GameManager game) {
+    return villages.map((village) {
+      final armies = game.getArmiesAt(village.id);
+      final armyCount = armies.fold(0, (sum, a) => sum + a.unitCount);
+      final isMarchTarget = widget.selectedArmy != null && widget.selectedArmy!.stationedAt != village.id;
 
-    for (final metric in metrics) {
-      var distance = 0.0;
-      while (distance < metric.length) {
-        final length = min(dashLength, metric.length - distance);
-        dest.addPath(metric.extractPath(distance, distance + length), Offset.zero);
-        distance += dashLength + gapLength;
-      }
-    }
-    return dest;
+      return Marker(
+        point: village.coordinates.toLatLng(),
+        width: 80,
+        height: 80,
+        child: DragTarget<Army>(
+          onWillAcceptWithDetails: (details) {
+            return details.data.stationedAt != village.id;
+          },
+          onAcceptWithDetails: (details) {
+            widget.onArmySent?.call(details.data, village);
+          },
+          builder: (context, candidateData, rejectedData) {
+            final isDropTarget = candidateData.isNotEmpty;
+
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              decoration: (isDropTarget || isMarchTarget)
+                  ? BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: isDropTarget
+                              ? Colors.yellow.withValues(alpha: 0.6)
+                              : Colors.greenAccent.withValues(alpha: 0.3),
+                          blurRadius: isDropTarget ? 20 : 15,
+                          spreadRadius: isDropTarget ? 5 : 2,
+                        ),
+                      ],
+                    )
+                  : null,
+              child: VillageMarker(
+                village: village,
+                isSelected: widget.selectedVillage?.id == village.id,
+                armyCount: armyCount,
+                hasThreat: _hasIncomingThreat(village, game.armies),
+                onTap: () => widget.onVillageSelected(village),
+              ),
+            );
+          },
+        ),
+      );
+    }).toList();
   }
 
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  List<Marker> _buildMarchingArmyMarkers(List<Army> armies, GameManager game) {
+    final markers = <Marker>[];
+
+    for (final army in armies.where((a) => a.isMarching)) {
+      final origin = game.map.villages.cast<Village?>().firstWhere(
+        (v) => v!.id == army.origin,
+        orElse: () => null,
+      );
+      final dest = game.map.villages.cast<Village?>().firstWhere(
+        (v) => v!.id == army.destination,
+        orElse: () => null,
+      );
+
+      if (origin == null || dest == null) continue;
+
+      final progress = _calculateMarchProgress(army, origin, dest);
+      final fromLat = origin.coordinates.latitude;
+      final fromLng = origin.coordinates.longitude;
+      final toLat = dest.coordinates.latitude;
+      final toLng = dest.coordinates.longitude;
+
+      final currentLat = fromLat + (toLat - fromLat) * progress;
+      final currentLng = fromLng + (toLng - fromLng) * progress;
+
+      markers.add(Marker(
+        point: LatLng(currentLat, currentLng),
+        width: 50,
+        height: 50,
+        child: GestureDetector(
+          onTap: () => widget.onArmySelected(army),
+          child: ArmyVisualMarker(
+            army: army,
+            isSelected: widget.selectedArmy?.id == army.id,
+            isMarching: true,
+          ),
+        ),
+      ));
+    }
+    return markers;
+  }
+
+  List<Marker> _buildStationedArmyMarkers(List<Army> stationedArmies, GameManager game) {
+    final markers = <Marker>[];
+
+    for (final army in stationedArmies) {
+      final village = game.map.villages.cast<Village?>().firstWhere(
+        (v) => v!.id == army.stationedAt,
+        orElse: () => null,
+      );
+      if (village == null) continue;
+
+      // Offset slightly from village center
+      final offsetLat = village.coordinates.latitude + 0.3;
+      final offsetLng = village.coordinates.longitude + 0.3;
+
+      markers.add(Marker(
+        point: LatLng(offsetLat, offsetLng),
+        width: 50,
+        height: 50,
+        child: Draggable<Army>(
+          data: army,
+          feedback: Material(
+            color: Colors.transparent,
+            child: ArmyVisualMarker(
+              army: army,
+              isSelected: true,
+            ),
+          ),
+          childWhenDragging: Opacity(
+            opacity: 0.3,
+            child: ArmyVisualMarker(army: army, isSelected: false),
+          ),
+          child: GestureDetector(
+            onTap: () => widget.onArmySelected(army),
+            child: ArmyVisualMarker(
+              army: army,
+              isSelected: widget.selectedArmy?.id == army.id,
+            ),
+          ),
+        ),
+      ));
+    }
+    return markers;
+  }
 }

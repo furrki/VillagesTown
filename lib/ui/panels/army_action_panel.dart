@@ -51,12 +51,11 @@ class ArmyActionPanel extends StatelessWidget {
           child: Row(
             children: [
               Expanded(child: _statItem(Icons.people, '${army.unitCount}', 'Units')),
-              Container(width: 1, height: 50, color: Colors.white.withOpacity(0.1)),
+              Container(width: 1, height: 50, color: Colors.white.withValues(alpha: 0.1)),
               Expanded(child: _statItem(Icons.flash_on, '${army.strength}', 'Strength')),
             ],
           ),
         ),
-        const Spacer(),
       ],
     );
   }

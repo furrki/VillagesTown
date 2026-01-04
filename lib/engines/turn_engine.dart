@@ -1,9 +1,7 @@
-import 'dart:math';
 import '../data/models/army.dart';
 import '../data/models/resource.dart';
 import '../data/models/turn_event.dart';
 import '../data/models/village.dart';
-import '../data/models/combat_log.dart';
 import 'ai_engine.dart';
 import 'building_production_engine.dart';
 import 'combat_engine.dart';
@@ -56,7 +54,10 @@ class TurnEngine {
     // 10. Intelligence
     _detectIncomingEnemies();
 
-    // 11. Victory Check
+    // 11. Auto-finalize AI vs AI battles
+    game.finalizeAIBattles();
+
+    // 12. Victory Check
     _checkVictory();
 
     // Notify is called by GameManager methods

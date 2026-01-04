@@ -5,6 +5,7 @@ import '../../data/models/army.dart';
 import '../../data/models/building.dart';
 import '../../data/models/unit_type.dart';
 import '../../data/models/village.dart';
+import '../../data/models/combat_log.dart';
 import '../../engines/game_manager.dart';
 import '../../engines/building_construction_engine.dart';
 import '../../engines/recruitment_engine.dart';
@@ -125,6 +126,26 @@ class _MobileGameLayoutState extends State<MobileGameLayout> {
     }
   }
 
+  BattleRecord? _getPlayerBattle(GameManager game) {
+    // Find first battle where player is attacker or defender
+    for (final battle in game.pendingBattles) {
+      // Check if player's army is the attacker
+      final attackerArmy = game.armies.cast<Army?>().firstWhere(
+        (a) => a!.id == battle.attackerId,
+        orElse: () => null,
+      );
+      if (attackerArmy?.owner == 'player') return battle;
+
+      // Check if player's village is being attacked
+      final defenderVillage = game.map.villages.cast<Village?>().firstWhere(
+        (v) => v!.id == battle.defenderId,
+        orElse: () => null,
+      );
+      if (defenderVillage?.owner == 'player') return battle;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<GameProvider>(
@@ -137,27 +158,23 @@ class _MobileGameLayoutState extends State<MobileGameLayout> {
           return VictoryScreen(winner: winner);
         }
 
-        // Dynamic layout: Soldiers get more map space (Drawer Down), Villages get equal space.
-        final isSoldierMode = _selectedArmy != null;
-        final mapFlex = isSoldierMode ? 13 : 1;
-        final panelFlex = isSoldierMode ? 7 : 1;
-
         return Scaffold(
           backgroundColor: Colors.black,
           body: Stack(
             children: [
               Column(
                 children: [
-                  // Map Section
+                  // Map Section (takes remaining space)
                   Expanded(
-                    flex: mapFlex,
                     child: _buildMapSection(game),
                   ),
                   // Divider
                   Container(height: 1, color: Colors.white.withValues(alpha: 0.15)),
-                  // Action Panel
-                  Expanded(
-                    flex: panelFlex,
+                  // Action Panel (constrained max height)
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.45,
+                    ),
                     child: _buildActionPanel(game),
                   ),
                 ],
@@ -165,10 +182,10 @@ class _MobileGameLayoutState extends State<MobileGameLayout> {
               // Toast overlay
               if (_toastMessage != null) _buildToast(),
 
-              // Battle Screen Overlay
-              if (game.pendingBattles.isNotEmpty)
+              // Battle Screen Overlay (only show player's battles)
+              if (_getPlayerBattle(game) != null)
                 BattleScreen(
-                  record: game.pendingBattles.first,
+                  record: _getPlayerBattle(game)!,
                   onDismiss: () {
                     setState(() {
                       // finalizeBattle already removes the record, just trigger rebuild

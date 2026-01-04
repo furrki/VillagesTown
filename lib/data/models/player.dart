@@ -44,20 +44,20 @@ class Player {
         Player(
           id: 'player',
           name: 'Player',
-          nationality: Nationality.turkish,
+          nationality: Nationality.ottomans,
           isHuman: true,
         ),
         Player(
           id: 'ai1',
           name: 'AI Player 1',
-          nationality: Nationality.greek,
+          nationality: Nationality.byzantines,
           isHuman: false,
           aiPersonality: AIPersonality.aggressive,
         ),
         Player(
           id: 'ai2',
           name: 'AI Player 2',
-          nationality: Nationality.bulgarian,
+          nationality: Nationality.crusaders,
           isHuman: false,
           aiPersonality: AIPersonality.balanced,
         ),

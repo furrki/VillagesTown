@@ -1,10 +1,9 @@
 import 'dart:math';
-import 'dart:ui';
 import 'package:flutter/foundation.dart';
-import '../core/constants/game_constants.dart';
 import '../data/map/game_map.dart';
 import '../data/map/virtual_map.dart';
 import '../data/models/army.dart';
+import '../data/models/geo_coordinate.dart';
 import '../data/models/nationality.dart';
 import '../data/models/player.dart';
 import '../data/models/resource.dart';
@@ -20,10 +19,7 @@ class GameManager extends ChangeNotifier {
   static GameManager get shared => _instance;
   factory GameManager() => _instance;
   GameManager._internal() {
-    map = VirtualMap(
-      size: Size(GameConstants.mapWidth.toDouble(), GameConstants.mapHeight.toDouble()),
-      villages: [],
-    );
+    map = VirtualMap(villages: []);
   }
 
   // State
@@ -43,7 +39,7 @@ class GameManager extends ChangeNotifier {
   List<TurnEvent> turnEvents = [];
   List<BattleRecord> pendingBattles = [];
   Set<String> discoveredVillageIDs = {};
-  double visionRange = GameConstants.visionRange;
+  double visionRangeKm = 400.0; // Vision range in kilometers
 
   bool tutorialEnabled = true;
   int tutorialStep = 0;
@@ -63,46 +59,58 @@ class GameManager extends ChangeNotifier {
     players[1] = players[1].copyWith(nationality: ai1Nationality);
     players[2] = players[2].copyWith(nationality: ai2Nationality);
 
-    // Fixed capital positions (don't change based on nationality)
+    // Historical cities with real coordinates
+    // Capitals - stronger garrisons
     final playerVillage = Village(
       name: _getCapitalName(nationality),
       nationality: nationality,
-      coordinates: const Offset(2, 2),
+      coordinates: _getCapitalCoordinates(nationality),
       owner: 'player',
+      garrisonStrength: 15,
+      garrisonMaxStrength: 25,
     );
 
     final ai1Village = Village(
       name: _getCapitalName(ai1Nationality!),
       nationality: ai1Nationality!,
-      coordinates: const Offset(12, 2),
+      coordinates: _getCapitalCoordinates(ai1Nationality!),
       owner: 'ai1',
+      garrisonStrength: 15,
+      garrisonMaxStrength: 25,
     );
 
     final ai2Village = Village(
       name: _getCapitalName(ai2Nationality!),
       nationality: ai2Nationality!,
-      coordinates: const Offset(7, 12),
+      coordinates: _getCapitalCoordinates(ai2Nationality!),
       owner: 'ai2',
+      garrisonStrength: 15,
+      garrisonMaxStrength: 25,
     );
 
-    // Neutral villages - spread across 15x15 map
+    // Non-capital cities (12 neutral cities)
     final neutralVillages = [
-      Village(name: 'Thessaloniki', nationality: nationalities[1], coordinates: const Offset(7, 2), owner: 'neutral'),
-      Village(name: 'Kavala', nationality: nationalities[1], coordinates: const Offset(2, 7), owner: 'neutral'),
-      Village(name: 'Edirne', nationality: nationalities[0], coordinates: const Offset(7, 7), owner: 'neutral'),
-      Village(name: 'Varna', nationality: nationalities[2], coordinates: const Offset(12, 7), owner: 'neutral'),
-      Village(name: 'Plovdiv', nationality: nationalities[2], coordinates: const Offset(4, 10), owner: 'neutral'),
-      Village(name: 'Bursa', nationality: nationalities[0], coordinates: const Offset(10, 10), owner: 'neutral'),
-      Village(name: 'Patras', nationality: nationalities[1], coordinates: const Offset(2, 12), owner: 'neutral'),
-      Village(name: 'Izmir', nationality: nationalities[0], coordinates: const Offset(12, 12), owner: 'neutral'),
+      // Byzantine cities
+      Village(name: 'Nicaea', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(40.4292, 29.7206), owner: 'neutral'),
+      Village(name: 'Thessaloniki', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(40.6401, 22.9444), owner: 'neutral'),
+      Village(name: 'Trebizond', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(41.0027, 39.7168), owner: 'neutral'),
+      Village(name: 'Smyrna', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(38.4237, 27.1428), owner: 'neutral'),
+      // Ottoman cities
+      Village(name: 'Konya', nationality: Nationality.ottomans, coordinates: const GeoCoordinate(37.8714, 32.4846), owner: 'neutral'),
+      Village(name: 'Edirne', nationality: Nationality.ottomans, coordinates: const GeoCoordinate(41.6771, 26.5557), owner: 'neutral'),
+      // Crusader cities
+      Village(name: 'Antioch', nationality: Nationality.crusaders, coordinates: const GeoCoordinate(36.2028, 36.1600), owner: 'neutral'),
+      Village(name: 'Jerusalem', nationality: Nationality.crusaders, coordinates: const GeoCoordinate(31.7683, 35.2137), owner: 'neutral'),
+      // Neutral contested cities
+      Village(name: 'Athens', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(37.9838, 23.7275), owner: 'neutral'),
+      Village(name: 'Damascus', nationality: Nationality.ottomans, coordinates: const GeoCoordinate(33.5138, 36.2765), owner: 'neutral'),
+      Village(name: 'Aleppo', nationality: Nationality.ottomans, coordinates: const GeoCoordinate(36.2021, 37.1343), owner: 'neutral'),
+      Village(name: 'Sofia', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(42.6977, 23.3219), owner: 'neutral'),
     ];
 
     final allVillages = [playerVillage, ai1Village, ai2Village, ...neutralVillages];
 
-    map = VirtualMap(
-      size: Size(GameConstants.mapWidth.toDouble(), GameConstants.mapHeight.toDouble()),
-      villages: allVillages,
-    );
+    map = VirtualMap(villages: allVillages);
 
     // Update player village lists
     for (var i = 0; i < players.length; i++) {
@@ -116,11 +124,20 @@ class GameManager extends ChangeNotifier {
   }
 
   String _getCapitalName(Nationality nationality) {
-    return switch (nationality.name) {
-      'Turkish' => 'Istanbul',
-      'Greek' => 'Athens',
-      'Bulgarian' => 'Sofia',
+    return switch (nationality.id) {
+      'ottoman' => 'Bursa',
+      'byzantine' => 'Constantinople',
+      'crusader' => 'Acre',
       _ => 'Capital',
+    };
+  }
+
+  GeoCoordinate _getCapitalCoordinates(Nationality nationality) {
+    return switch (nationality.id) {
+      'ottoman' => const GeoCoordinate(40.1826, 29.0665), // Bursa
+      'byzantine' => const GeoCoordinate(41.0082, 28.9784), // Constantinople
+      'crusader' => const GeoCoordinate(32.9226, 35.0690), // Acre
+      _ => const GeoCoordinate(40.0, 30.0),
     };
   }
 
@@ -144,10 +161,7 @@ class GameManager extends ChangeNotifier {
     globalResources.clear();
     discoveredVillageIDs.clear();
 
-    map = VirtualMap(
-      size: Size(GameConstants.mapWidth.toDouble(), GameConstants.mapHeight.toDouble()),
-      villages: [],
-    );
+    map = VirtualMap(villages: []);
     players = Player.createPlayers();
     notifyListeners();
   }
@@ -338,8 +352,8 @@ class GameManager extends ChangeNotifier {
 
     final playerVillages = getPlayerVillages(playerId);
     for (final pv in playerVillages) {
-      final dist = _distance(pv.coordinates, village.coordinates);
-      if (dist <= visionRange) {
+      final distKm = GeoCoordinate.distanceKm(pv.coordinates, village.coordinates);
+      if (distKm <= visionRangeKm) {
         discoveredVillageIDs.add(village.id);
         return true;
       }
@@ -353,8 +367,8 @@ class GameManager extends ChangeNotifier {
               orElse: () => null,
             );
         if (stationedVillage != null) {
-          final dist = _distance(stationedVillage.coordinates, village.coordinates);
-          if (dist <= visionRange) {
+          final distKm = GeoCoordinate.distanceKm(stationedVillage.coordinates, village.coordinates);
+          if (distKm <= visionRangeKm) {
             discoveredVillageIDs.add(village.id);
             return true;
           }
@@ -378,7 +392,7 @@ class GameManager extends ChangeNotifier {
 
     final playerVillages = getPlayerVillages(playerId);
     for (final pv in playerVillages) {
-      if (_distance(pv.coordinates, locationVillage.coordinates) <= visionRange) {
+      if (GeoCoordinate.distanceKm(pv.coordinates, locationVillage.coordinates) <= visionRangeKm) {
         return true;
       }
     }
@@ -390,16 +404,12 @@ class GameManager extends ChangeNotifier {
               (v) => v!.id == pa.stationedAt,
               orElse: () => null,
             );
-        if (paVillage != null && _distance(paVillage.coordinates, locationVillage.coordinates) <= visionRange) {
+        if (paVillage != null && GeoCoordinate.distanceKm(paVillage.coordinates, locationVillage.coordinates) <= visionRangeKm) {
           return true;
         }
       }
     }
     return false;
-  }
-
-  double _distance(Offset from, Offset to) {
-    return sqrt(pow(to.dx - from.dx, 2) + pow(to.dy - from.dy, 2));
   }
 
   List<Village> getVisibleVillages(String playerId) {
@@ -564,5 +574,39 @@ class GameManager extends ChangeNotifier {
       } else if (oldOwner == 'player') {
         addTurnEvent(VillageLostEvent(villageName: village.name));
       }
+  }
+
+  /// Auto-finalize battles that don't involve the player
+  void finalizeAIBattles() {
+    final toFinalize = <BattleRecord>[];
+
+    for (final battle in pendingBattles) {
+      bool playerInvolved = false;
+
+      // Check if player's army is the attacker
+      final attackerArmy = armies.cast<Army?>().firstWhere(
+        (a) => a!.id == battle.attackerId,
+        orElse: () => null,
+      );
+      if (attackerArmy?.owner == 'player') playerInvolved = true;
+
+      // Check if player's village is being attacked
+      if (!playerInvolved) {
+        final defenderVillage = map.villages.cast<Village?>().firstWhere(
+          (v) => v!.id == battle.defenderId,
+          orElse: () => null,
+        );
+        if (defenderVillage?.owner == 'player') playerInvolved = true;
+      }
+
+      if (!playerInvolved) {
+        toFinalize.add(battle);
+      }
+    }
+
+    // Finalize all AI battles (play all rounds, no retreat)
+    for (final battle in toFinalize) {
+      finalizeBattle(battle, battle.rounds.length, false);
+    }
   }
 }

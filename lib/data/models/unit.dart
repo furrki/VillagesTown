@@ -1,6 +1,6 @@
 import 'dart:math';
-import 'dart:ui';
 import 'package:uuid/uuid.dart';
+import 'geo_coordinate.dart';
 import 'unit_type.dart';
 
 class Unit {
@@ -17,7 +17,7 @@ class Unit {
   int experience;
   int morale; // 0-100
   String owner;
-  Offset coordinates;
+  GeoCoordinate coordinates;
 
   Unit({
     String? id,
@@ -39,7 +39,7 @@ class Unit {
   bool get isAlive => currentHP > 0;
   bool get isMovable => true;
 
-  factory Unit.create(UnitType type, String owner, Offset coordinates) {
+  factory Unit.create(UnitType type, String owner, GeoCoordinate coordinates) {
     final stats = type.stats;
     return Unit(
       name: stats.name,
@@ -69,7 +69,7 @@ class Unit {
     int? experience,
     int? morale,
     String? owner,
-    Offset? coordinates,
+    GeoCoordinate? coordinates,
   }) {
     return Unit(
       id: id ?? this.id,

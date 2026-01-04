@@ -1,6 +1,6 @@
 import 'dart:math';
-import 'dart:ui';
 import 'package:uuid/uuid.dart';
+import 'geo_coordinate.dart';
 import 'unit.dart';
 import 'unit_type.dart';
 
@@ -99,11 +99,10 @@ class Army {
     origin = null;
   }
 
-  static int calculateTravelTime(Offset from, Offset to) {
-    final dx = (to.dx - from.dx).abs();
-    final dy = (to.dy - from.dy).abs();
-    final distance = sqrt(dx * dx + dy * dy);
-    return max(1, (distance / 8.0).ceil());
+  static int calculateTravelTime(GeoCoordinate from, GeoCoordinate to) {
+    final distanceKm = GeoCoordinate.distanceKm(from, to);
+    // ~100km per turn, minimum 1 turn
+    return max(1, (distanceKm / 100.0).ceil());
   }
 
   static String generateName(List<Unit> units, String owner) {

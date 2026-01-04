@@ -1,10 +1,10 @@
 import 'dart:math';
-import 'dart:ui';
 import 'package:uuid/uuid.dart';
 import 'package:collection/collection.dart';
 import '../protocols/resource_holder.dart';
 import '../protocols/treasury_holder.dart';
 import 'building.dart';
+import 'geo_coordinate.dart';
 import 'nationality.dart';
 import 'resource.dart';
 import 'village_level.dart';
@@ -13,7 +13,7 @@ class Village with ResourceHolder, TreasuryHolder {
   final String id;
   final String name;
   final Nationality nationality;
-  Offset coordinates;
+  GeoCoordinate coordinates;
   String owner;
   VillageLevel level;
   List<Building> buildings;
@@ -113,7 +113,7 @@ class Village with ResourceHolder, TreasuryHolder {
     String? id,
     String? name,
     Nationality? nationality,
-    Offset? coordinates,
+    GeoCoordinate? coordinates,
     String? owner,
     VillageLevel? level,
     List<Building>? buildings,

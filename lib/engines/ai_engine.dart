@@ -1,8 +1,7 @@
-import 'dart:math';
-import 'dart:ui';
 import '../data/map/game_map.dart';
 import '../data/models/ai_personality.dart';
 import '../data/models/building.dart';
+import '../data/models/geo_coordinate.dart';
 import '../data/models/player.dart';
 import '../data/models/resource.dart';
 import '../data/models/unit_type.dart';
@@ -142,6 +141,10 @@ class AIEngine {
     final enemies = map.villages.where((v) => v.owner != player.id).toList();
     if (enemies.isEmpty) return;
 
+    // Find player's capital (first village they own)
+    final playerVillages = map.villages.where((v) => v.owner == player.id).toList();
+    final capital = playerVillages.isNotEmpty ? playerVillages.first : null;
+
     for (final army in stationedArmies) {
       final stationedAtId = army.stationedAt;
       if (stationedAtId == null) continue;
@@ -152,9 +155,16 @@ class AIEngine {
           );
       if (stationedAt == null) continue;
 
+      // Don't leave capital undefended
+      if (capital != null && stationedAt.id == capital.id) {
+        final armiesAtCapital = game.getArmiesAt(capital.id).where((a) => a.owner == player.id).toList();
+        // Keep at least one army at capital
+        if (armiesAtCapital.length <= 1) continue;
+      }
+
       // Find best target
       Village? bestTarget;
-      var bestTargetScore = -1 << 30;
+      var bestTargetScore = -1e10;
 
       for (final enemy in enemies) {
         final defenderArmies = game.getArmiesAt(enemy.id).where((a) => a.owner == enemy.owner);
@@ -162,9 +172,10 @@ class AIEngine {
         final garrisonStrength = enemy.garrisonStrength * 3;
         final totalDefenderStrength = defenderArmyStrength + garrisonStrength;
 
-        final distance = _calculateDistance(stationedAt.coordinates, enemy.coordinates);
+        final distanceKm = _calculateDistance(stationedAt.coordinates, enemy.coordinates);
         final advantage = army.strength - totalDefenderStrength;
-        var score = advantage - (distance * 5);
+        // Penalize based on distance (scale for km)
+        var score = advantage.toDouble() - (distanceKm / 50);
 
         // Bonus for neutral villages
         if (enemy.owner == 'neutral') score += 50;
@@ -210,9 +221,8 @@ class AIEngine {
     }
   }
 
-  int _calculateDistance(Offset from, Offset to) {
-    final dx = (to.dx - from.dx).abs().toInt();
-    final dy = (to.dy - from.dy).abs().toInt();
-    return max(dx, dy);
+  double _calculateDistance(GeoCoordinate from, GeoCoordinate to) {
+    // Returns distance in km
+    return GeoCoordinate.distanceKm(from, to);
   }
 }
