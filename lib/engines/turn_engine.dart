@@ -1,6 +1,8 @@
 import '../data/models/army.dart';
 import '../data/models/resource.dart';
 import '../data/models/turn_event.dart';
+import '../data/models/unit.dart';
+import '../data/models/unit_type.dart';
 import '../data/models/village.dart';
 import 'ai_engine.dart';
 import 'building_production_engine.dart';
@@ -283,16 +285,24 @@ class TurnEngine {
         .toList();
     final defenderUnits = defenderArmies.expand((a) => a.units).toList();
 
+    // Create virtual garrison militia units (Empire Total War style - garrison defends but never moves)
+    final garrisonUnits = List.generate(
+      village.garrisonStrength,
+      (_) => Unit.create(UnitType.militia, village.owner, village.coordinates),
+    );
+    final allDefenders = [...defenderUnits, ...garrisonUnits];
+
     final result = _combatEngine.resolveCombat(
       attackerName: attacker.name,
-      defenderName: village.name,
+      defenderName: game.getVillageDisplayName(village),
       attackerId: attacker.id,
       defenderId: village.id,
       originVillageId: savedOrigin ?? attacker.origin,
       attackers: attacker.units,
-      defenders: defenderUnits,
+      defenders: allDefenders,
       map: game.map,
       defendingVillage: village,
+      garrisonCount: village.garrisonStrength,
     );
     
     if (result.rounds.isNotEmpty) {
@@ -347,9 +357,14 @@ class TurnEngine {
     final game = GameManager.shared;
 
     for (var i = 0; i < game.players.length; i++) {
-      final playerVillages = game.map.villages.where((v) => v.owner == game.players[i].id);
+      final playerId = game.players[i].id;
+      final playerVillages = game.map.villages.where((v) => v.owner == playerId);
+
       if (playerVillages.isEmpty && !game.players[i].isEliminated) {
         game.players[i] = game.players[i].copyWith(isEliminated: true);
+
+        // Remove all armies of eliminated player (they have no home to return to)
+        game.armies.removeWhere((a) => a.owner == playerId);
       }
     }
   }

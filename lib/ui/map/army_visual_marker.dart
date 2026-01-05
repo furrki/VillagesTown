@@ -1,106 +1,106 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../data/models/army.dart';
-import '../../data/models/unit_type.dart';
+import '../../data/models/nationality.dart';
 
 class ArmyVisualMarker extends StatelessWidget {
   final Army army;
+  final Nationality nationality;
   final bool isSelected;
   final bool isMarching;
 
   const ArmyVisualMarker({
     super.key,
     required this.army,
+    required this.nationality,
     required this.isSelected,
     this.isMarching = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final unitType = army.primaryUnitType ?? UnitType.militia;
-    final category = unitType.category; // Infantry, Ranged, Cavalry
-    final isPlayer = army.owner == 'player';
-    
-    final color = isPlayer ? const Color(0xFF3B82F6) : const Color(0xFFEF4444);
-    final size = isMarching ? 40.0 : 44.0;
+    final color = nationality.color;
 
     return SizedBox(
-      width: size,
-      height: size,
+      width: 52,
+      height: 60,
       child: Stack(
         clipBehavior: Clip.none,
-        alignment: Alignment.center,
+        alignment: Alignment.topCenter,
         children: [
-          // 1. Shadow / Glow if selected
-          if (isSelected)
-            Container(
-              width: size + 8,
-              height: size + 8,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.4),
-                shape: category == 'Cavalry' ? BoxShape.rectangle : (category == 'Ranged' ? BoxShape.circle : BoxShape.rectangle),
-                borderRadius: category == 'Infantry' ? BorderRadius.circular(8) : null,
-                boxShadow: [
-                  BoxShadow(color: Colors.white.withOpacity(0.3), blurRadius: 8, spreadRadius: 1),
-                ],
-              ),
-              transform: category == 'Cavalry' ? (Matrix4.identity()..rotateZ(math.pi / 4)) : null,
+          // Banner/Pennant
+          CustomPaint(
+            size: const Size(40, 50),
+            painter: _BannerPainter(
+              color: color,
+              isSelected: isSelected,
             ),
+          ),
 
-          // 2. Main Shape
-          _buildShape(context, category, color, size),
-
-          // 3. Icon / Emoji
-          Center(
-            child: Text(
-              _getEmoji(unitType),
-              style: TextStyle(
-                fontSize: size * 0.55,
-                shadows: [
-                  Shadow(color: Colors.black.withOpacity(0.5), blurRadius: 2, offset: const Offset(0, 1)),
-                ],
+          // Flag image
+          Positioned(
+            top: 6,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Image.asset(
+                nationality.assetPath,
+                width: 24,
+                height: 24,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  width: 24,
+                  height: 24,
+                  color: color,
+                  child: Center(
+                    child: Text(
+                      army.emoji,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
 
-          // 4. Strength Indicator (Bottom Right)
+          // Unit count badge
           Positioned(
-            bottom: -6,
-            right: -6,
+            bottom: 0,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.black87,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.white24, width: 0.5),
-                boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 2)],
+                color: Colors.black.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: color, width: 1.5),
               ),
               child: Text(
                 '${army.unitCount}',
                 style: const TextStyle(
-                  color: Colors.amberAccent,
-                  fontSize: 10,
+                  color: Colors.white,
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
           ),
-          
-          // 5. Turns Tag (If Marching)
+
+          // Turns indicator (if marching)
           if (isMarching)
-             Positioned(
-              top: -8,
+            Positioned(
+              top: -6,
+              right: -4,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(6),
                   boxShadow: [
-                     BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 2),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.4),
+                      blurRadius: 3,
+                    ),
                   ],
                 ),
                 child: Text(
-                  '${army.turnsUntilArrival}t',
+                  '${army.turnsUntilArrival}',
                   style: const TextStyle(
                     color: Colors.black87,
                     fontSize: 9,
@@ -113,81 +113,73 @@ class ArmyVisualMarker extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildShape(BuildContext context, String category, Color color, double size) {
-    final gradient = LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [
-        color.withOpacity(0.8),
-        color,
-      ],
+class _BannerPainter extends CustomPainter {
+  final Color color;
+  final bool isSelected;
+
+  _BannerPainter({required this.color, required this.isSelected});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          color,
+          Color.lerp(color, Colors.black, 0.3)!,
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    // Pole
+    final polePaint = Paint()
+      ..color = const Color(0xFF5D4037)
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawLine(
+      Offset(size.width / 2, 0),
+      Offset(size.width / 2, size.height - 8),
+      polePaint,
     );
 
-    if (category == 'Cavalry') {
-      // Diamond Shape (Rotated Square)
-      return Transform.rotate(
-        angle: math.pi / 4,
-        child: Container(
-          width: size * 0.70,
-          height: size * 0.70,
-          decoration: BoxDecoration(
-            gradient: gradient,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.5),
-                blurRadius: 5,
-                offset: const Offset(2, 2),
-              ),
-            ],
-            border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
-          ),
-        ),
-      );
-    } else if (category == 'Ranged') {
-       // Circle
-       return Container(
-         width: size,
-         height: size,
-         decoration: BoxDecoration(
-           gradient: gradient,
-           shape: BoxShape.circle,
-           boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.5),
-                blurRadius: 5,
-                offset: const Offset(0, 3),
-              ),
-            ],
-            border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
-         ),
-       );
-    } else {
-      // Infantry - Rounded Square
-      return Container(
-        width: size * 0.9,
-        height: size * 0.9,
-        decoration: BoxDecoration(
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(8),
-           boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.5),
-                blurRadius: 5,
-                offset: const Offset(0, 3),
-              ),
-            ],
-            border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
-        ),
-      );
+    // Banner shape (pennant)
+    final path = Path();
+    final bannerWidth = size.width * 0.85;
+    final left = (size.width - bannerWidth) / 2;
+
+    path.moveTo(left, 2);
+    path.lineTo(left + bannerWidth, 2);
+    path.lineTo(left + bannerWidth, 32);
+    path.lineTo(left + bannerWidth / 2, 40); // Point
+    path.lineTo(left, 32);
+    path.close();
+
+    // Shadow
+    canvas.drawShadow(path, Colors.black, 3, true);
+
+    // Banner fill
+    canvas.drawPath(path, paint);
+
+    // Border
+    final borderPaint = Paint()
+      ..color = isSelected ? Colors.white : Colors.white.withValues(alpha: 0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = isSelected ? 2 : 1;
+    canvas.drawPath(path, borderPaint);
+
+    // Selection glow
+    if (isSelected) {
+      final glowPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.3)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 6);
+      canvas.drawPath(path, glowPaint);
     }
   }
 
-  String _getEmoji(UnitType type) {
-    // Basic mapping, though unit types likely have .emoji property themselves which is better to use if available.
-    // Assuming for now I can map them myself or if `type` has .emoji access.
-    // The previous code didn't use type.emoji, so I will map manually to be safe, or check model.
-    // Checking previous context, UnitType has .emoji
-    return type.emoji;
-  }
+  @override
+  bool shouldRepaint(covariant _BannerPainter oldDelegate) =>
+      color != oldDelegate.color || isSelected != oldDelegate.isSelected;
 }

@@ -93,7 +93,7 @@ class InlineVillagePanel extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Header
-              _buildHeader(primaryArmy, shouldEndTurn),
+              _buildHeader(game, primaryArmy, shouldEndTurn),
               const SizedBox(height: 12),
               // Content
               if (isPlayerVillage) ...[
@@ -114,7 +114,7 @@ class InlineVillagePanel extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(Army? playerArmy, bool shouldEndTurn) {
+  Widget _buildHeader(GameManager game, Army? playerArmy, bool shouldEndTurn) {
     return Row(
       children: [
         OwnerFlagView(owner: village.owner, size: 44),
@@ -124,7 +124,7 @@ class InlineVillagePanel extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                village.name,
+                game.getVillageDisplayName(village),
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               const SizedBox(height: 2),

@@ -40,24 +40,62 @@ class Player {
     );
   }
 
+  // Creates all 7 faction players (1 human slot + 6 AI)
   static List<Player> createPlayers() => [
         Player(
           id: 'player',
           name: 'Player',
-          nationality: Nationality.ottomans,
+          nationality: Nationality.byzantines, // Will be overwritten in setupGame
           isHuman: true,
         ),
+        // Major factions
         Player(
-          id: 'ai1',
-          name: 'AI Player 1',
+          id: 'byzantines',
+          name: 'Byzantines',
           nationality: Nationality.byzantines,
+          isHuman: false,
+          aiPersonality: AIPersonality.balanced,
+        ),
+        Player(
+          id: 'ottomans',
+          name: 'Ottomans',
+          nationality: Nationality.ottomans,
           isHuman: false,
           aiPersonality: AIPersonality.aggressive,
         ),
         Player(
-          id: 'ai2',
-          name: 'AI Player 2',
+          id: 'crusaders',
+          name: 'Crusaders',
           nationality: Nationality.crusaders,
+          isHuman: false,
+          aiPersonality: AIPersonality.aggressive,
+        ),
+        // Minor factions
+        Player(
+          id: 'bulgaria',
+          name: 'Bulgaria',
+          nationality: Nationality.bulgaria,
+          isHuman: false,
+          aiPersonality: AIPersonality.defensive,
+        ),
+        Player(
+          id: 'serbia',
+          name: 'Serbia',
+          nationality: Nationality.serbia,
+          isHuman: false,
+          aiPersonality: AIPersonality.defensive,
+        ),
+        Player(
+          id: 'armenia',
+          name: 'Armenia',
+          nationality: Nationality.armenia,
+          isHuman: false,
+          aiPersonality: AIPersonality.defensive,
+        ),
+        Player(
+          id: 'mamluks',
+          name: 'Mamluks',
+          nationality: Nationality.mamluks,
           isHuman: false,
           aiPersonality: AIPersonality.balanced,
         ),

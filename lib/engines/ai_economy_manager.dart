@@ -74,6 +74,13 @@ class AIEconomyManager {
         ];
       case AIPersonality.balanced:
         return base;
+      case AIPersonality.defensive:
+        return [
+          Building.fortress,
+          Building.barracks,
+          Building.farm,
+          ...base,
+        ];
     }
   }
 }

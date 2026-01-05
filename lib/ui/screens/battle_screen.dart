@@ -142,18 +142,7 @@ class _BattleScreenState extends State<BattleScreen> with TickerProviderStateMix
           );
         },
         child: Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF121212),
-            gradient: LinearGradient(
-               begin: Alignment.topCenter,
-               end: Alignment.bottomCenter,
-               colors: [
-                 const Color(0xFF2C0000).withValues(alpha: 0.8), // Attacker Red tint
-                 const Color(0xFF00002C).withValues(alpha: 0.8), // Defender Blue tint
-               ],
-               stops: const [0.2, 0.8],
-            ),
-          ),
+          color: const Color(0xFF121212),
           child: SafeArea(
             child: Stack(
               children: [
@@ -233,7 +222,7 @@ class _BattleScreenState extends State<BattleScreen> with TickerProviderStateMix
             return Transform.translate(
               offset: Offset(0, -50 * value), // Fly up
               child: Opacity(
-                opacity: 1.0 - value, // Fade out
+                opacity: (1.0 - value).clamp(0.0, 1.0),
                 child: Text(
                   '-${popup.amount}',
                   style: const TextStyle(

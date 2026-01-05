@@ -216,8 +216,12 @@ class _MobileGameLayoutState extends State<MobileGameLayout> {
             onVillageSelected: _selectVillage,
             onArmySelected: _selectArmy,
             onArmySent: (army, destination) {
+              final isAttacking = destination.owner != army.owner;
               game.sendArmy(army.id, destination.id);
-              _showToast('Army marching to ${destination.name}');
+              if (!isAttacking) {
+                _showToast('Army marching to ${game.getVillageDisplayName(destination)}');
+              }
+              // No toast for attacks - battle screen will appear
             },
           ),
         ),

@@ -5,6 +5,7 @@ import '../components/owner_flag_view.dart';
 
 class VillageMarker extends StatelessWidget {
   final Village village;
+  final String displayName;
   final bool isSelected;
   final int armyCount;
   final bool hasThreat;
@@ -13,6 +14,7 @@ class VillageMarker extends StatelessWidget {
   const VillageMarker({
     super.key,
     required this.village,
+    required this.displayName,
     required this.isSelected,
     required this.armyCount,
     required this.hasThreat,
@@ -65,7 +67,7 @@ class VillageMarker extends StatelessWidget {
                 children: [
                   OwnerFlagView(owner: village.owner, size: 28),
                   Text(
-                    village.name,
+                    displayName,
                     style: const TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.bold,

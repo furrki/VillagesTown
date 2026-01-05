@@ -10,8 +10,318 @@ import 'resource.dart';
 import 'village_level.dart';
 
 class Village with ResourceHolder, TreasuryHolder {
+  // Historical city names by faction: baseName -> {nationalityId -> localizedName}
+  static const Map<String, Map<String, String>> _cityNames = {
+    // === MAJOR FACTION CAPITALS ===
+    'Constantinople': {
+      'byzantine': 'Κωνσταντινούπολις',
+      'ottoman': 'İstanbul',
+      'crusader': 'Constantinople',
+      'bulgarian': 'Цариград',
+      'serbian': 'Цариград',
+      'armenian': 'Կոստdelays',
+      'mamluk': 'القسطنطينية',
+    },
+    'Bursa': {
+      'byzantine': 'Προύσα',
+      'ottoman': 'Bursa',
+      'crusader': 'Prusa',
+      'bulgarian': 'Бруса',
+      'serbian': 'Бруса',
+      'armenian': 'Պdelays',
+      'mamluk': 'بورصة',
+    },
+    'Acre': {
+      'byzantine': 'Ἄκκη',
+      'ottoman': 'Akka',
+      'crusader': 'Acre',
+      'bulgarian': 'Акра',
+      'serbian': 'Акра',
+      'armenian': 'Աdelays',
+      'mamluk': 'عكا',
+    },
+    // === MINOR FACTION CAPITALS ===
+    'Tarnovo': {
+      'byzantine': 'Τύρνοβο',
+      'ottoman': 'Tırnova',
+      'crusader': 'Tarnovo',
+      'bulgarian': 'Търново',
+      'serbian': 'Трново',
+      'armenian': 'Տdelays',
+      'mamluk': 'ترنوفو',
+    },
+    'Belgrade': {
+      'byzantine': 'Βελιγράδιον',
+      'ottoman': 'Belgrad',
+      'crusader': 'Alba Graeca',
+      'bulgarian': 'Белград',
+      'serbian': 'Београд',
+      'armenian': 'Բdelays',
+      'mamluk': 'بلغراد',
+    },
+    'Ani': {
+      'byzantine': 'Ἄνι',
+      'ottoman': 'Ani',
+      'crusader': 'Ani',
+      'bulgarian': 'Ани',
+      'serbian': 'Ани',
+      'armenian': 'Անdelays',
+      'mamluk': 'آني',
+    },
+    'Cairo': {
+      'byzantine': 'Κάιρο',
+      'ottoman': 'Kahire',
+      'crusader': 'Cairo',
+      'bulgarian': 'Кайро',
+      'serbian': 'Каиро',
+      'armenian': 'Կahiրdelays',
+      'mamluk': 'القاهرة',
+    },
+    // === BYZANTINE REGION ===
+    'Thessaloniki': {
+      'byzantine': 'Θεσσαλονίκη',
+      'ottoman': 'Selanik',
+      'crusader': 'Thessalonica',
+      'bulgarian': 'Солун',
+      'serbian': 'Солун',
+      'armenian': 'Delays',
+      'mamluk': 'سالونيك',
+    },
+    'Athens': {
+      'byzantine': 'Ἀθῆναι',
+      'ottoman': 'Atina',
+      'crusader': 'Athens',
+      'bulgarian': 'Атина',
+      'serbian': 'Атина',
+      'armenian': 'Աdelays',
+      'mamluk': 'أثينا',
+    },
+    'Nicaea': {
+      'byzantine': 'Νίκαια',
+      'ottoman': 'İznik',
+      'crusader': 'Nicaea',
+      'bulgarian': 'Никея',
+      'serbian': 'Никеја',
+      'armenian': 'Delays',
+      'mamluk': 'نيقية',
+    },
+    'Trebizond': {
+      'byzantine': 'Τραπεζοῦς',
+      'ottoman': 'Trabzon',
+      'crusader': 'Trebizond',
+      'bulgarian': 'Трапезунд',
+      'serbian': 'Трапезунт',
+      'armenian': 'Delays',
+      'mamluk': 'طرابزون',
+    },
+    'Smyrna': {
+      'byzantine': 'Σμύρνη',
+      'ottoman': 'İzmir',
+      'crusader': 'Smyrna',
+      'bulgarian': 'Смирна',
+      'serbian': 'Смирна',
+      'armenian': 'Delays',
+      'mamluk': 'إزمير',
+    },
+    // === OTTOMAN/ANATOLIAN REGION ===
+    'Konya': {
+      'byzantine': 'Ἰκόνιον',
+      'ottoman': 'Konya',
+      'crusader': 'Iconium',
+      'bulgarian': 'Икониум',
+      'serbian': 'Иконија',
+      'armenian': 'Delays',
+      'mamluk': 'قونية',
+    },
+    'Ankara': {
+      'byzantine': 'Ἄγκυρα',
+      'ottoman': 'Ankara',
+      'crusader': 'Ancyra',
+      'bulgarian': 'Анкара',
+      'serbian': 'Анкара',
+      'armenian': 'Delays',
+      'mamluk': 'أنقرة',
+    },
+    'Sinope': {
+      'byzantine': 'Σινώπη',
+      'ottoman': 'Sinop',
+      'crusader': 'Sinope',
+      'bulgarian': 'Синоп',
+      'serbian': 'Синоп',
+      'armenian': 'Delays',
+      'mamluk': 'سينوب',
+    },
+    'Edirne': {
+      'byzantine': 'Ἀδριανούπολις',
+      'ottoman': 'Edirne',
+      'crusader': 'Adrianople',
+      'bulgarian': 'Одрин',
+      'serbian': 'Једрене',
+      'armenian': 'Delays',
+      'mamluk': 'أدرنة',
+    },
+    // === CRUSADER/LEVANT REGION ===
+    'Antioch': {
+      'byzantine': 'Ἀντιόχεια',
+      'ottoman': 'Antakya',
+      'crusader': 'Antioch',
+      'bulgarian': 'Антиохия',
+      'serbian': 'Антиохија',
+      'armenian': 'Անdelays',
+      'mamluk': 'أنطاكية',
+    },
+    'Jerusalem': {
+      'byzantine': 'Ἱεροσόλυμα',
+      'ottoman': 'Kudüs',
+      'crusader': 'Jerusalem',
+      'bulgarian': 'Йерусалим',
+      'serbian': 'Јерусалим',
+      'armenian': 'Երdelays',
+      'mamluk': 'القدس',
+    },
+    'Tripoli': {
+      'byzantine': 'Τρίπολις',
+      'ottoman': 'Trablusşam',
+      'crusader': 'Tripoli',
+      'bulgarian': 'Триполи',
+      'serbian': 'Триполи',
+      'armenian': 'Delays',
+      'mamluk': 'طرابلس',
+    },
+    // === BALKAN REGION ===
+    'Sofia': {
+      'byzantine': 'Σερδική',
+      'ottoman': 'Sofya',
+      'crusader': 'Sardica',
+      'bulgarian': 'София',
+      'serbian': 'Софија',
+      'armenian': 'Delays',
+      'mamluk': 'صوفيا',
+    },
+    'Plovdiv': {
+      'byzantine': 'Φιλιππούπολις',
+      'ottoman': 'Filibe',
+      'crusader': 'Philippopolis',
+      'bulgarian': 'Пловдив',
+      'serbian': 'Пловдив',
+      'armenian': 'Delays',
+      'mamluk': 'فيليبه',
+    },
+    'Nis': {
+      'byzantine': 'Ναϊσσός',
+      'ottoman': 'Niş',
+      'crusader': 'Naissus',
+      'bulgarian': 'Ниш',
+      'serbian': 'Ниш',
+      'armenian': 'Delays',
+      'mamluk': 'نيش',
+    },
+    'Skopje': {
+      'byzantine': 'Σκόπια',
+      'ottoman': 'Üsküp',
+      'crusader': 'Scupi',
+      'bulgarian': 'Скопие',
+      'serbian': 'Скопље',
+      'armenian': 'Delays',
+      'mamluk': 'سكوبيه',
+    },
+    // === ARMENIAN/CAUCASUS REGION ===
+    'Van': {
+      'byzantine': 'Οὐάν',
+      'ottoman': 'Van',
+      'crusader': 'Van',
+      'bulgarian': 'Ван',
+      'serbian': 'Ван',
+      'armenian': 'Վdelays',
+      'mamluk': 'وان',
+    },
+    'Kars': {
+      'byzantine': 'Κάρς',
+      'ottoman': 'Kars',
+      'crusader': 'Kars',
+      'bulgarian': 'Карс',
+      'serbian': 'Карс',
+      'armenian': 'Delays',
+      'mamluk': 'قارص',
+    },
+    'Erzurum': {
+      'byzantine': 'Θεοδοσιούπολις',
+      'ottoman': 'Erzurum',
+      'crusader': 'Theodosiopolis',
+      'bulgarian': 'Ерзерум',
+      'serbian': 'Ерзурум',
+      'armenian': 'Delays',
+      'mamluk': 'أرضروم',
+    },
+    // === MAMLUK/EGYPT REGION ===
+    'Alexandria': {
+      'byzantine': 'Ἀλεξάνδρεια',
+      'ottoman': 'İskenderiye',
+      'crusader': 'Alexandria',
+      'bulgarian': 'Александрия',
+      'serbian': 'Александрија',
+      'armenian': 'Delays',
+      'mamluk': 'الإسكندرية',
+    },
+    'Damascus': {
+      'byzantine': 'Δαμασκός',
+      'ottoman': 'Şam',
+      'crusader': 'Damascus',
+      'bulgarian': 'Дамаск',
+      'serbian': 'Дамаск',
+      'armenian': 'Delays',
+      'mamluk': 'دمشق',
+    },
+    'Aleppo': {
+      'byzantine': 'Βέροια',
+      'ottoman': 'Halep',
+      'crusader': 'Aleppo',
+      'bulgarian': 'Халеп',
+      'serbian': 'Алепо',
+      'armenian': 'Delays',
+      'mamluk': 'حلب',
+    },
+    'Gaza': {
+      'byzantine': 'Γάζα',
+      'ottoman': 'Gazze',
+      'crusader': 'Gaza',
+      'bulgarian': 'Газа',
+      'serbian': 'Газа',
+      'armenian': 'Delays',
+      'mamluk': 'غزة',
+    },
+    // === ISLANDS & OTHER ===
+    'Rhodes': {
+      'byzantine': 'Ῥόδος',
+      'ottoman': 'Rodos',
+      'crusader': 'Rhodes',
+      'bulgarian': 'Родос',
+      'serbian': 'Родос',
+      'armenian': 'Delays',
+      'mamluk': 'رودس',
+    },
+    'Crete': {
+      'byzantine': 'Κρήτη',
+      'ottoman': 'Girit',
+      'crusader': 'Candia',
+      'bulgarian': 'Крит',
+      'serbian': 'Крит',
+      'armenian': 'Delays',
+      'mamluk': 'كريت',
+    },
+    'Cyprus': {
+      'byzantine': 'Κύπρος',
+      'ottoman': 'Kıbrıs',
+      'crusader': 'Cyprus',
+      'bulgarian': 'Кипър',
+      'serbian': 'Кипар',
+      'armenian': 'Delays',
+      'mamluk': 'قبرص',
+    },
+  };
+
   final String id;
-  final String name;
+  final String name; // Base name (key for lookup)
   final Nationality nationality;
   GeoCoordinate coordinates;
   String owner;
@@ -66,6 +376,14 @@ class Village with ResourceHolder, TreasuryHolder {
       garrisonMaxStrength = 15;
       population = 50;
     }
+  }
+
+  // Get the city name based on controlling faction
+  String displayName(Nationality? ownerNationality) {
+    final natId = ownerNationality?.id ?? nationality.id;
+    final names = _cityNames[name];
+    if (names == null) return name;
+    return names[natId] ?? name;
   }
 
   // Computed properties

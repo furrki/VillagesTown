@@ -164,7 +164,7 @@ class _VillageInfoSection extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(village.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                        Text(game.getVillageDisplayName(village), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
                         Text(
                           isPlayerVillage ? 'Level ${village.level.index + 1}' : _ownerLabel,
                           style: TextStyle(fontSize: 14, color: isPlayerVillage ? Colors.green : Colors.red),

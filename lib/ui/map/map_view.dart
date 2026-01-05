@@ -3,7 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/army.dart';
-import '../../data/models/geo_coordinate.dart';
+import '../../data/models/nationality.dart';
 import '../../data/models/village.dart';
 import '../../engines/game_manager.dart';
 import '../../providers/game_provider.dart';
@@ -39,19 +39,8 @@ class _MapViewState extends State<MapView> {
   static const _minZoom = 4.0;
   static const _maxZoom = 8.0;
 
-  // Connection distance in km
-  static const _maxConnectionDistanceKm = 400.0;
-
   bool _hasIncomingThreat(Village village, List<Army> armies) {
     return armies.any((a) => a.isMarching && a.destination == village.id && a.owner != village.owner);
-  }
-
-  List<Village> _getConnectedVillages(Village village, List<Village> allVillages) {
-    return allVillages.where((other) {
-      if (other.id == village.id) return false;
-      final distKm = GeoCoordinate.distanceKm(village.coordinates, other.coordinates);
-      return distKm < _maxConnectionDistanceKm;
-    }).toList();
   }
 
   double _calculateMarchProgress(Army army, Village from, Village to) {
@@ -90,9 +79,9 @@ class _MapViewState extends State<MapView> {
               retinaMode: true,
             ),
 
-            // Connection lines between nearby villages
+            // Connection lines from selected location only
             PolylineLayer(
-              polylines: _buildConnectionLines(visibleVillages),
+              polylines: _buildConnectionLines(visibleVillages, game),
             ),
 
             // March paths for moving armies
@@ -120,27 +109,37 @@ class _MapViewState extends State<MapView> {
     );
   }
 
-  List<Polyline> _buildConnectionLines(List<Village> villages) {
+  List<Polyline> _buildConnectionLines(List<Village> villages, GameManager game) {
+    // Only show connections from selected village or army's location
+    String? focusVillageId;
+    if (widget.selectedArmy?.stationedAt != null) {
+      focusVillageId = widget.selectedArmy!.stationedAt;
+    } else if (widget.selectedVillage != null) {
+      focusVillageId = widget.selectedVillage!.id;
+    }
+
+    if (focusVillageId == null) return [];
+
+    final focusVillage = villages.cast<Village?>().firstWhere(
+      (v) => v!.id == focusVillageId,
+      orElse: () => null,
+    );
+    if (focusVillage == null) return [];
+
+    // Use pre-computed K-nearest neighbor connections
+    final neighbors = game.getNeighbors(focusVillageId);
+
     final lines = <Polyline>[];
-    final drawn = <String>{};
-
-    for (final village in villages) {
-      for (final other in _getConnectedVillages(village, villages)) {
-        final key = [village.id, other.id]..sort();
-        final drawKey = key.join('-');
-        if (drawn.contains(drawKey)) continue;
-        drawn.add(drawKey);
-
-        lines.add(Polyline(
-          points: [
-            village.coordinates.toLatLng(),
-            other.coordinates.toLatLng(),
-          ],
-          color: Colors.white.withValues(alpha: 0.15),
-          strokeWidth: 1,
-          pattern: const StrokePattern.dotted(),
-        ));
-      }
+    for (final neighbor in neighbors) {
+      lines.add(Polyline(
+        points: [
+          focusVillage.coordinates.toLatLng(),
+          neighbor.coordinates.toLatLng(),
+        ],
+        color: Colors.white.withValues(alpha: 0.25),
+        strokeWidth: 1.5,
+        pattern: const StrokePattern.dotted(),
+      ));
     }
     return lines;
   }
@@ -181,7 +180,15 @@ class _MapViewState extends State<MapView> {
     return villages.map((village) {
       final armies = game.getArmiesAt(village.id);
       final armyCount = armies.fold(0, (sum, a) => sum + a.unitCount);
-      final isMarchTarget = widget.selectedArmy != null && widget.selectedArmy!.stationedAt != village.id;
+
+      // Check if this village is a valid march target for selected army
+      final bool isValidMarchTarget;
+      if (widget.selectedArmy != null && widget.selectedArmy!.stationedAt != null) {
+        isValidMarchTarget = widget.selectedArmy!.stationedAt != village.id &&
+            game.areNeighbors(widget.selectedArmy!.stationedAt!, village.id);
+      } else {
+        isValidMarchTarget = false;
+      }
 
       return Marker(
         point: village.coordinates.toLatLng(),
@@ -189,7 +196,10 @@ class _MapViewState extends State<MapView> {
         height: 80,
         child: DragTarget<Army>(
           onWillAcceptWithDetails: (details) {
-            return details.data.stationedAt != village.id;
+            final armyOrigin = details.data.stationedAt;
+            if (armyOrigin == null || armyOrigin == village.id) return false;
+            // Only accept if villages are neighbors
+            return game.areNeighbors(armyOrigin, village.id);
           },
           onAcceptWithDetails: (details) {
             widget.onArmySent?.call(details.data, village);
@@ -199,7 +209,7 @@ class _MapViewState extends State<MapView> {
 
             return AnimatedContainer(
               duration: const Duration(milliseconds: 300),
-              decoration: (isDropTarget || isMarchTarget)
+              decoration: (isDropTarget || isValidMarchTarget)
                   ? BoxDecoration(
                       shape: BoxShape.circle,
                       boxShadow: [
@@ -215,6 +225,7 @@ class _MapViewState extends State<MapView> {
                   : null,
               child: VillageMarker(
                 village: village,
+                displayName: game.getVillageDisplayName(village),
                 isSelected: widget.selectedVillage?.id == village.id,
                 armyCount: armyCount,
                 hasThreat: _hasIncomingThreat(village, game.armies),
@@ -251,14 +262,17 @@ class _MapViewState extends State<MapView> {
       final currentLat = fromLat + (toLat - fromLat) * progress;
       final currentLng = fromLng + (toLng - fromLng) * progress;
 
+      final nationality = _getNationality(army.owner, game);
+
       markers.add(Marker(
         point: LatLng(currentLat, currentLng),
-        width: 50,
-        height: 50,
+        width: 52,
+        height: 60,
         child: GestureDetector(
           onTap: () => widget.onArmySelected(army),
           child: ArmyVisualMarker(
             army: army,
+            nationality: nationality,
             isSelected: widget.selectedArmy?.id == army.id,
             isMarching: true,
           ),
@@ -278,31 +292,35 @@ class _MapViewState extends State<MapView> {
       );
       if (village == null) continue;
 
-      // Offset slightly from village center
-      final offsetLat = village.coordinates.latitude + 0.3;
-      final offsetLng = village.coordinates.longitude + 0.3;
+      // Offset slightly from village center (small offset so it's visible near city)
+      final offsetLat = village.coordinates.latitude + 0.08;
+      final offsetLng = village.coordinates.longitude + 0.12;
+
+      final nationality = _getNationality(army.owner, game);
 
       markers.add(Marker(
         point: LatLng(offsetLat, offsetLng),
-        width: 50,
-        height: 50,
+        width: 52,
+        height: 65,
         child: Draggable<Army>(
           data: army,
           feedback: Material(
             color: Colors.transparent,
             child: ArmyVisualMarker(
               army: army,
+              nationality: nationality,
               isSelected: true,
             ),
           ),
           childWhenDragging: Opacity(
             opacity: 0.3,
-            child: ArmyVisualMarker(army: army, isSelected: false),
+            child: ArmyVisualMarker(army: army, nationality: nationality, isSelected: false),
           ),
           child: GestureDetector(
             onTap: () => widget.onArmySelected(army),
             child: ArmyVisualMarker(
               army: army,
+              nationality: nationality,
               isSelected: widget.selectedArmy?.id == army.id,
             ),
           ),
@@ -310,5 +328,13 @@ class _MapViewState extends State<MapView> {
       ));
     }
     return markers;
+  }
+
+  Nationality _getNationality(String ownerId, GameManager game) {
+    final player = game.players.cast().firstWhere(
+      (p) => p.id == ownerId,
+      orElse: () => null,
+    );
+    return player?.nationality ?? Nationality.ottomans;
   }
 }

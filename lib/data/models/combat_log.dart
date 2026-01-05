@@ -23,16 +23,17 @@ class BattleRecord {
   final String id;
   final String attackerName;
   final String defenderName;
-  final String attackerId; // New
-  final String defenderId; // New
-  final String? originVillageId; // New
+  final String attackerId;
+  final String defenderId;
+  final String? originVillageId;
   final String locationName;
   final List<BattleRound> rounds;
   final bool attackerWon;
   final int initialAttackerCount;
   final int initialDefenderCount;
+  final int initialGarrisonCount; // Garrison units (subset of defenders, never move)
   final DateTime timestamp;
-  bool isPending; // New (mutable to mark as done)
+  bool isPending;
 
   BattleRecord({
     required this.id,
@@ -46,6 +47,7 @@ class BattleRecord {
     required this.attackerWon,
     required this.initialAttackerCount,
     required this.initialDefenderCount,
+    this.initialGarrisonCount = 0,
     DateTime? timestamp,
     this.isPending = true,
   }) : timestamp = timestamp ?? DateTime.now();

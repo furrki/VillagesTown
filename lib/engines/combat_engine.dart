@@ -10,13 +10,14 @@ class CombatEngine {
   BattleRecord resolveCombat({
     required String attackerName,
     required String defenderName,
-    required String attackerId, // NEW
-    required String defenderId, // NEW
-    String? originVillageId, // NEW
+    required String attackerId,
+    required String defenderId,
+    String? originVillageId,
     required List<Unit> attackers,
     required List<Unit> defenders,
     required GameMap map,
     Village? defendingVillage,
+    int garrisonCount = 0,
   }) {
     final rounds = <BattleRound>[];
     final initialAttackerCount = attackers.length;
@@ -103,6 +104,7 @@ class CombatEngine {
       attackerWon: attackerCount > 0,
       initialAttackerCount: initialAttackerCount,
       initialDefenderCount: initialDefenderCount,
+      initialGarrisonCount: garrisonCount,
     );
   }
 

@@ -23,6 +23,13 @@ class GameManager extends ChangeNotifier {
     map = VirtualMap(villages: []);
   }
 
+  // Connection settings
+  static const int maxNeighborsPerCity = 4; // K-nearest neighbors
+  static const double maxConnectionDistanceKm = 500.0; // Hard cap to prevent sea crossings
+
+  // Pre-computed city connections (symmetric graph)
+  Map<String, Set<String>> cityConnections = {};
+
   // State
   late GameMap map;
   List<Player> players = Player.createPlayers();
@@ -30,8 +37,6 @@ class GameManager extends ChangeNotifier {
   String currentPlayer = 'player';
   bool gameStarted = false;
   Nationality? playerNationality;
-  Nationality? ai1Nationality;
-  Nationality? ai2Nationality;
 
   late final TurnEngine turnEngine = TurnEngine();
 
@@ -55,71 +60,26 @@ class GameManager extends ChangeNotifier {
 
   void setupGame(Nationality nationality) {
     playerNationality = nationality;
-    final nationalities = Nationality.getAll();
 
-    // Find AI nationalities (excluding player's choice)
-    final aiNationalities = nationalities.where((n) => n.name != nationality.name).toList()..shuffle();
+    // Set up player with chosen nationality
+    players[0] = players[0].copyWith(nationality: nationality);
 
-    ai1Nationality = aiNationalities[0];
-    ai2Nationality = aiNationalities.length > 1 ? aiNationalities[1] : aiNationalities[0];
+    // Find which AI player matches the chosen nationality and eliminate them
+    // (player takes their faction slot)
+    for (var i = 1; i < players.length; i++) {
+      if (players[i].nationality.id == nationality.id) {
+        players[i] = players[i].copyWith(isEliminated: true);
+        break;
+      }
+    }
 
-    // Update player nationalities
-    players[0] = players[0].copyWith(nationality: playerNationality);
-    players[1] = players[1].copyWith(nationality: ai1Nationality);
-    players[2] = players[2].copyWith(nationality: ai2Nationality);
-
-    // Historical cities with real coordinates
-    // Capitals - stronger garrisons
-    final playerVillage = Village(
-      name: _getCapitalName(nationality),
-      nationality: nationality,
-      coordinates: _getCapitalCoordinates(nationality),
-      owner: 'player',
-      garrisonStrength: 15,
-      garrisonMaxStrength: 25,
-    );
-
-    final ai1Village = Village(
-      name: _getCapitalName(ai1Nationality!),
-      nationality: ai1Nationality!,
-      coordinates: _getCapitalCoordinates(ai1Nationality!),
-      owner: 'ai1',
-      garrisonStrength: 15,
-      garrisonMaxStrength: 25,
-    );
-
-    final ai2Village = Village(
-      name: _getCapitalName(ai2Nationality!),
-      nationality: ai2Nationality!,
-      coordinates: _getCapitalCoordinates(ai2Nationality!),
-      owner: 'ai2',
-      garrisonStrength: 15,
-      garrisonMaxStrength: 25,
-    );
-
-    // Non-capital cities (12 neutral cities)
-    final neutralVillages = [
-      // Byzantine cities
-      Village(name: 'Zonguldak', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(41.4564, 31.7987), owner: 'neutral'),
-      Village(name: 'Thessaloniki', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(40.6401, 22.9444), owner: 'neutral'),
-      Village(name: 'Trebizond', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(41.0027, 39.7168), owner: 'neutral'),
-      Village(name: 'Smyrna', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(38.4237, 27.1428), owner: 'neutral'),
-      // Ottoman cities
-      Village(name: 'Konya', nationality: Nationality.ottomans, coordinates: const GeoCoordinate(37.8714, 32.4846), owner: 'neutral'),
-      Village(name: 'Edirne', nationality: Nationality.ottomans, coordinates: const GeoCoordinate(41.6771, 26.5557), owner: 'neutral'),
-      // Crusader cities
-      Village(name: 'Antioch', nationality: Nationality.crusaders, coordinates: const GeoCoordinate(36.2028, 36.1600), owner: 'neutral'),
-      Village(name: 'Jerusalem', nationality: Nationality.crusaders, coordinates: const GeoCoordinate(31.7683, 35.2137), owner: 'neutral'),
-      // Neutral contested cities
-      Village(name: 'Athens', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(37.9838, 23.7275), owner: 'neutral'),
-      Village(name: 'Damascus', nationality: Nationality.ottomans, coordinates: const GeoCoordinate(33.5138, 36.2765), owner: 'neutral'),
-      Village(name: 'Aleppo', nationality: Nationality.ottomans, coordinates: const GeoCoordinate(36.2021, 37.1343), owner: 'neutral'),
-      Village(name: 'Sofia', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(42.6977, 23.3219), owner: 'neutral'),
-    ];
-
-    final allVillages = [playerVillage, ai1Village, ai2Village, ...neutralVillages];
+    // Build all cities
+    final allVillages = _buildAllCities(nationality);
 
     map = VirtualMap(villages: allVillages);
+
+    // Build city connection graph
+    _buildCityConnections();
 
     // Update player village lists
     for (var i = 0; i < players.length; i++) {
@@ -132,22 +92,209 @@ class GameManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  String _getCapitalName(Nationality nationality) {
-    return switch (nationality.id) {
-      'ottoman' => 'Bursa',
-      'byzantine' => 'Constantinople',
-      'crusader' => 'Acre',
-      _ => 'Capital',
-    };
+  List<Village> _buildAllCities(Nationality playerNationality) {
+    final villages = <Village>[];
+
+    // Helper to get owner ID for a nationality
+    String getOwner(Nationality nat) {
+      if (nat.id == playerNationality.id) return 'player';
+      // Match to AI player by nationality id
+      for (final p in players) {
+        if (!p.isHuman && p.nationality.id == nat.id) return p.id;
+      }
+      return 'neutral';
+    }
+
+    // === MAJOR FACTION CAPITALS (stronger) ===
+    villages.add(Village(
+      name: 'Constantinople', nationality: Nationality.byzantines,
+      coordinates: const GeoCoordinate(41.0082, 28.9784),
+      owner: getOwner(Nationality.byzantines),
+      garrisonStrength: 20, garrisonMaxStrength: 30,
+    ));
+    villages.add(Village(
+      name: 'Bursa', nationality: Nationality.ottomans,
+      coordinates: const GeoCoordinate(40.1826, 29.0665),
+      owner: getOwner(Nationality.ottomans),
+      garrisonStrength: 20, garrisonMaxStrength: 30,
+    ));
+    villages.add(Village(
+      name: 'Acre', nationality: Nationality.crusaders,
+      coordinates: const GeoCoordinate(32.9226, 35.0690),
+      owner: getOwner(Nationality.crusaders),
+      garrisonStrength: 20, garrisonMaxStrength: 30,
+    ));
+
+    // === MINOR FACTION CAPITALS (weaker) ===
+    villages.add(Village(
+      name: 'Tarnovo', nationality: Nationality.bulgaria,
+      coordinates: const GeoCoordinate(43.0757, 25.6172),
+      owner: getOwner(Nationality.bulgaria),
+      garrisonStrength: 12, garrisonMaxStrength: 20,
+    ));
+    villages.add(Village(
+      name: 'Belgrade', nationality: Nationality.serbia,
+      coordinates: const GeoCoordinate(44.7866, 20.4489),
+      owner: getOwner(Nationality.serbia),
+      garrisonStrength: 12, garrisonMaxStrength: 20,
+    ));
+    villages.add(Village(
+      name: 'Ani', nationality: Nationality.armenia,
+      coordinates: const GeoCoordinate(40.5053, 43.5728),
+      owner: getOwner(Nationality.armenia),
+      garrisonStrength: 12, garrisonMaxStrength: 20,
+    ));
+    villages.add(Village(
+      name: 'Cairo', nationality: Nationality.mamluks,
+      coordinates: const GeoCoordinate(30.0444, 31.2357),
+      owner: getOwner(Nationality.mamluks),
+      garrisonStrength: 15, garrisonMaxStrength: 25,
+    ));
+
+    // === MAJOR FACTION SECONDARY CITIES ===
+    // Byzantine secondary cities
+    villages.add(Village(
+      name: 'Thessaloniki', nationality: Nationality.byzantines,
+      coordinates: const GeoCoordinate(40.6401, 22.9444),
+      owner: getOwner(Nationality.byzantines),
+      garrisonStrength: 10, garrisonMaxStrength: 18,
+    ));
+    villages.add(Village(
+      name: 'Nicaea', nationality: Nationality.byzantines,
+      coordinates: const GeoCoordinate(40.4292, 29.7211),
+      owner: getOwner(Nationality.byzantines),
+      garrisonStrength: 10, garrisonMaxStrength: 18,
+    ));
+
+    // Ottoman secondary cities
+    villages.add(Village(
+      name: 'Konya', nationality: Nationality.ottomans,
+      coordinates: const GeoCoordinate(37.8714, 32.4846),
+      owner: getOwner(Nationality.ottomans),
+      garrisonStrength: 10, garrisonMaxStrength: 18,
+    ));
+    villages.add(Village(
+      name: 'Ankara', nationality: Nationality.ottomans,
+      coordinates: const GeoCoordinate(39.9334, 32.8597),
+      owner: getOwner(Nationality.ottomans),
+      garrisonStrength: 10, garrisonMaxStrength: 18,
+    ));
+
+    // Crusader secondary cities
+    villages.add(Village(
+      name: 'Jerusalem', nationality: Nationality.crusaders,
+      coordinates: const GeoCoordinate(31.7683, 35.2137),
+      owner: getOwner(Nationality.crusaders),
+      garrisonStrength: 12, garrisonMaxStrength: 20,
+    ));
+    villages.add(Village(
+      name: 'Antioch', nationality: Nationality.crusaders,
+      coordinates: const GeoCoordinate(36.2028, 36.1600),
+      owner: getOwner(Nationality.crusaders),
+      garrisonStrength: 10, garrisonMaxStrength: 18,
+    ));
+
+    // === MINOR FACTION SECONDARY CITIES ===
+    // Bulgarian
+    villages.add(Village(
+      name: 'Sofia', nationality: Nationality.bulgaria,
+      coordinates: const GeoCoordinate(42.6977, 23.3219),
+      owner: getOwner(Nationality.bulgaria),
+      garrisonStrength: 8, garrisonMaxStrength: 15,
+    ));
+
+    // Serbian
+    villages.add(Village(
+      name: 'Nis', nationality: Nationality.serbia,
+      coordinates: const GeoCoordinate(43.3209, 21.8954),
+      owner: getOwner(Nationality.serbia),
+      garrisonStrength: 8, garrisonMaxStrength: 15,
+    ));
+
+    // Armenian
+    villages.add(Village(
+      name: 'Van', nationality: Nationality.armenia,
+      coordinates: const GeoCoordinate(38.4891, 43.4089),
+      owner: getOwner(Nationality.armenia),
+      garrisonStrength: 8, garrisonMaxStrength: 15,
+    ));
+
+    // Mamluk
+    villages.add(Village(
+      name: 'Alexandria', nationality: Nationality.mamluks,
+      coordinates: const GeoCoordinate(31.2001, 29.9187),
+      owner: getOwner(Nationality.mamluks),
+      garrisonStrength: 10, garrisonMaxStrength: 18,
+    ));
+    villages.add(Village(
+      name: 'Damascus', nationality: Nationality.mamluks,
+      coordinates: const GeoCoordinate(33.5138, 36.2765),
+      owner: getOwner(Nationality.mamluks),
+      garrisonStrength: 10, garrisonMaxStrength: 18,
+    ));
+
+    // === NEUTRAL CITIES (contested territories) ===
+    // Anatolia
+    villages.add(Village(name: 'Smyrna', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(38.4237, 27.1428), owner: 'neutral'));
+    villages.add(Village(name: 'Trebizond', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(41.0027, 39.7168), owner: 'neutral'));
+    villages.add(Village(name: 'Sinope', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(42.0231, 35.1531), owner: 'neutral'));
+    villages.add(Village(name: 'Edirne', nationality: Nationality.ottomans, coordinates: const GeoCoordinate(41.6771, 26.5557), owner: 'neutral'));
+    villages.add(Village(name: 'Erzurum', nationality: Nationality.armenia, coordinates: const GeoCoordinate(39.9043, 41.2679), owner: 'neutral'));
+
+    // Balkans
+    villages.add(Village(name: 'Athens', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(37.9838, 23.7275), owner: 'neutral'));
+    villages.add(Village(name: 'Skopje', nationality: Nationality.serbia, coordinates: const GeoCoordinate(41.9981, 21.4254), owner: 'neutral'));
+    villages.add(Village(name: 'Plovdiv', nationality: Nationality.bulgaria, coordinates: const GeoCoordinate(42.1354, 24.7453), owner: 'neutral'));
+
+    // Levant
+    villages.add(Village(name: 'Aleppo', nationality: Nationality.mamluks, coordinates: const GeoCoordinate(36.2021, 37.1343), owner: 'neutral'));
+    villages.add(Village(name: 'Tripoli', nationality: Nationality.crusaders, coordinates: const GeoCoordinate(34.4367, 35.8497), owner: 'neutral'));
+    villages.add(Village(name: 'Gaza', nationality: Nationality.mamluks, coordinates: const GeoCoordinate(31.5, 34.4667), owner: 'neutral'));
+
+    // Islands
+    villages.add(Village(name: 'Rhodes', nationality: Nationality.crusaders, coordinates: const GeoCoordinate(36.4349, 28.2176), owner: 'neutral'));
+    villages.add(Village(name: 'Crete', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(35.2401, 24.8093), owner: 'neutral'));
+    villages.add(Village(name: 'Cyprus', nationality: Nationality.crusaders, coordinates: const GeoCoordinate(35.1264, 33.4299), owner: 'neutral'));
+
+    // Caucasus
+    villages.add(Village(name: 'Kars', nationality: Nationality.armenia, coordinates: const GeoCoordinate(40.6013, 43.0975), owner: 'neutral'));
+
+    return villages;
   }
 
-  GeoCoordinate _getCapitalCoordinates(Nationality nationality) {
-    return switch (nationality.id) {
-      'ottoman' => const GeoCoordinate(40.1826, 29.0665), // Bursa
-      'byzantine' => const GeoCoordinate(41.0082, 28.9784), // Constantinople
-      'crusader' => const GeoCoordinate(32.9226, 35.0690), // Acre
-      _ => const GeoCoordinate(40.0, 30.0),
-    };
+  /// Build K-nearest neighbor connections for all cities
+  void _buildCityConnections() {
+    cityConnections.clear();
+
+    // Step 1: For each city, find its K nearest neighbors (within max distance)
+    for (final village in map.villages) {
+      final candidates = <(Village, double)>[];
+
+      for (final other in map.villages) {
+        if (other.id == village.id) continue;
+        final dist = GeoCoordinate.distanceKm(village.coordinates, other.coordinates);
+        if (dist <= maxConnectionDistanceKm) {
+          candidates.add((other, dist));
+        }
+      }
+
+      // Sort by distance, take closest K
+      candidates.sort((a, b) => a.$2.compareTo(b.$2));
+      final neighbors = candidates.take(maxNeighborsPerCity).map((c) => c.$1.id).toSet();
+      cityConnections[village.id] = neighbors;
+    }
+
+    // Step 2: Ensure symmetry - if A connects to B, B must connect to A
+    final symmetric = <String, Set<String>>{};
+    for (final entry in cityConnections.entries) {
+      symmetric[entry.key] ??= {};
+      symmetric[entry.key]!.addAll(entry.value);
+      for (final neighborId in entry.value) {
+        symmetric[neighborId] ??= {};
+        symmetric[neighborId]!.add(entry.key);
+      }
+    }
+    cityConnections = symmetric;
   }
 
   List<Building> _generateBuildings({required bool isCapital}) {
@@ -192,12 +339,15 @@ class GameManager extends ChangeNotifier {
     currentTurn = 0;
     currentPlayer = 'player';
     playerNationality = null;
-    ai1Nationality = null;
-    ai2Nationality = null;
     armies.clear();
     turnEvents.clear();
     globalResources.clear();
     discoveredVillageIDs.clear();
+    pendingBattles.clear();
+    cityConnections.clear();
+    tutorialEnabled = true;
+    tutorialStep = 0;
+    completedTutorialActions.clear();
 
     map = VirtualMap(villages: []);
     players = Player.createPlayers();
@@ -252,6 +402,21 @@ class GameManager extends ChangeNotifier {
       modifyGlobalResource(playerId, entry.key, -entry.value);
     }
     return true;
+  }
+
+  // Get nationality for a player/owner ID
+  Nationality? getNationality(String ownerId) {
+    if (ownerId == 'neutral') return null;
+    final player = players.cast<Player?>().firstWhere(
+      (p) => p?.id == ownerId,
+      orElse: () => null,
+    );
+    return player?.nationality;
+  }
+
+  // Get display name for a village based on current owner
+  String getVillageDisplayName(Village village) {
+    return village.displayName(getNationality(village.owner));
   }
 
   // Village Management
@@ -326,6 +491,18 @@ class GameManager extends ChangeNotifier {
     createArmy(allUnits, villageId, owner);
   }
 
+  /// Check if two villages are neighbors (using pre-computed K-nearest graph)
+  bool areNeighbors(String villageId1, String villageId2) {
+    return cityConnections[villageId1]?.contains(villageId2) ?? false;
+  }
+
+  /// Get all neighbors of a village (using pre-computed K-nearest graph)
+  List<Village> getNeighbors(String villageId) {
+    final neighborIds = cityConnections[villageId];
+    if (neighborIds == null) return [];
+    return map.villages.where((v) => neighborIds.contains(v.id)).toList();
+  }
+
   bool sendArmy(String armyId, String destinationVillageId) {
     final armyIndex = armies.indexWhere((a) => a.id == armyId);
     if (armyIndex == -1) return false;
@@ -339,6 +516,9 @@ class GameManager extends ChangeNotifier {
     final origin = armies[armyIndex].stationedAt;
     if (origin == null) return false;
 
+    // Check if destination is a neighbor
+    if (!areNeighbors(origin, destinationVillageId)) return false;
+
     final originVillage = map.villages.cast<Village?>().firstWhere(
           (v) => v!.id == origin,
           orElse: () => null,
@@ -347,22 +527,36 @@ class GameManager extends ChangeNotifier {
 
     final army = armies[armyIndex];
 
-    // If attacking enemy village, trigger combat immediately
-    if (destination.owner != army.owner && destination.owner != 'neutral') {
-      // Move army to destination for combat
-      army.station(destinationVillageId);
-      army.origin = origin; // Preserve origin for retreat
+    // If attacking non-friendly village (enemy OR neutral), trigger combat immediately
+    if (destination.owner != army.owner) {
+      // Check if there's anything to fight (garrison or defending armies)
+      final defendingArmies = getArmiesAt(destination.id).where((a) => a.owner == destination.owner).toList();
+      final hasDefenders = destination.garrisonStrength > 0 || defendingArmies.isNotEmpty;
 
-      // Trigger combat via TurnEngine
-      turnEngine.triggerImmediateCombat(army, destination, origin);
+      if (hasDefenders) {
+        // Move army to destination for combat
+        army.stationedAt = destinationVillageId;
+        army.destination = null;
+        army.turnsUntilArrival = 0;
+        army.origin = origin; // Preserve origin for retreat
+        updateArmy(army);
 
-      notifyListeners();
-      return true;
+        // Trigger combat via TurnEngine
+        turnEngine.triggerImmediateCombat(army, destination, origin);
+        notifyListeners();
+        return true;
+      } else {
+        // No defenders - instant capture
+        _captureUndefendedVillage(army, destination, origin);
+        notifyListeners();
+        return true;
+      }
     }
 
-    // Normal march for friendly/neutral destinations
+    // Normal march for friendly destinations
     final turns = Army.calculateTravelTime(originVillage.coordinates, destination.coordinates);
     army.marchTo(destinationVillageId, turns, origin);
+    updateArmy(army);
 
     addTurnEvent(ArmySentEvent(
       armyName: army.name,
@@ -372,6 +566,23 @@ class GameManager extends ChangeNotifier {
 
     notifyListeners();
     return true;
+  }
+
+  void _captureUndefendedVillage(Army army, Village village, String originId) {
+    village.owner = army.owner;
+    village.happiness = max(40, village.happiness - 10);
+    village.garrisonStrength = 3;
+    updateVillage(village);
+
+    army.stationedAt = village.id;
+    army.destination = null;
+    army.turnsUntilArrival = 0;
+    army.origin = null;
+    updateArmy(army);
+
+    if (army.owner == 'player') {
+      addTurnEvent(VillageConqueredEvent(villageName: getVillageDisplayName(village)));
+    }
   }
 
   // Turn Events
@@ -473,31 +684,35 @@ class GameManager extends ChangeNotifier {
   void finalizeBattle(BattleRecord record, int roundsPlayed, bool retreated) {
     // 1. Get Participants
     final attacker = armies.cast<Army?>().firstWhere((a) => a!.id == record.attackerId, orElse: () => null);
-    
-    // Defender logic is tricky because it might be a Village (Siege) or Army (Field).
-    // We used 'defenderId' which is either Army.id or Village.id.
+
     Army? defenderArmy = armies.cast<Army?>().firstWhere((a) => a!.id == record.defenderId, orElse: () => null);
     Village? defenderVillage;
     if (defenderArmy == null) {
       defenderVillage = map.villages.cast<Village?>().firstWhere((v) => v!.id == record.defenderId, orElse: () => null);
     }
-    
-    if (attacker == null) return; // Should not happen
 
-    // 2. Calculate Actual Losses based on rounds played
+    if (attacker == null) {
+      // Attacker already removed - just clean up record
+      record.isPending = false;
+      pendingBattles.remove(record);
+      notifyListeners();
+      return;
+    }
+
+    // 2. Calculate losses and remaining counts
     int attLosses = 0;
     int defLosses = 0;
-    
-    for (var i = 0; i < roundsPlayed; i++) {
-      if (i < record.rounds.length) {
-        attLosses += record.rounds[i].attackerLosses;
-        defLosses += record.rounds[i].defenderLosses;
-      }
+    for (var i = 0; i < roundsPlayed && i < record.rounds.length; i++) {
+      attLosses += record.rounds[i].attackerLosses;
+      defLosses += record.rounds[i].defenderLosses;
     }
-    
-    // 3. Apply Losses
+
+    final remainingAttackers = record.initialAttackerCount - attLosses;
+    final remainingDefenders = record.initialDefenderCount - defLosses;
+
+    // 3. Apply Losses to armies and garrison
     _applyCasualtiesToArmy(attacker, attLosses);
-    
+
     if (defenderArmy != null) {
       _applyCasualtiesToArmy(defenderArmy, defLosses);
       if (defenderArmy.units.isEmpty) {
@@ -505,79 +720,74 @@ class GameManager extends ChangeNotifier {
       } else {
         updateArmy(defenderArmy);
       }
-    } else if (defenderVillage != null) {
-       // Siege defense involves potentially multiple armies + garrison.
-       // For MVP simplicity, we kill garrison units from the 'defenderId' context if we could (but we don't have the list easily without reconstructing).
-       // Actually, CombatEngine passed us a list of defenders. We need to apply damage to the entities that owned those units.
-       // In the simple siege model, we just damage the garrison strength of the village directly proportional to losses?
-       // OR we assume the TurnEngine passed us a transient list of units composed of garrison.
-       
-       // Simplified Siege Result Application:
-       // If Attacker Won (roundsPlayed == record.rounds.length && record.attackerWon), we conquer.
-       // If Retreat, we don't.
-       
-       // Determine if defenders (garrison) were wiped out.
-       // We don't track persistent unit objects for garrison easily here.
-       // So we rely on the simulation result for conquest state.
-       
-       // If we played ALL rounds, we trust the record's boolean outcome for potential conquest.
-       // But we must account for retreat.
     }
-    
-    // 4. Handle Retreat
+
+    // Apply garrison casualties (garrison takes losses after army units)
+    if (defenderVillage != null && record.initialGarrisonCount > 0) {
+      final armyUnitCount = record.initialDefenderCount - record.initialGarrisonCount;
+      final garrisonLosses = max(0, defLosses - armyUnitCount);
+      if (garrisonLosses > 0) {
+        defenderVillage.damageGarrison(garrisonLosses);
+      }
+    }
+
+    // 4. Handle Retreat - attacker returns home
     if (retreated) {
-      // 10% attrition penalty for retreating? Optional.
-      // Move attacker back.
-      if (record.originVillageId != null) {
+      if (attacker.units.isNotEmpty && record.originVillageId != null) {
         attacker.station(record.originVillageId!);
         updateArmy(attacker);
+      } else if (attacker.units.isEmpty) {
+        removeArmy(attacker.id);
       }
-      
-      addTurnEvent(BattleLostEvent(
-        location: record.locationName, 
-        casualties: attLosses
-      ));
-      return; 
-    }
-    
-    // 5. Handle Victory/Defeat (Non-Retreat)
-    // Update Attacker
-    if (attacker.units.isEmpty) {
-      removeArmy(attacker.id);
+      if (defenderVillage != null) {
+        defenderVillage.underSiege = false;
+        updateVillage(defenderVillage);
+      }
       addTurnEvent(BattleLostEvent(location: record.locationName, casualties: attLosses));
-    } else {
-      updateArmy(attacker);
-      if (defenderArmy == null && defenderVillage == null) {
-         // Should not happen
-      } else if (defenderArmy != null) {
-        // Field Battle Victory if defender dead
-        if (defenderArmy.units.isEmpty) {
-           addTurnEvent(BattleWonEvent(location: record.locationName, casualties: attLosses));
-        }
-      } else {
-        // Siege Victory?
-        bool conquest = roundsPlayed == record.rounds.length && record.attackerWon;
-        if (conquest && defenderVillage != null) {
-             _conquerVillage(attacker, defenderVillage);
-        } else {
-             // Garrison damage
-             if (defenderVillage != null) {
-                defenderVillage.damageGarrison(max(1, defLosses ~/ 2));
-                defenderVillage.underSiege = false;
-                updateVillage(defenderVillage);
-             }
-             // Attacker bounces or stays for siege? 
-             // Logic: failed siege usually stays outside? Or bounces?
-             // "Risk" bounces if you don't take it.
-             if (record.originVillageId != null) {
-                attacker.station(record.originVillageId!);
-             }
-             addTurnEvent(BattleLostEvent(location: record.locationName, casualties: attLosses));
-        }
-      }
+      record.isPending = false;
+      pendingBattles.remove(record);
+      notifyListeners();
+      return;
     }
-    
-    // Mark record as processed
+
+    // 5. Determine winner based on remaining counts
+    final attackerWins = remainingDefenders <= 0 && remainingAttackers > 0;
+    final defenderWins = remainingAttackers <= 0;
+
+    // 6. Handle outcomes
+    if (defenderWins || attacker.units.isEmpty) {
+      // Attacker lost
+      removeArmy(attacker.id);
+      if (defenderVillage != null) {
+        defenderVillage.underSiege = false;
+        updateVillage(defenderVillage);
+      }
+      addTurnEvent(BattleLostEvent(location: record.locationName, casualties: attLosses));
+    } else if (attackerWins) {
+      // Attacker won
+      if (defenderVillage != null) {
+        // Siege victory - conquer (this also updates the army and adds event)
+        _conquerVillage(attacker, defenderVillage);
+      } else if (defenderArmy != null) {
+        // Field battle victory
+        updateArmy(attacker);
+        addTurnEvent(BattleWonEvent(location: record.locationName, casualties: attLosses));
+      }
+    } else {
+      // Battle ongoing but ended (partial) - damage garrison, bounce attacker
+      if (defenderVillage != null) {
+        defenderVillage.damageGarrison(max(1, defLosses ~/ 2));
+        defenderVillage.underSiege = false;
+        updateVillage(defenderVillage);
+      }
+      if (record.originVillageId != null) {
+        attacker.station(record.originVillageId!);
+      }
+      updateArmy(attacker);
+      addTurnEvent(BattleLostEvent(location: record.locationName, casualties: attLosses));
+    }
+
+    // 7. Clean up record
     record.isPending = false;
     pendingBattles.remove(record);
     notifyListeners();
@@ -608,9 +818,9 @@ class GameManager extends ChangeNotifier {
       updateArmy(attacker);
 
       if (attacker.owner == 'player') {
-        addTurnEvent(VillageConqueredEvent(villageName: village.name));
+        addTurnEvent(VillageConqueredEvent(villageName: getVillageDisplayName(village)));
       } else if (oldOwner == 'player') {
-        addTurnEvent(VillageLostEvent(villageName: village.name));
+        addTurnEvent(VillageLostEvent(villageName: getVillageDisplayName(village)));
       }
   }
 
