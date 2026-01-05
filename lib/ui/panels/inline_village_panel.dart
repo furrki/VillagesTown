@@ -9,6 +9,8 @@ import '../../data/models/resource.dart';
 import '../../data/models/unit.dart';
 import '../../providers/game_provider.dart';
 import '../components/owner_flag_view.dart';
+import '../components/tutorial_highlighter.dart';
+import '../../engines/tutorial_helper.dart';
 
 
 class InlineVillagePanel extends StatelessWidget {
@@ -72,6 +74,14 @@ class InlineVillagePanel extends StatelessWidget {
         // Get ALL stationed armies (Groups)
         final stationedArmies = armies.where((a) => a.owner == 'player' && !a.isMarching).toList();
         
+        final tutorialAction = TutorialHelper.getNextAction(village);
+        // Check "End Turn" condition: If we are broke
+        final gold = resources[Resource.gold] ?? 0;
+        final wood = resources[Resource.wood] ?? 0;
+        final iron = resources[Resource.iron] ?? 0;
+        // Simple heuristic for "out of resources": cant afford basic recruitment (approx 50 gold)
+        final shouldEndTurn = tutorialAction == TutorialAction.recruit && gold < 50;
+        
         // Pass primary army to header for stats if needed, or first
         final primaryArmy = stationedArmies.isNotEmpty ? stationedArmies.first : null;
 
@@ -82,12 +92,12 @@ class InlineVillagePanel extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Header
-              _buildHeader(primaryArmy),
+              _buildHeader(primaryArmy, shouldEndTurn),
               const SizedBox(height: 12),
               // Content
               if (isPlayerVillage) ...[
                 // 1. Village Architecture (Radial Control Pad + Army)
-                _buildRadialVillage(resources),
+                _buildRadialVillage(resources, tutorialAction, shouldEndTurn),
 
                 const SizedBox(height: 12),
 
@@ -103,7 +113,7 @@ class InlineVillagePanel extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(Army? playerArmy) {
+  Widget _buildHeader(Army? playerArmy, bool shouldEndTurn) {
     return Row(
       children: [
         OwnerFlagView(owner: village.owner, size: 44),
@@ -133,15 +143,18 @@ class InlineVillagePanel extends StatelessWidget {
             ],
           ),
         ),
-        _buildEndTurnButton(),
+        _buildEndTurnButton(shouldEndTurn),
       ],
     );
   }
 
-  Widget _buildEndTurnButton() {
-     return GestureDetector(
-      onTap: isProcessingTurn ? null : onEndTurn,
-      child: Container(
+  Widget _buildEndTurnButton(bool highlight) {
+     return TutorialHighlighter(
+       isActive: highlight,
+       color: Colors.blueAccent,
+       child: GestureDetector(
+        onTap: isProcessingTurn ? null : onEndTurn,
+        child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.blue,
@@ -160,10 +173,11 @@ class InlineVillagePanel extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ),
+   );
   }
 
-  Widget _buildRadialVillage(Map<Resource, int> resources) {
+  Widget _buildRadialVillage(Map<Resource, int> resources, TutorialAction tutorialAction, bool shouldEndTurn) {
     // Get ALL buildings 
     final allBuildings = Building.all;
 
@@ -180,10 +194,10 @@ class InlineVillagePanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
          // 1. RADIAL VILLAGE VIEW
-         _buildRadialContainer(containerSize, center, radius, tileSize, tileOffset, resources, allBuildings),
+         _buildRadialContainer(containerSize, center, radius, tileSize, tileOffset, resources, allBuildings, tutorialAction),
          
          // 2. SIDE RECRUITMENT PANEL
-         _buildSideRecruitmentPanel(resources, tileSize),
+         _buildSideRecruitmentPanel(resources, tileSize, tutorialAction, shouldEndTurn),
       ],
     );
   }
@@ -196,6 +210,7 @@ class InlineVillagePanel extends StatelessWidget {
     double tileOffset,
     Map<Resource, int> resources,
     List<Building> allBuildings,
+    TutorialAction tutorialAction,
   ) {
     return Container(
       width: containerSize,
@@ -278,26 +293,33 @@ class InlineVillagePanel extends StatelessWidget {
                 case 'Fortress': icon = '🏰'; break;
               }
 
+             bool isTutorialTarget = false;
+             if (template.name == 'Market' && tutorialAction == TutorialAction.buildMarket) isTutorialTarget = true;
+             if (template.name == 'Farm' && tutorialAction == TutorialAction.buildFarm) isTutorialTarget = true;
+
              return Positioned(
                left: dx,
                top: dy,
-               child: _GameActionTile(
-                 icon: icon,
-                 label: template.name,
-                 badgeLabel: isBuilt ? '$level' : null,
-                 badgeColor: isMax ? Colors.orange : Colors.blue,
-                 isEnabled: canAfford || isBuilt,
-                 isHighlight: isBuilt,
-                 accentColor: Colors.blue,
-                 isCircular: true, 
-                 size: tileSize,
-                 onTap: () {
-                    if (existing == null) {
-                      onBuild(template);
-                    } else {
-                      onUpgrade(existing);
-                    }
-                  },
+               child: TutorialHighlighter(
+                 isActive: isTutorialTarget,
+                 child: _GameActionTile(
+                   icon: icon,
+                   label: template.name,
+                   badgeLabel: isBuilt ? '$level' : null,
+                   badgeColor: isMax ? Colors.orange : Colors.blue,
+                   isEnabled: canAfford || isBuilt,
+                   isHighlight: isBuilt,
+                   accentColor: Colors.blue,
+                   isCircular: true, 
+                   size: tileSize,
+                   onTap: () {
+                      if (existing == null) {
+                        onBuild(template);
+                      } else {
+                        onUpgrade(existing);
+                      }
+                    },
+                 ),
                ),
              );
           }),
@@ -306,7 +328,7 @@ class InlineVillagePanel extends StatelessWidget {
     );
   }
 
-  Widget _buildSideRecruitmentPanel(Map<Resource, int> resources, double tileSize) {
+  Widget _buildSideRecruitmentPanel(Map<Resource, int> resources, double tileSize, TutorialAction tutorialAction, bool shouldEndTurn) {
      final availableUnits = <UnitType>{};
      for (final b in village.buildings) {
        if (b.name == 'Barracks') {
@@ -329,6 +351,8 @@ class InlineVillagePanel extends StatelessWidget {
      // Padding 8*2 = 16. Total required = 108.
      // Giving extra breathing room to ensure it never wraps to 1 column.
      const double panelWidth = 124; 
+     
+     final isRecruitStep = tutorialAction == TutorialAction.recruit && !shouldEndTurn;
 
      return Container(
        width: panelWidth, 
@@ -352,14 +376,21 @@ class InlineVillagePanel extends StatelessWidget {
                    if ((resources[entry.key] ?? 0) < entry.value) canAfford = false;
                  }
                  
-                 return _GameActionTile(
-                   icon: type.emoji,
-                   label: '', // No labels
-                   isEnabled: canAfford,
-                   accentColor: Colors.redAccent,
-                   isCircular: true,
-                   size: tileSize, // Matches building size
-                   onTap: () => onRecruit(type),
+                 // Highlight basic units first if we are in recruit step
+                 final isHighlight = isRecruitStep && canAfford && (type == UnitType.militia || type == UnitType.spearman); // Prioritize cheap units
+
+                 return TutorialHighlighter(
+                   isActive: isHighlight,
+                   color: Colors.redAccent,
+                   child: _GameActionTile(
+                     icon: type.emoji,
+                     label: '', // No labels
+                     isEnabled: canAfford,
+                     accentColor: Colors.redAccent,
+                     isCircular: true,
+                     size: tileSize, // Matches building size
+                     onTap: () => onRecruit(type),
+                   ),
                  );
               }).toList(),
             ),

@@ -164,18 +164,15 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Texture
+          // Texture (Background Image)
           Positioned(
-            right: -10,
-            bottom: -10,
+            right: -30,
+            bottom: -30,
             child: Transform.rotate(
               angle: -0.2,
-              child: Text(
-                n.flag,
-                style: TextStyle(
-                  fontSize: 100,
-                  color: Colors.black.withOpacity(0.15),
-                ),
+              child: Opacity(
+                opacity: 0.2, 
+                child: Image.asset(n.assetPath, width: 250, height: 250),
               ),
             ),
           ),
@@ -188,10 +185,30 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                 AnimatedScale(
                   scale: isSelected ? 1.1 : 1.0,
                   duration: const Duration(milliseconds: 300),
-                  child: Text(
-                    n.flag,
-                    style: const TextStyle(fontSize: 48),
-                  ),
+                  child: n.isRectangular 
+                    ? Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [BoxShadow(color: Colors.black45, blurRadius: 8, offset: const Offset(0,4))],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.asset(
+                            n.assetPath,
+                            width: 140, 
+                            height: 90, // Rectangular aspect
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      )
+                    : ClipOval(
+                        child: Image.asset(
+                          n.assetPath,
+                          width: 100, 
+                          height: 100,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
                 ),
                 const SizedBox(height: 12),
                 AnimatedOpacity(

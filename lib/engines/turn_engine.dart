@@ -206,6 +206,10 @@ class TurnEngine {
 
     if (army1 == null || army2 == null) return;
 
+    // Check for existing pending battle to prevent duplicates
+    final existing = game.pendingBattles.any((b) => b.attackerId == army1Id && b.defenderId == army2Id);
+    if (existing) return;
+
     final result = _combatEngine.resolveCombat(
       attackerName: army1.name,
       defenderName: army2.name,
@@ -265,6 +269,10 @@ class TurnEngine {
 
   void _resolveCombat(Army attacker, Village village, {String? savedOrigin}) {
     final game = GameManager.shared;
+
+    // Check for existing pending battle to prevent duplicates
+    final existing = game.pendingBattles.any((b) => b.attackerId == attacker.id && b.defenderId == village.id);
+    if (existing) return;
 
     // Mark village as under siege
     village.underSiege = true;

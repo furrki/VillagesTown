@@ -11,6 +11,7 @@ import '../data/models/turn_event.dart';
 import '../data/models/unit.dart';
 import '../data/models/unit_type.dart';
 import '../data/models/village.dart';
+import '../data/models/building.dart';
 import '../data/models/combat_log.dart';
 import 'turn_engine.dart';
 
@@ -91,7 +92,7 @@ class GameManager extends ChangeNotifier {
     // Non-capital cities (12 neutral cities)
     final neutralVillages = [
       // Byzantine cities
-      Village(name: 'Nicaea', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(40.4292, 29.7206), owner: 'neutral'),
+      Village(name: 'Zonguldak', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(41.4564, 31.7987), owner: 'neutral'),
       Village(name: 'Thessaloniki', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(40.6401, 22.9444), owner: 'neutral'),
       Village(name: 'Trebizond', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(41.0027, 39.7168), owner: 'neutral'),
       Village(name: 'Smyrna', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(38.4237, 27.1428), owner: 'neutral'),
@@ -141,6 +142,35 @@ class GameManager extends ChangeNotifier {
     };
   }
 
+  List<Building> _generateBuildings({required bool isCapital}) {
+    if (isCapital) {
+      return [
+        Building.farm.copyWith(level: 5),
+        Building.lumberMill.copyWith(level: 5),
+        Building.ironMine.copyWith(level: 3),
+        Building.market.copyWith(level: 3),
+        Building.barracks.copyWith(level: 3),
+        Building.fortress.copyWith(level: 1),
+      ];
+    } else {
+      // Neutral - significantly weaker and random
+      final buildings = <Building>[];
+      final random = Random();
+      
+      // Always some food
+      buildings.add(Building.farm.copyWith(level: random.nextInt(2) + 1)); // Lv 1-2
+      
+      // Random resource
+      if (random.nextBool()) buildings.add(Building.lumberMill.copyWith(level: 1));
+      if (random.nextBool()) buildings.add(Building.ironMine.copyWith(level: 1));
+      
+      // Random defense
+      if (random.nextBool()) buildings.add(Building.barracks.copyWith(level: 1));
+      
+      return buildings;
+    }
+  }
+
   void initializeGame() {
     gameStarted = true;
     currentTurn = 1;
@@ -169,7 +199,7 @@ class GameManager extends ChangeNotifier {
   void _createStartingArmies() {
     for (final village in map.villages) {
       final startingUnits = <Unit>[];
-      for (var i = 0; i < 3; i++) {
+      for (var i = 0; i < 15; i++) {
         startingUnits.add(Unit.create(UnitType.militia, village.owner, village.coordinates));
       }
       createArmy(startingUnits, village.id, village.owner);

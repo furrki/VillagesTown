@@ -3,35 +3,40 @@ import 'package:flutter/material.dart';
 class Nationality {
   final String id;
   final String name;
-  final String flag;
+  final String assetPath;
   final Color color;
+  final bool isRectangular;
 
   const Nationality({
     required this.id,
     required this.name,
-    required this.flag,
+    required this.assetPath,
     required this.color,
+    this.isRectangular = false,
   });
 
   static const ottomans = Nationality(
     id: 'ottoman',
     name: 'Ottomans',
-    flag: '☪️',
+    assetPath: 'assets/ottoman.png',
     color: Color(0xFF2E7D32),
+    isRectangular: true,
   );
 
   static const byzantines = Nationality(
     id: 'byzantine',
     name: 'Byzantines',
-    flag: '🦅',
+    assetPath: 'assets/byzantium.png',
     color: Color(0xFF7B1FA2),
+    isRectangular: false,
   );
 
   static const crusaders = Nationality(
     id: 'crusader',
     name: 'Crusaders',
-    flag: '✝️',
+    assetPath: 'assets/crusaders.png',
     color: Color(0xFFD32F2F),
+    isRectangular: true,
   );
 
   static List<Nationality> getAll() => [ottomans, byzantines, crusaders];
