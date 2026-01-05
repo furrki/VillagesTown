@@ -11,6 +11,7 @@ import '../../providers/game_provider.dart';
 import '../components/owner_flag_view.dart';
 import '../components/tutorial_highlighter.dart';
 import '../../engines/tutorial_helper.dart';
+import '../../engines/game_manager.dart';
 
 
 class InlineVillagePanel extends StatelessWidget {

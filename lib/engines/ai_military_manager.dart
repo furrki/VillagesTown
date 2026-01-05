@@ -2,7 +2,6 @@ import '../data/models/unit_type.dart';
 import '../data/models/village.dart';
 import '../data/models/resource.dart';
 import '../data/models/player.dart';
-import '../data/models/ai_personality.dart';
 import 'recruitment_engine.dart';
 import 'game_manager.dart';
 

@@ -16,7 +16,7 @@ class AIEconomyManager {
 
     final personality = player.aiPersonality ?? AIPersonality.balanced;
     final resources = GameManager.shared.getGlobalResources(player.id);
-    
+
     // 1. Critical Needs Assessment
     // If food is low, panic build farms
     if ((resources[Resource.food] ?? 0) < 50) {
@@ -24,23 +24,11 @@ class AIEconomyManager {
     }
 
     // 2. Personality-based prioritization
-    final priorities = _getPriorities(personality, village);
+    final priorities = _getPriorities(personality);
 
     for (final building in priorities) {
-      // Don't build duplicates unless allowed (Farms/Mines usually scaled by level, but here unique list)
-      // Actually our Building model is templates. 
-      // Current engine check: if (village.buildings.any((b) => b.name == building.name)) continue;
-      // We should check if we already have it. If so, maybe UPGRADE?
-      // For MVP, if we have it, skip (unless upgrade logic added later).
-      
-      if (village.hasBuilding(building.name)) {
-        // Upgrade logic could go here
-        final existing = village.getBuilding(building.name);
-        if (existing != null && existing.level < 5) {
-           // Try upgrade?
-           // _buildingEngine.canUpgrade(existing, ...)
-           // For now, let's Stick to new buildings first to fill slots.
-        }
+      // Skip if already built
+      if (village.buildings.any((b) => b.name == building.name)) {
         continue;
       }
 
@@ -58,17 +46,14 @@ class AIEconomyManager {
     return false;
   }
 
-  List<Building> _getPriorities(AIPersonality personality, Village village) {
-    // Dynamic priorities based on what we lack?
-    // For now, static lists per personality are a good start, but ordered smarter.
-    
+  List<Building> _getPriorities(AIPersonality personality) {
     final base = [
-      Building.market,      // Gold is king
-      Building.ironMine,    // Weapons
-      Building.lumberMill,  // Construction
-      Building.barracks,    // Defense
-      Building.farm,        // Population
-      Building.fortress,    // Late game defense
+      Building.market,
+      Building.ironMine,
+      Building.lumberMill,
+      Building.barracks,
+      Building.farm,
+      Building.fortress,
     ];
 
     switch (personality) {
@@ -76,7 +61,6 @@ class AIEconomyManager {
         return [
           Building.ironMine,
           Building.barracks,
-          Building.forges, // Assuming we have this? If not, ignored.
           Building.market,
           ...base,
         ];
@@ -89,7 +73,6 @@ class AIEconomyManager {
           ...base,
         ];
       case AIPersonality.balanced:
-      default:
         return base;
     }
   }
