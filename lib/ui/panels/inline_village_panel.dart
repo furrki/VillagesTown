@@ -315,6 +315,10 @@ class InlineVillagePanel extends StatelessWidget {
                    onTap: () {
                       if (existing == null) {
                         onBuild(template);
+                        if (isTutorialTarget) {
+                           if (template.name == 'Market') GameManager.shared.completeTutorialAction(TutorialAction.buildMarket.name);
+                           if (template.name == 'Farm') GameManager.shared.completeTutorialAction(TutorialAction.buildFarm.name);
+                        }
                       } else {
                         onUpgrade(existing);
                       }
@@ -389,7 +393,12 @@ class InlineVillagePanel extends StatelessWidget {
                      accentColor: Colors.redAccent,
                      isCircular: true,
                      size: tileSize, // Matches building size
-                     onTap: () => onRecruit(type),
+                     onTap: () {
+                       onRecruit(type);
+                       if (isHighlight) {
+                         GameManager.shared.completeTutorialAction(TutorialAction.recruit.name);
+                       }
+                     },
                    ),
                  );
               }).toList(),

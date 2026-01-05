@@ -44,6 +44,14 @@ class GameManager extends ChangeNotifier {
 
   bool tutorialEnabled = true;
   int tutorialStep = 0;
+  Set<String> completedTutorialActions = {};
+
+  void completeTutorialAction(String actionName) {
+    if (!completedTutorialActions.contains(actionName)) {
+      completedTutorialActions.add(actionName);
+      notifyListeners();
+    }
+  }
 
   void setupGame(Nationality nationality) {
     playerNationality = nationality;
