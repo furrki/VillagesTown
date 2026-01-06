@@ -4,19 +4,58 @@ import '../../data/models/army.dart';
 class ArmyActionPanel extends StatelessWidget {
   final Army army;
   final VoidCallback onEndTurn;
+  final VoidCallback? onCancel;
   final bool isProcessingTurn;
 
   const ArmyActionPanel({
     super.key,
     required this.army,
     required this.onEndTurn,
+    this.onCancel,
     required this.isProcessingTurn,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isStationedAndReady = !army.isMarching && army.stationedAt != null;
+
     return Column(
       children: [
+        // March instruction banner
+        if (isStationedAndReady)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.amber.shade800, Colors.amber.shade900],
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.touch_app, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Tap a neighboring village to march',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                ),
+                if (onCancel != null)
+                  GestureDetector(
+                    onTap: onCancel,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black26,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Text('Cancel', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         // Header
         Container(
           padding: const EdgeInsets.all(16),

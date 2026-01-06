@@ -9,6 +9,7 @@ import '../../engines/game_manager.dart';
 import '../../providers/game_provider.dart';
 import 'village_marker.dart';
 import 'army_visual_marker.dart';
+import 'land_mask_layer.dart';
 
 class MapView extends StatefulWidget {
   final Village? selectedVillage;
@@ -32,12 +33,21 @@ class MapView extends StatefulWidget {
 
 class _MapViewState extends State<MapView> {
   final MapController _mapController = MapController();
+  double _currentZoom = 5.0;
 
   // Map bounds for the Byzantine/Ottoman region
   static const _initialCenter = LatLng(38.5, 30.0);
   static const _initialZoom = 5.0;
   static const _minZoom = 4.0;
   static const _maxZoom = 8.0;
+
+  void _onMapEvent(MapEvent event) {
+    if (event is MapEventMove || event is MapEventDoubleTapZoom || event is MapEventScrollWheelZoom) {
+      setState(() {
+        _currentZoom = _mapController.camera.zoom;
+      });
+    }
+  }
 
   bool _hasIncomingThreat(Village village, List<Army> armies) {
     return armies.any((a) => a.isMarching && a.destination == village.id && a.owner != village.owner);
@@ -56,7 +66,6 @@ class _MapViewState extends State<MapView> {
         final game = provider.gameManager;
         final visibleVillages = game.map.villages; // Show all cities
         final visibleArmies = game.getVisibleArmies('player');
-        final stationedArmies = visibleArmies.where((a) => !a.isMarching && a.owner == 'player').toList();
 
         return FlutterMap(
           mapController: _mapController,
@@ -69,6 +78,7 @@ class _MapViewState extends State<MapView> {
               flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
             ),
             backgroundColor: const Color(0xFF1a1a2e),
+            onMapEvent: _onMapEvent,
           ),
           children: [
             // Dark map tiles
@@ -79,9 +89,10 @@ class _MapViewState extends State<MapView> {
               retinaMode: true,
             ),
 
-            // Connection lines from selected location only
-            PolylineLayer(
-              polylines: _buildConnectionLines(visibleVillages, game),
+            // Territory polygons
+            LandMaskTerritoryLayer(
+              villages: visibleVillages,
+              game: game,
             ),
 
             // March paths for moving armies
@@ -94,54 +105,14 @@ class _MapViewState extends State<MapView> {
               markers: _buildVillageMarkers(visibleVillages, game),
             ),
 
-            // Marching army markers
+            // Marching army markers (stationed armies now shown via village marker)
             MarkerLayer(
               markers: _buildMarchingArmyMarkers(visibleArmies, game),
-            ),
-
-            // Stationed army markers (draggable)
-            MarkerLayer(
-              markers: _buildStationedArmyMarkers(stationedArmies, game),
             ),
           ],
         );
       },
     );
-  }
-
-  List<Polyline> _buildConnectionLines(List<Village> villages, GameManager game) {
-    // Only show connections from selected village or army's location
-    String? focusVillageId;
-    if (widget.selectedArmy?.stationedAt != null) {
-      focusVillageId = widget.selectedArmy!.stationedAt;
-    } else if (widget.selectedVillage != null) {
-      focusVillageId = widget.selectedVillage!.id;
-    }
-
-    if (focusVillageId == null) return [];
-
-    final focusVillage = villages.cast<Village?>().firstWhere(
-      (v) => v!.id == focusVillageId,
-      orElse: () => null,
-    );
-    if (focusVillage == null) return [];
-
-    // Use pre-computed K-nearest neighbor connections
-    final neighbors = game.getNeighbors(focusVillageId);
-
-    final lines = <Polyline>[];
-    for (final neighbor in neighbors) {
-      lines.add(Polyline(
-        points: [
-          focusVillage.coordinates.toLatLng(),
-          neighbor.coordinates.toLatLng(),
-        ],
-        color: Colors.white.withValues(alpha: 0.25),
-        strokeWidth: 1.5,
-        pattern: const StrokePattern.dotted(),
-      ));
-    }
-    return lines;
   }
 
   List<Polyline> _buildMarchPaths(List<Army> armies, GameManager game) {
@@ -176,7 +147,21 @@ class _MapViewState extends State<MapView> {
     return lines;
   }
 
+  (double, double) _getMarkerDimensions() {
+    // Width just needs to fit circle + ring
+    // Height needs extra space for label when zoom >= 5.5
+    final showLabel = _currentZoom >= 5.5;
+    final labelHeight = showLabel ? 22.0 : 0.0;
+
+    if (_currentZoom >= 7) return (70, 70 + labelHeight);
+    if (_currentZoom >= 6) return (60, 60 + labelHeight);
+    if (_currentZoom >= 5) return (50, 50 + labelHeight);
+    return (40, 40);
+  }
+
   List<Marker> _buildVillageMarkers(List<Village> villages, GameManager game) {
+    final (markerWidth, markerHeight) = _getMarkerDimensions();
+
     return villages.map((village) {
       final armies = game.getArmiesAt(village.id);
       final armyCount = armies.fold(0, (sum, a) => sum + a.unitCount);
@@ -192,8 +177,8 @@ class _MapViewState extends State<MapView> {
 
       return Marker(
         point: village.coordinates.toLatLng(),
-        width: 80,
-        height: 80,
+        width: markerWidth,
+        height: markerHeight,
         child: DragTarget<Army>(
           onWillAcceptWithDetails: (details) {
             final armyOrigin = details.data.stationedAt;
@@ -230,6 +215,7 @@ class _MapViewState extends State<MapView> {
                 armyCount: armyCount,
                 hasThreat: _hasIncomingThreat(village, game.armies),
                 onTap: () => widget.onVillageSelected(village),
+                zoom: _currentZoom,
               ),
             );
           },
@@ -275,54 +261,6 @@ class _MapViewState extends State<MapView> {
             nationality: nationality,
             isSelected: widget.selectedArmy?.id == army.id,
             isMarching: true,
-          ),
-        ),
-      ));
-    }
-    return markers;
-  }
-
-  List<Marker> _buildStationedArmyMarkers(List<Army> stationedArmies, GameManager game) {
-    final markers = <Marker>[];
-
-    for (final army in stationedArmies) {
-      final village = game.map.villages.cast<Village?>().firstWhere(
-        (v) => v!.id == army.stationedAt,
-        orElse: () => null,
-      );
-      if (village == null) continue;
-
-      // Offset slightly from village center (small offset so it's visible near city)
-      final offsetLat = village.coordinates.latitude + 0.08;
-      final offsetLng = village.coordinates.longitude + 0.12;
-
-      final nationality = _getNationality(army.owner, game);
-
-      markers.add(Marker(
-        point: LatLng(offsetLat, offsetLng),
-        width: 52,
-        height: 65,
-        child: Draggable<Army>(
-          data: army,
-          feedback: Material(
-            color: Colors.transparent,
-            child: ArmyVisualMarker(
-              army: army,
-              nationality: nationality,
-              isSelected: true,
-            ),
-          ),
-          childWhenDragging: Opacity(
-            opacity: 0.3,
-            child: ArmyVisualMarker(army: army, nationality: nationality, isSelected: false),
-          ),
-          child: GestureDetector(
-            onTap: () => widget.onArmySelected(army),
-            child: ArmyVisualMarker(
-              army: army,
-              nationality: nationality,
-              isSelected: widget.selectedArmy?.id == army.id,
-            ),
           ),
         ),
       ));

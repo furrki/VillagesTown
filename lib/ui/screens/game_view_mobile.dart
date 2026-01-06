@@ -16,7 +16,7 @@ import '../panels/army_action_panel.dart';
 import '../panels/empty_selection_panel.dart';
 import '../components/floating_hud.dart';
 import 'victory_screen.dart';
-import 'battle_screen.dart';
+import 'battle/countryball_battle_screen.dart';
 
 class MobileGameLayout extends StatefulWidget {
   const MobileGameLayout({super.key});
@@ -80,6 +80,26 @@ class _MobileGameLayoutState extends State<MobileGameLayout> {
   }
 
   void _selectVillage(Village village) {
+    final game = GameManager.shared;
+
+    // If army is selected and tapped village is a valid march target, send the army
+    if (_selectedArmy != null && _selectedArmy!.stationedAt != null) {
+      final armyOrigin = _selectedArmy!.stationedAt!;
+      if (armyOrigin != village.id && game.areNeighbors(armyOrigin, village.id)) {
+        // Send the army to the tapped village
+        final isAttacking = village.owner != _selectedArmy!.owner;
+        game.sendArmy(_selectedArmy!.id, village.id);
+        if (!isAttacking) {
+          _showToast('Army marching to ${game.getVillageDisplayName(village)}');
+        }
+        setState(() {
+          _selectedArmy = null;
+          _selectedVillage = game.map.villages.firstWhere((v) => v.id == armyOrigin);
+        });
+        return;
+      }
+    }
+
     LayoutConstants.selectionFeedback();
     setState(() {
       _selectedVillage = village;
@@ -184,7 +204,7 @@ class _MobileGameLayoutState extends State<MobileGameLayout> {
 
               // Battle Screen Overlay (only show player's battles)
               if (_getPlayerBattle(game) != null)
-                BattleScreen(
+                CountryballBattleScreen(
                   record: _getPlayerBattle(game)!,
                   onDismiss: () {
                     setState(() {
@@ -255,6 +275,16 @@ class _MobileGameLayoutState extends State<MobileGameLayout> {
                   army: _selectedArmy!,
                   onEndTurn: _processTurn,
                   isProcessingTurn: _isProcessingTurn,
+                  onCancel: _selectedArmy!.stationedAt != null
+                      ? () {
+                          final villageId = _selectedArmy!.stationedAt!;
+                          setState(() {
+                            _selectedArmy = null;
+                            _selectedVillage = GameManager.shared.map.villages
+                                .firstWhere((v) => v.id == villageId);
+                          });
+                        }
+                      : null,
                 )
               : EmptySelectionPanel(
                   onEndTurn: _processTurn,
