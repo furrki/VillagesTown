@@ -38,34 +38,53 @@ class AIStrategyManager {
     if (armyCoordinates == null) return null;
 
     for (final target in potentialTargets) {
-      // Factors
       final distance = GeoCoordinate.distanceKm(armyCoordinates, target.coordinates);
       final isNeutral = target.owner == 'neutral';
 
-      // Assess Strength
-      int defenderStr = target.garrisonStrength * 3;
+      // Calculate defender strength (garrison + stationed armies)
+      int defenderStr = target.garrisonStrength * 2; // Garrison fights at 2x (defensive bonus)
       final enemyArmies = game.getArmiesAt(target.id).where((a) => a.owner == target.owner);
-      for (final ea in enemyArmies) defenderStr += ea.strength;
-
-      // Score Calculation
-      double score = 0;
-
-      // 1. Distance Penalty
-      score -= (distance / 50.0);
-
-      // 2. Win Probability Reward
-      final advantage = army.strength - defenderStr;
-      if (advantage > 0) {
-        score += advantage * 0.5;
-      } else {
-        score -= 1000;
+      for (final ea in enemyArmies) {
+        defenderStr += ea.strength;
       }
 
-      // 3. Strategic Value Reward
+      // Ensure minimum defender strength for calculation
+      if (defenderStr < 1) defenderStr = 1;
+
+      // Calculate strength ratio (attacker / defender)
+      final strengthRatio = army.strength / defenderStr;
+
+      // Minimum ratio required to attack based on personality
+      // Aggressive: needs 1.2x strength, Defensive: needs 2.0x strength
+      final minRatioRequired = isNeutral
+          ? 1.0 + (1.0 - personality.expansionBias) * 0.5   // 1.0 to 1.5
+          : 1.2 + (1.0 - personality.aggressionBias) * 0.8; // 1.2 to 2.0
+
+      // Skip targets where we don't have enough advantage
+      if (strengthRatio < minRatioRequired) {
+        continue;
+      }
+
+      // Score calculation (only for viable targets)
+      double score = 0;
+
+      // 1. Distance penalty (prefer closer targets)
+      score -= (distance / 50.0);
+
+      // 2. Strength advantage bonus (scaled by how much stronger we are)
+      // Ratio of 1.5 = +25 points, 2.0 = +50 points, etc.
+      score += (strengthRatio - 1.0) * 50;
+
+      // 3. Strategic value (personality influence)
       if (isNeutral) {
-         score += 50 * personality.expansionBias;
+        score += 20 * personality.expansionBias;
       } else {
-         score += 100 * personality.aggressionBias;
+        score += 30 * personality.aggressionBias;
+      }
+
+      // 4. Weak target bonus (easier to take)
+      if (defenderStr < army.strength * 0.5) {
+        score += 15; // Easy target bonus
       }
 
       if (score > highScore) {
@@ -74,6 +93,7 @@ class AIStrategyManager {
       }
     }
 
+    // Require minimum score to attack
     if (highScore < 10) return null;
 
     return best;
