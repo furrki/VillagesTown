@@ -38,6 +38,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
 
   Nationality? _attackerNationality;
   Nationality? _defenderNationality;
+  bool _isPlayerAttacker = true;
 
   @override
   void initState() {
@@ -74,11 +75,12 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
   void _initialize() {
     final game = GameManager.shared;
 
-    // Find attacker nationality
+    // Find attacker nationality and determine if player is attacking
     final attackerArmy = game.armies.cast().firstWhere(
           (a) => a?.id == widget.record.attackerId,
           orElse: () => null,
         );
+    _isPlayerAttacker = attackerArmy?.owner == 'player';
     _attackerNationality = game.getNationality(attackerArmy?.owner ?? 'player') ?? Nationality.ottomans;
 
     // Find defender nationality - check army first (field battle), then village
@@ -392,6 +394,12 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
     );
   }
 
+  // Determine if player won (accounting for attacker/defender role)
+  bool get _playerWon {
+    final attackerWon = simulation.phase == BattlePhase.victory;
+    return _isPlayerAttacker ? attackerWon : !attackerWon;
+  }
+
   String _getPhaseText() {
     switch (simulation.phase) {
       case BattlePhase.setup:
@@ -409,9 +417,8 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
       case BattlePhase.regroup:
         return 'REGROUP';
       case BattlePhase.victory:
-        return '🏆 VICTORY!';
       case BattlePhase.defeat:
-        return '💀 DEFEAT';
+        return _playerWon ? '🏆 VICTORY!' : '💀 DEFEAT';
     }
   }
 
@@ -581,7 +588,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
                       : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: isEnded
-                    ? (simulation.phase == BattlePhase.victory ? Colors.green : Colors.red.shade800)
+                    ? (_playerWon ? Colors.green : Colors.red.shade800)
                     : Colors.white,
                 foregroundColor: isEnded ? Colors.white : Colors.black,
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -590,7 +597,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
               ),
               child: Text(
                 isEnded
-                    ? (simulation.phase == BattlePhase.victory ? 'CLAIM VICTORY' : 'ACCEPT DEFEAT')
+                    ? (_playerWon ? 'CLAIM VICTORY' : 'ACCEPT DEFEAT')
                     : canRoll
                         ? '🎲 ROLL DICE'
                         : 'WAIT...',
