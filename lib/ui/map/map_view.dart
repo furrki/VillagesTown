@@ -163,8 +163,7 @@ class _MapViewState extends State<MapView> {
     final (markerWidth, markerHeight) = _getMarkerDimensions();
 
     return villages.map((village) {
-      final armies = game.getArmiesAt(village.id);
-      final armyCount = armies.fold(0, (sum, a) => sum + a.unitCount);
+      final totalDefenders = game.getTotalDefenders(village);
 
       // Check if this village is a valid march target for selected army
       final bool isValidMarchTarget;
@@ -212,7 +211,7 @@ class _MapViewState extends State<MapView> {
                 village: village,
                 displayName: game.getVillageDisplayName(village),
                 isSelected: widget.selectedVillage?.id == village.id,
-                armyCount: armyCount,
+                armyCount: totalDefenders,
                 hasThreat: _hasIncomingThreat(village, game.armies),
                 onTap: () => widget.onVillageSelected(village),
                 zoom: _currentZoom,

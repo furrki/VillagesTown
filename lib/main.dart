@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
 import 'package:provider/provider.dart';
 import 'providers/game_provider.dart';
 import 'ui/screens/nationality_selection_screen.dart';
@@ -8,9 +9,13 @@ import 'ui/theme/app_theme.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => GameProvider(),
-      child: const VillagesTownApp(),
+    // Riverpod ProviderScope wraps everything for new architecture
+    // Old Provider is nested inside for backwards compatibility during migration
+    riverpod.ProviderScope(
+      child: ChangeNotifierProvider(
+        create: (_) => GameProvider(),
+        child: const VillagesTownApp(),
+      ),
     ),
   );
 }

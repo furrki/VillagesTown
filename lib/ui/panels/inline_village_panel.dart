@@ -136,7 +136,7 @@ class InlineVillagePanel extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '👥 ${village.population}   🛡️ ${village.garrisonStrength}   🏠 ${village.buildings.length}/${village.maxBuildings}',
+                    '👥 ${village.population}   🛡️ ${GameManager.shared.getTotalDefenders(village)}   🏠 ${village.buildings.length}/${village.maxBuildings}',
                     style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6)),
                   ),
                 ],
@@ -477,7 +477,7 @@ class InlineVillagePanel extends StatelessWidget {
               const Icon(Icons.shield, size: 24, color: Colors.red),
               const SizedBox(width: 10),
               Text(
-                'Garrison Strength: ${village.garrisonStrength}',
+                'Defenders: ${GameManager.shared.getTotalDefenders(village)}',
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
               ),
             ],

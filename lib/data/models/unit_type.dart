@@ -86,6 +86,28 @@ enum UnitType {
     };
   }
 
+  /// Base accuracy for ranged units (0.0 for non-ranged).
+  double get baseAccuracy => switch (this) {
+        archer => 0.55,
+        crossbowman => 0.70,
+        _ => 0.0,
+      };
+
+  /// Base kill potential for cavalry (0.0 for non-cavalry).
+  double get baseKillPotential => switch (this) {
+        lightCavalry => 1.5,
+        knight => 2.5,
+        _ => 0.0,
+      };
+
+  /// Base kill rate for infantry melee.
+  double get baseKillRate => switch (this) {
+        militia => 0.25,
+        spearman => 0.35,
+        swordsman => 0.50,
+        _ => 0.30, // Default for cavalry/ranged in melee
+      };
+
   UnitStats get stats => switch (this) {
         militia => const UnitStats(
             name: 'Militia',

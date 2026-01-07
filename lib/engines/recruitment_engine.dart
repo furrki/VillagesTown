@@ -47,10 +47,26 @@ class RecruitmentEngine {
     village.modifyPopulation(-quantity * 10);
     village.recruitsThisTurn += quantity;
 
-    // Create units
+    // Get building levels for unit bonuses
+    final barracks = village.buildings.where((b) => b.name == 'Barracks').toList();
+    final archeryRange = village.buildings.where((b) => b.name == 'Archery Range').toList();
+    final stables = village.buildings.where((b) => b.name == 'Stables').toList();
+
+    final barracksLevel = barracks.isNotEmpty ? barracks.first.level : 0;
+    final archeryRangeLevel = archeryRange.isNotEmpty ? archeryRange.first.level : 0;
+    final stablesLevel = stables.isNotEmpty ? stables.first.level : 0;
+
+    // Create units with building bonuses
     final units = <Unit>[];
     for (var i = 0; i < quantity; i++) {
-      units.add(Unit.create(unitType, village.owner, coordinates));
+      units.add(Unit.create(
+        unitType,
+        village.owner,
+        coordinates,
+        barracksLevel: barracksLevel,
+        archeryRangeLevel: archeryRangeLevel,
+        stablesLevel: stablesLevel,
+      ));
     }
 
     // Add to army at village (owned by same player!)

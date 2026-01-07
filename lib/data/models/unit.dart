@@ -19,6 +19,13 @@ class Unit {
   String owner;
   GeoCoordinate coordinates;
 
+  // Building-based bonuses (applied at creation time)
+  int producedFromBuildingLevel;
+  int bonusAttack;
+  int bonusDefense;
+  double bonusAccuracy;
+  double bonusKillPotential;
+
   Unit({
     String? id,
     required this.name,
@@ -34,13 +41,51 @@ class Unit {
     this.morale = 100,
     required this.owner,
     required this.coordinates,
+    this.producedFromBuildingLevel = 0,
+    this.bonusAttack = 0,
+    this.bonusDefense = 0,
+    this.bonusAccuracy = 0.0,
+    this.bonusKillPotential = 0.0,
   }) : id = id ?? const Uuid().v4();
 
   bool get isAlive => currentHP > 0;
   bool get isMovable => true;
 
-  factory Unit.create(UnitType type, String owner, GeoCoordinate coordinates) {
+  factory Unit.create(
+    UnitType type,
+    String owner,
+    GeoCoordinate coordinates, {
+    int barracksLevel = 0,
+    int archeryRangeLevel = 0,
+    int stablesLevel = 0,
+  }) {
     final stats = type.stats;
+
+    // Calculate bonuses based on unit category and building levels
+    int bonusAtk = 0;
+    int bonusDef = 0;
+    double bonusAcc = 0.0;
+    double bonusKillPot = 0.0;
+    int buildingLevel = 0;
+
+    switch (type.category) {
+      case 'Infantry':
+        buildingLevel = barracksLevel;
+        bonusAtk = barracksLevel; // +1 ATK per level
+        bonusDef = barracksLevel * 2; // +2 DEF per level
+        break;
+      case 'Ranged':
+        buildingLevel = archeryRangeLevel;
+        bonusAtk = archeryRangeLevel; // +1 ATK per level
+        bonusAcc = archeryRangeLevel * 0.03; // +3% accuracy per level
+        break;
+      case 'Cavalry':
+        buildingLevel = stablesLevel;
+        bonusAtk = stablesLevel; // +1 ATK per level
+        bonusKillPot = stablesLevel * 0.1; // +0.1 kill potential per level
+        break;
+    }
+
     return Unit(
       name: stats.name,
       unitType: type,
@@ -52,6 +97,11 @@ class Unit {
       movementRemaining: stats.movement,
       owner: owner,
       coordinates: coordinates,
+      producedFromBuildingLevel: buildingLevel,
+      bonusAttack: bonusAtk,
+      bonusDefense: bonusDef,
+      bonusAccuracy: bonusAcc,
+      bonusKillPotential: bonusKillPot,
     );
   }
 
@@ -70,6 +120,11 @@ class Unit {
     int? morale,
     String? owner,
     GeoCoordinate? coordinates,
+    int? producedFromBuildingLevel,
+    int? bonusAttack,
+    int? bonusDefense,
+    double? bonusAccuracy,
+    double? bonusKillPotential,
   }) {
     return Unit(
       id: id ?? this.id,
@@ -86,6 +141,11 @@ class Unit {
       morale: morale ?? this.morale,
       owner: owner ?? this.owner,
       coordinates: coordinates ?? this.coordinates,
+      producedFromBuildingLevel: producedFromBuildingLevel ?? this.producedFromBuildingLevel,
+      bonusAttack: bonusAttack ?? this.bonusAttack,
+      bonusDefense: bonusDefense ?? this.bonusDefense,
+      bonusAccuracy: bonusAccuracy ?? this.bonusAccuracy,
+      bonusKillPotential: bonusKillPotential ?? this.bonusKillPotential,
     );
   }
 

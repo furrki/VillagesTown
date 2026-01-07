@@ -2,8 +2,11 @@ import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../data/models/army.dart';
 import '../../../data/models/combat_log.dart';
 import '../../../data/models/nationality.dart';
+import '../../../data/models/unit_type.dart';
+import '../../../data/models/village.dart';
 import '../../../engines/game_manager.dart';
 import 'battle_painter.dart';
 import 'battle_simulation.dart';
@@ -75,31 +78,75 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
   void _initialize() {
     final game = GameManager.shared;
 
-    // Find attacker nationality and determine if player is attacking
-    final attackerArmy = game.armies.cast().firstWhere(
-          (a) => a?.id == widget.record.attackerId,
-          orElse: () => null,
-        );
+    // Find attacker army
+    Army? attackerArmy;
+    for (final a in game.armies) {
+      if (a.id == widget.record.attackerId) {
+        attackerArmy = a;
+        break;
+      }
+    }
     _isPlayerAttacker = attackerArmy?.owner == 'player';
     _attackerNationality = game.getNationality(attackerArmy?.owner ?? 'player') ?? Nationality.ottomans;
 
-    // Find defender nationality - check army first (field battle), then village
-    final defenderArmy = game.armies.cast().firstWhere(
-          (a) => a?.id == widget.record.defenderId,
-          orElse: () => null,
-        );
+    // Find defender - check army first (field battle), then village
+    Army? defenderArmy;
+    for (final a in game.armies) {
+      if (a.id == widget.record.defenderId) {
+        defenderArmy = a;
+        break;
+      }
+    }
+
     if (defenderArmy != null) {
       _defenderNationality = game.getNationality(defenderArmy.owner) ?? Nationality.byzantines;
     } else {
-      final defenderVillage = game.map.villages.cast().firstWhere(
-            (v) => v?.id == widget.record.defenderId,
-            orElse: () => null,
-          );
+      Village? defenderVillage;
+      for (final v in game.map.villages) {
+        if (v.id == widget.record.defenderId) {
+          defenderVillage = v;
+          break;
+        }
+      }
       _defenderNationality = defenderVillage?.nationality ?? Nationality.byzantines;
     }
 
     // Load faction images
     _loadFactionImages();
+
+    // Build unit lists using RECORD counts (not current army state, which has casualties applied)
+    final attackerCount = widget.record.initialAttackerCount;
+    final defenderCount = widget.record.initialDefenderCount + widget.record.initialGarrisonCount;
+
+    // Get unit type samples for visual variety (but use record counts)
+    List<UnitType> attackerSampleTypes = [];
+    List<UnitType> defenderSampleTypes = [];
+
+    if (attackerArmy != null) {
+      // Sample unit types from army for variety, but we'll create record count of units
+      for (final u in attackerArmy.units) {
+        attackerSampleTypes.add(u.unitType);
+      }
+    }
+    if (defenderArmy != null) {
+      for (final u in defenderArmy.units) {
+        defenderSampleTypes.add(u.unitType);
+      }
+    }
+
+    // Default to militia if no samples
+    if (attackerSampleTypes.isEmpty) attackerSampleTypes = [UnitType.militia];
+    if (defenderSampleTypes.isEmpty) defenderSampleTypes = [UnitType.militia];
+
+    // Create full unit lists using record counts, cycling through sample types
+    List<UnitType> attackerUnits = List.generate(
+      attackerCount,
+      (i) => attackerSampleTypes[i % attackerSampleTypes.length],
+    );
+    List<UnitType> defenderUnits = List.generate(
+      defenderCount,
+      (i) => defenderSampleTypes[i % defenderSampleTypes.length],
+    );
 
     // Create simulation
     final size = MediaQuery.of(context).size;
@@ -108,10 +155,13 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
       attackerNationality: _attackerNationality!,
       defenderNationality: _defenderNationality!,
       screenSize: size,
+      attackerUnits: attackerUnits,
+      defenderUnits: defenderUnits,
+      isPlayerAttacker: _isPlayerAttacker,
     );
 
     simulation.onPhaseChanged = () {
-      if (simulation.phase == BattlePhase.clash) {
+      if (simulation.phase == BattlePhase.meleeClash) {
         _triggerShake();
       }
       setState(() {});
@@ -158,12 +208,6 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
     HapticFeedback.mediumImpact();
   }
 
-  void _rollDice() {
-    if (simulation.phase != BattlePhase.diceWait) return;
-    HapticFeedback.lightImpact();
-    simulation.rollDice();
-  }
-
   void _retreat() {
     _retreated = true;
     _endBattle();
@@ -192,6 +236,21 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
       );
     }
 
+    // Formation selection screen
+    if (simulation.phase == BattlePhase.formationSelect) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0a0a0a),
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(),
+              Expanded(child: _buildFormationSelection()),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF0a0a0a),
       body: SafeArea(
@@ -201,6 +260,109 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
             Expanded(child: _buildBattleArea()),
             _buildDiceArea(),
             _buildControls(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormationSelection() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text(
+          'CHOOSE YOUR FORMATION',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Select how your army will engage',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
+        ),
+        const SizedBox(height: 32),
+        ...BattleFormation.values.map((formation) => _buildFormationCard(formation)),
+        const SizedBox(height: 24),
+        // Rock-paper-scissors hint
+        Container(
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.symmetric(horizontal: 24),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          child: const Column(
+            children: [
+              Text(
+                '🐴 > 🏹 > 🛡️ > 🐴',
+                style: TextStyle(fontSize: 24),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Crescent beats Guerilla\nGuerilla beats Roman\nRoman beats Crescent',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormationCard(BattleFormation formation) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        simulation.selectFormation(formation);
+        setState(() {});
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.1),
+              Colors.white.withValues(alpha: 0.05),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Text(formation.emoji, style: const TextStyle(fontSize: 32)),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    formation.displayName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    formation.shortDescription,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.6),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white38),
           ],
         ),
       ),
@@ -283,7 +445,6 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
         crossAxisAlignment: isLeft ? CrossAxisAlignment.start : CrossAxisAlignment.end,
         children: [
           Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
               if (isLeft)
                 Container(
@@ -296,7 +457,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
                   ),
                 ),
               if (isLeft) const SizedBox(width: 8),
-              Flexible(
+              Expanded(
                 child: Text(
                   name,
                   style: TextStyle(
@@ -305,6 +466,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
                     fontWeight: FontWeight.bold,
                   ),
                   overflow: TextOverflow.ellipsis,
+                  textAlign: isLeft ? TextAlign.left : TextAlign.right,
                 ),
               ),
               if (!isLeft) const SizedBox(width: 8),
@@ -402,14 +564,16 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
 
   String _getPhaseText() {
     switch (simulation.phase) {
+      case BattlePhase.formationSelect:
+        return 'SELECT FORMATION';
       case BattlePhase.setup:
-        return 'READY';
-      case BattlePhase.approach:
-        return 'CHARGE!';
-      case BattlePhase.clash:
+        return '${simulation.playerFormation?.emoji ?? ''} vs ${simulation.enemyFormation?.emoji ?? ''}';
+      case BattlePhase.rangedVolley:
+        return '🏹 ARROWS!';
+      case BattlePhase.cavalryCharge:
+        return '🐴 CHARGE!';
+      case BattlePhase.meleeClash:
         return '⚔️ CLASH!';
-      case BattlePhase.diceWait:
-        return 'ROLL DICE';
       case BattlePhase.rolling:
         return 'ROLLING...';
       case BattlePhase.resolution:
@@ -468,8 +632,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
   }
 
   Widget _buildDiceArea() {
-    final showDice = simulation.phase == BattlePhase.diceWait ||
-        simulation.phase == BattlePhase.rolling ||
+    final showDice = simulation.phase == BattlePhase.rolling ||
         simulation.phase == BattlePhase.resolution;
 
     if (!showDice) {
@@ -524,7 +687,6 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
 
   Widget _buildControls() {
     final isEnded = simulation.phase == BattlePhase.victory || simulation.phase == BattlePhase.defeat;
-    final canRoll = simulation.phase == BattlePhase.diceWait;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -560,51 +722,58 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
             ),
           if (!isEnded) const SizedBox(width: 12),
 
-          // Auto toggle
+          // Skip to end button
           if (!isEnded)
             IconButton(
-              onPressed: () {
-                setState(() {
-                  simulation.setAutoPlay(!simulation.isAutoPlay);
-                });
-              },
-              icon: Icon(
-                simulation.isAutoPlay ? Icons.pause : Icons.fast_forward,
-                color: simulation.isAutoPlay ? Colors.amber : Colors.white54,
-              ),
-              tooltip: simulation.isAutoPlay ? 'Pause Auto' : 'Auto Play',
+              onPressed: () => simulation.skipToEnd(),
+              icon: const Icon(Icons.skip_next, color: Colors.white54),
+              tooltip: 'Skip to End',
             ),
 
           if (!isEnded) const SizedBox(width: 12),
 
-          // Main action button
-          Expanded(
-            flex: 2,
-            child: ElevatedButton(
-              onPressed: isEnded
-                  ? _endBattle
-                  : canRoll
-                      ? _rollDice
-                      : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isEnded
-                    ? (_playerWon ? Colors.green : Colors.red.shade800)
-                    : Colors.white,
-                foregroundColor: isEnded ? Colors.white : Colors.black,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 8,
-              ),
-              child: Text(
-                isEnded
-                    ? (_playerWon ? 'CLAIM VICTORY' : 'ACCEPT DEFEAT')
-                    : canRoll
-                        ? '🎲 ROLL DICE'
-                        : 'WAIT...',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1),
+          // Main action button (only shown when battle ends)
+          if (isEnded)
+            Expanded(
+              flex: 2,
+              child: ElevatedButton(
+                onPressed: _endBattle,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _playerWon ? Colors.green : Colors.red.shade800,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 8,
+                ),
+                child: Text(
+                  _playerWon ? 'CLAIM VICTORY' : 'ACCEPT DEFEAT',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1),
+                ),
               ),
             ),
-          ),
+          // Battle in progress indicator
+          if (!isEnded)
+            Expanded(
+              flex: 2,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Center(
+                  child: Text(
+                    '⚔️ BATTLE IN PROGRESS',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white70,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

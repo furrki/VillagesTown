@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:uuid/uuid.dart';
 import 'package:collection/collection.dart';
+import 'package:latlong2/latlong.dart';
 import '../protocols/resource_holder.dart';
 import '../protocols/treasury_holder.dart';
 import 'building.dart';
@@ -19,7 +20,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Constantinople',
       'bulgarian': 'Цариград',
       'serbian': 'Цариград',
-      'armenian': 'Կոստdelays',
+      'armenian': 'Kostandnupolis',
       'mamluk': 'القسطنطينية',
     },
     'Bursa': {
@@ -28,7 +29,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Prusa',
       'bulgarian': 'Бруса',
       'serbian': 'Бруса',
-      'armenian': 'Պdelays',
+      'armenian': 'Prusa',
       'mamluk': 'بورصة',
     },
     'Acre': {
@@ -37,7 +38,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Acre',
       'bulgarian': 'Акра',
       'serbian': 'Акра',
-      'armenian': 'Աdelays',
+      'armenian': 'Akko',
       'mamluk': 'عكا',
     },
     // === MINOR FACTION CAPITALS ===
@@ -47,7 +48,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Tarnovo',
       'bulgarian': 'Търново',
       'serbian': 'Трново',
-      'armenian': 'Տdelays',
+      'armenian': 'Tarnovo',
       'mamluk': 'ترنوفو',
     },
     'Belgrade': {
@@ -56,7 +57,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Alba Graeca',
       'bulgarian': 'Белград',
       'serbian': 'Београд',
-      'armenian': 'Բdelays',
+      'armenian': 'Belgrad',
       'mamluk': 'بلغراد',
     },
     'Ani': {
@@ -65,7 +66,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Ani',
       'bulgarian': 'Ани',
       'serbian': 'Ани',
-      'armenian': 'Անdelays',
+      'armenian': 'Ani',
       'mamluk': 'آني',
     },
     'Cairo': {
@@ -74,7 +75,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Cairo',
       'bulgarian': 'Кайро',
       'serbian': 'Каиро',
-      'armenian': 'Կahiրdelays',
+      'armenian': 'Kahire',
       'mamluk': 'القاهرة',
     },
     // === BYZANTINE REGION ===
@@ -84,7 +85,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Thessalonica',
       'bulgarian': 'Солун',
       'serbian': 'Солун',
-      'armenian': 'Delays',
+      'armenian': 'Tesaloniki',
       'mamluk': 'سالونيك',
     },
     'Athens': {
@@ -93,7 +94,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Athens',
       'bulgarian': 'Атина',
       'serbian': 'Атина',
-      'armenian': 'Աdelays',
+      'armenian': 'Atenk',
       'mamluk': 'أثينا',
     },
     'Nicaea': {
@@ -102,7 +103,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Nicaea',
       'bulgarian': 'Никея',
       'serbian': 'Никеја',
-      'armenian': 'Delays',
+      'armenian': 'Nikia',
       'mamluk': 'نيقية',
     },
     'Trebizond': {
@@ -111,7 +112,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Trebizond',
       'bulgarian': 'Трапезунд',
       'serbian': 'Трапезунт',
-      'armenian': 'Delays',
+      'armenian': 'Trapizon',
       'mamluk': 'طرابزون',
     },
     'Smyrna': {
@@ -120,7 +121,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Smyrna',
       'bulgarian': 'Смирна',
       'serbian': 'Смирна',
-      'armenian': 'Delays',
+      'armenian': 'Zmyurnia',
       'mamluk': 'إزمير',
     },
     // === OTTOMAN/ANATOLIAN REGION ===
@@ -130,7 +131,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Iconium',
       'bulgarian': 'Икониум',
       'serbian': 'Иконија',
-      'armenian': 'Delays',
+      'armenian': 'Ikonia',
       'mamluk': 'قونية',
     },
     'Ankara': {
@@ -139,7 +140,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Ancyra',
       'bulgarian': 'Анкара',
       'serbian': 'Анкара',
-      'armenian': 'Delays',
+      'armenian': 'Ankara',
       'mamluk': 'أنقرة',
     },
     'Sinope': {
@@ -148,7 +149,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Sinope',
       'bulgarian': 'Синоп',
       'serbian': 'Синоп',
-      'armenian': 'Delays',
+      'armenian': 'Sinop',
       'mamluk': 'سينوب',
     },
     'Edirne': {
@@ -157,7 +158,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Adrianople',
       'bulgarian': 'Одрин',
       'serbian': 'Једрене',
-      'armenian': 'Delays',
+      'armenian': 'Adrianupolis',
       'mamluk': 'أدرنة',
     },
     // === CRUSADER/LEVANT REGION ===
@@ -167,7 +168,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Antioch',
       'bulgarian': 'Антиохия',
       'serbian': 'Антиохија',
-      'armenian': 'Անdelays',
+      'armenian': 'Antiok',
       'mamluk': 'أنطاكية',
     },
     'Jerusalem': {
@@ -176,7 +177,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Jerusalem',
       'bulgarian': 'Йерусалим',
       'serbian': 'Јерусалим',
-      'armenian': 'Երdelays',
+      'armenian': 'Yerusaghem',
       'mamluk': 'القدس',
     },
     'Tripoli': {
@@ -185,7 +186,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Tripoli',
       'bulgarian': 'Триполи',
       'serbian': 'Триполи',
-      'armenian': 'Delays',
+      'armenian': 'Tripoli',
       'mamluk': 'طرابلس',
     },
     // === BALKAN REGION ===
@@ -195,7 +196,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Sardica',
       'bulgarian': 'София',
       'serbian': 'Софија',
-      'armenian': 'Delays',
+      'armenian': 'Sofia',
       'mamluk': 'صوفيا',
     },
     'Plovdiv': {
@@ -204,7 +205,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Philippopolis',
       'bulgarian': 'Пловдив',
       'serbian': 'Пловдив',
-      'armenian': 'Delays',
+      'armenian': 'Plovdiv',
       'mamluk': 'فيليبه',
     },
     'Nis': {
@@ -213,7 +214,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Naissus',
       'bulgarian': 'Ниш',
       'serbian': 'Ниш',
-      'armenian': 'Delays',
+      'armenian': 'Nish',
       'mamluk': 'نيش',
     },
     'Skopje': {
@@ -222,7 +223,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Scupi',
       'bulgarian': 'Скопие',
       'serbian': 'Скопље',
-      'armenian': 'Delays',
+      'armenian': 'Skopye',
       'mamluk': 'سكوبيه',
     },
     // === ARMENIAN/CAUCASUS REGION ===
@@ -232,7 +233,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Van',
       'bulgarian': 'Ван',
       'serbian': 'Ван',
-      'armenian': 'Վdelays',
+      'armenian': 'Van',
       'mamluk': 'وان',
     },
     'Kars': {
@@ -241,7 +242,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Kars',
       'bulgarian': 'Карс',
       'serbian': 'Карс',
-      'armenian': 'Delays',
+      'armenian': 'Kars',
       'mamluk': 'قارص',
     },
     'Erzurum': {
@@ -250,7 +251,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Theodosiopolis',
       'bulgarian': 'Ерзерум',
       'serbian': 'Ерзурум',
-      'armenian': 'Delays',
+      'armenian': 'Karin',
       'mamluk': 'أرضروم',
     },
     // === MAMLUK/EGYPT REGION ===
@@ -260,7 +261,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Alexandria',
       'bulgarian': 'Александрия',
       'serbian': 'Александрија',
-      'armenian': 'Delays',
+      'armenian': 'Aleksandria',
       'mamluk': 'الإسكندرية',
     },
     'Damascus': {
@@ -269,7 +270,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Damascus',
       'bulgarian': 'Дамаск',
       'serbian': 'Дамаск',
-      'armenian': 'Delays',
+      'armenian': 'Damaskos',
       'mamluk': 'دمشق',
     },
     'Aleppo': {
@@ -278,7 +279,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Aleppo',
       'bulgarian': 'Халеп',
       'serbian': 'Алепо',
-      'armenian': 'Delays',
+      'armenian': 'Halep',
       'mamluk': 'حلب',
     },
     'Gaza': {
@@ -287,7 +288,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Gaza',
       'bulgarian': 'Газа',
       'serbian': 'Газа',
-      'armenian': 'Delays',
+      'armenian': 'Gaza',
       'mamluk': 'غزة',
     },
     // === ISLANDS & OTHER ===
@@ -297,7 +298,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Rhodes',
       'bulgarian': 'Родос',
       'serbian': 'Родос',
-      'armenian': 'Delays',
+      'armenian': 'Rodos',
       'mamluk': 'رودس',
     },
     'Crete': {
@@ -306,7 +307,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Candia',
       'bulgarian': 'Крит',
       'serbian': 'Крит',
-      'armenian': 'Delays',
+      'armenian': 'Krit',
       'mamluk': 'كريت',
     },
     'Cyprus': {
@@ -315,7 +316,7 @@ class Village with ResourceHolder, TreasuryHolder {
       'crusader': 'Cyprus',
       'bulgarian': 'Кипър',
       'serbian': 'Кипар',
-      'armenian': 'Delays',
+      'armenian': 'Kipros',
       'mamluk': 'قبرص',
     },
   };
@@ -337,6 +338,7 @@ class Village with ResourceHolder, TreasuryHolder {
   int garrisonMaxStrength;
   bool underSiege;
   int recruitsThisTurn;
+  List<LatLng>? customTerritory;
 
   Village({
     String? id,
@@ -354,6 +356,7 @@ class Village with ResourceHolder, TreasuryHolder {
     this.garrisonMaxStrength = 10,
     this.underSiege = false,
     this.recruitsThisTurn = 0,
+    this.customTerritory,
   })  : id = id ?? const Uuid().v4(),
         buildings = buildings ?? Building.starter(),
         resources = resources ??
@@ -443,6 +446,7 @@ class Village with ResourceHolder, TreasuryHolder {
     int? garrisonMaxStrength,
     bool? underSiege,
     int? recruitsThisTurn,
+    List<LatLng>? customTerritory,
   }) {
     return Village(
       id: id ?? this.id,
@@ -460,6 +464,7 @@ class Village with ResourceHolder, TreasuryHolder {
       garrisonMaxStrength: garrisonMaxStrength ?? this.garrisonMaxStrength,
       underSiege: underSiege ?? this.underSiege,
       recruitsThisTurn: recruitsThisTurn ?? this.recruitsThisTurn,
+      customTerritory: customTerritory ?? this.customTerritory,
     );
   }
 

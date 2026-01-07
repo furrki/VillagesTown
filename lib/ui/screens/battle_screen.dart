@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../data/models/combat_log.dart';
@@ -22,13 +23,15 @@ class _BattleScreenState extends State<BattleScreen> with TickerProviderStateMix
   late int _currentAttackerCount;
   late int _currentDefenderCount;
   bool _isRolling = false;
+  bool _autoRollEnabled = false;
+  Timer? _autoRollTimer;
   
   // Animations
   late AnimationController _diceAnimController;
   late AnimationController _shakeController;
   
   // Dashboard Visuals
-  List<DamagePopup> _damagePopups = [];
+  final List<DamagePopup> _damagePopups = [];
 
   @override
   void initState() {
@@ -51,6 +54,7 @@ class _BattleScreenState extends State<BattleScreen> with TickerProviderStateMix
 
   @override
   void dispose() {
+    _autoRollTimer?.cancel();
     _diceAnimController.dispose();
     _shakeController.dispose();
     super.dispose();
@@ -88,6 +92,18 @@ class _BattleScreenState extends State<BattleScreen> with TickerProviderStateMix
         }
       }
     });
+
+    if (!mounted) return;
+    if (_autoRollEnabled && !isBattleOver) {
+      _scheduleAutoRoll();
+    } else {
+      _autoRollTimer?.cancel();
+      if (isBattleOver && _autoRollEnabled) {
+          setState(() {
+            _autoRollEnabled = false;
+          });
+      }
+    }
   }
   
   void _addDamagePopup(bool isAttacker, int amount) {
@@ -110,8 +126,36 @@ class _BattleScreenState extends State<BattleScreen> with TickerProviderStateMix
   }
   
   void _endBattle({required bool retreated}) {
+    _autoRollTimer?.cancel();
     GameManager.shared.finalizeBattle(widget.record, _roundsPlayed, retreated);
     widget.onDismiss();
+  }
+
+  void _toggleAutoRoll() {
+    if (isBattleOver) return;
+    setState(() {
+      _autoRollEnabled = !_autoRollEnabled;
+    });
+
+    if (_autoRollEnabled) {
+      if (!_isRolling) {
+        _rollDice();
+      }
+    } else {
+      _autoRollTimer?.cancel();
+    }
+  }
+
+  void _scheduleAutoRoll() {
+    _autoRollTimer?.cancel();
+    if (!_autoRollEnabled || isBattleOver || _isRolling) return;
+
+    _autoRollTimer = Timer(const Duration(milliseconds: 450), () {
+      if (!mounted) return;
+      if (_autoRollEnabled && !isBattleOver && !_isRolling) {
+        _rollDice();
+      }
+    });
   }
 
   bool get isBattleOver => 
@@ -466,21 +510,41 @@ class _BattleScreenState extends State<BattleScreen> with TickerProviderStateMix
           // RETREAT
           if (!isBattleOver)
             Expanded(
-              child: OutlinedButton.icon(
+              child: OutlinedButton(
                 onPressed: _isRolling ? null : () => _endBattle(retreated: true), 
-                icon: const Icon(Icons.flag_outlined, size: 20),
-                label: const Text('RETREAT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white70,
                   side: const BorderSide(color: Colors.white24, width: 2),
-                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.flag_outlined, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'RETREAT',
+                        maxLines: 1,
+                        overflow: TextOverflow.fade,
+                        style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
             
           if (!isBattleOver)
-             const SizedBox(width: 16),
+             const SizedBox(width: 12),
+
+          if (!isBattleOver)
+            _buildAutoToggle(),
+
+          if (!isBattleOver)
+             const SizedBox(width: 12),
 
           // ROLL / FINISH
           Expanded(
@@ -515,6 +579,28 @@ class _BattleScreenState extends State<BattleScreen> with TickerProviderStateMix
                 ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAutoToggle() {
+    final isActive = _autoRollEnabled && !isBattleOver;
+    return SizedBox(
+      width: 56,
+      height: 56,
+      child: Tooltip(
+        message: isActive ? 'Auto rolling…' : 'Auto resolve battle',
+        child: OutlinedButton(
+          onPressed: isBattleOver ? null : _toggleAutoRoll,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: isActive ? Colors.black : Colors.white70,
+            backgroundColor: isActive ? Colors.amber[400] : Colors.transparent,
+            side: BorderSide(color: isActive ? Colors.amber : Colors.white24, width: 2),
+            padding: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: Icon(isActive ? Icons.pause : Icons.fast_forward, size: 22),
+        ),
       ),
     );
   }

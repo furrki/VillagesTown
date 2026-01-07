@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:latlong2/latlong.dart';
 import '../data/map/game_map.dart';
 import '../data/map/virtual_map.dart';
 import '../data/models/army.dart';
@@ -78,6 +81,9 @@ class GameManager extends ChangeNotifier {
 
     map = VirtualMap(villages: allVillages);
 
+    // Load custom territories from asset
+    _loadTerritories(allVillages);
+
     // Build city connection graph
     _buildCityConnections();
 
@@ -90,6 +96,27 @@ class GameManager extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  void _loadTerritories(List<Village> villages) {
+    rootBundle.loadString('assets/territories.json').then((content) {
+      try {
+        final data = json.decode(content) as Map<String, dynamic>;
+        for (final village in villages) {
+          if (data.containsKey(village.name)) {
+            final coords = data[village.name] as List;
+            village.customTerritory = coords
+                .map((c) => LatLng(c[1] as double, c[0] as double))
+                .toList();
+          }
+        }
+        notifyListeners();
+      } catch (e) {
+        debugPrint('Error loading territories: $e');
+      }
+    }).catchError((e) {
+      debugPrint('No territories.json asset found: $e');
+    });
   }
 
   List<Village> _buildAllCities(Nationality playerNationality) {
@@ -442,6 +469,16 @@ class GameManager extends ChangeNotifier {
   // Army Management
   List<Army> getArmiesAt(String villageId) {
     return armies.where((a) => a.stationedAt == villageId).toList();
+  }
+
+  /// Get total defender count for a village (garrison + stationed army units)
+  int getTotalDefenders(Village village) {
+    final stationedArmies = getArmiesAt(village.id).where((a) => a.owner == village.owner);
+    int armyUnits = 0;
+    for (final army in stationedArmies) {
+      armyUnits += army.unitCount;
+    }
+    return village.garrisonStrength + armyUnits;
   }
 
   List<Army> getArmiesFor(String playerId) {
