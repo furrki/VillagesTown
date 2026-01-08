@@ -132,8 +132,9 @@ class CombatEngine {
         defenderBarracksLevel: defenderBarracksLevel,
       );
       phases.add(meleeResult);
-      _applyCasualties(defenderUnits, meleeResult.attackerKills, _targetPriority);
-      _applyCasualties(attackerUnits, meleeResult.defenderKills, _targetPriority);
+      // Melee casualties: infantry and cavalry die first, archers only if overrun
+      _applyCasualties(defenderUnits, meleeResult.attackerKills, _meleeTargetPriority);
+      _applyCasualties(attackerUnits, meleeResult.defenderKills, _meleeTargetPriority);
     }
 
     // Determine winner
@@ -169,11 +170,14 @@ class CombatEngine {
     );
   }
 
-  /// Target priority for most phases: infantry first (they're the frontline).
+  /// Target priority for ranged phase: infantry first (they're the frontline).
   List<String> get _targetPriority => ['Infantry', 'Ranged', 'Cavalry'];
 
   /// Cavalry targets ranged first (soft targets), then infantry.
   List<String> get _cavalryTargetPriority => ['Ranged', 'Infantry', 'Cavalry'];
+
+  /// Melee priority: infantry and cavalry fight, archers only die if overrun.
+  List<String> get _meleeTargetPriority => ['Infantry', 'Cavalry', 'Ranged'];
 
   /// Resolve ranged phase: archers fire based on accuracy.
   PhaseResult _resolveRangedPhase({
@@ -320,7 +324,8 @@ class CombatEngine {
     );
   }
 
-  /// Resolve melee phase: infantry grind with kill rates.
+  /// Resolve melee phase: infantry and cavalry grind.
+  /// Archers hold position in rear - they don't fight in melee unless overrun.
   PhaseResult _resolveMeleePhase({
     required List<Unit> attackerUnits,
     required List<Unit> defenderUnits,
@@ -334,16 +339,19 @@ class CombatEngine {
     final attackerLuck = _luckModifier(attackerLuckRoll);
     final defenderLuck = _luckModifier(defenderLuckRoll);
 
-    // All surviving units participate in melee
+    // Only Infantry and Cavalry fight in melee - archers hold position
+    final attackerMeleeUnits = attackerUnits.where((u) => u.unitType.category != 'Ranged').toList();
+    final defenderMeleeUnits = defenderUnits.where((u) => u.unitType.category != 'Ranged').toList();
+
     double attackerKillsRaw = 0;
     double defenderKillsRaw = 0;
 
-    // Calculate average enemy composition for counter bonuses
-    final defenderCavalryRatio = defenderUnits.where((u) => u.unitType.category == 'Cavalry').length / max(1, defenderUnits.length);
-    final attackerCavalryRatio = attackerUnits.where((u) => u.unitType.category == 'Cavalry').length / max(1, attackerUnits.length);
+    // Calculate cavalry ratios for spearmen bonus
+    final defenderCavalryRatio = defenderMeleeUnits.where((u) => u.unitType.category == 'Cavalry').length / max(1, defenderMeleeUnits.length);
+    final attackerCavalryRatio = attackerMeleeUnits.where((u) => u.unitType.category == 'Cavalry').length / max(1, attackerMeleeUnits.length);
 
-    // Attacker melee
-    for (final unit in attackerUnits) {
+    // Attacker melee (only infantry and cavalry fight)
+    for (final unit in attackerMeleeUnits) {
       final baseRate = unit.unitType.baseKillRate;
       final bonusRate = unit.unitType.category == 'Infantry'
           ? attackerBarracksLevel * 0.02
@@ -352,20 +360,15 @@ class CombatEngine {
       // Spearmen bonus vs cavalry
       double counterMod = 1.0;
       if (unit.unitType == UnitType.spearman) {
-        counterMod = 1.0 + (0.5 * defenderCavalryRatio); // Up to 50% bonus based on cavalry presence
-      }
-
-      // Archers weak in melee
-      if (unit.unitType.category == 'Ranged') {
-        counterMod = 0.5; // Archers fight at half effectiveness in melee
+        counterMod = 1.0 + (0.5 * defenderCavalryRatio);
       }
 
       final finalRate = (baseRate + bonusRate) * attackerLuck * attackerFormationMod * counterMod;
       attackerKillsRaw += finalRate;
     }
 
-    // Defender melee
-    for (final unit in defenderUnits) {
+    // Defender melee (only infantry and cavalry fight)
+    for (final unit in defenderMeleeUnits) {
       final baseRate = unit.unitType.baseKillRate;
       final bonusRate = unit.unitType.category == 'Infantry'
           ? defenderBarracksLevel * 0.02
@@ -375,9 +378,6 @@ class CombatEngine {
       if (unit.unitType == UnitType.spearman) {
         counterMod = 1.0 + (0.5 * attackerCavalryRatio);
       }
-      if (unit.unitType.category == 'Ranged') {
-        counterMod = 0.5;
-      }
 
       final finalRate = (baseRate + bonusRate) * defenderLuck * defenderFormationMod * counterMod;
       defenderKillsRaw += finalRate;
@@ -386,14 +386,24 @@ class CombatEngine {
     final attackerKills = attackerKillsRaw.floor();
     final defenderKills = defenderKillsRaw.floor();
 
+    // Count archers holding position
+    final attackerArchers = attackerUnits.where((u) => u.unitType.category == 'Ranged').length;
+    final defenderArchers = defenderUnits.where((u) => u.unitType.category == 'Ranged').length;
+
     // Generate narration
     String narration = '';
-    if (attackerKills > 0 && defenderKills > 0) {
+    if (attackerMeleeUnits.isEmpty && defenderMeleeUnits.isEmpty) {
+      narration = 'No melee troops engage - archers hold position';
+    } else if (attackerKills > 0 && defenderKills > 0) {
       narration = 'Fierce melee: attackers kill $attackerKills, defenders kill $defenderKills';
     } else if (attackerKills > 0) {
       narration = 'Attackers cut through defenders, killing $attackerKills';
     } else if (defenderKills > 0) {
       narration = 'Defenders hold firm, killing $defenderKills attackers';
+    } else if (attackerMeleeUnits.isEmpty && attackerArchers > 0) {
+      narration = 'Attacker archers hold position as infantry is depleted';
+    } else if (defenderMeleeUnits.isEmpty && defenderArchers > 0) {
+      narration = 'Defender archers hold as their line breaks';
     } else {
       narration = 'The melee is inconclusive';
     }
