@@ -743,16 +743,13 @@ class GameManager extends ChangeNotifier {
       return;
     }
 
-    // 2. Calculate losses and remaining counts
+    // 2. Calculate losses from rounds played
     int attLosses = 0;
     int defLosses = 0;
     for (var i = 0; i < roundsPlayed && i < record.rounds.length; i++) {
       attLosses += record.rounds[i].attackerLosses;
       defLosses += record.rounds[i].defenderLosses;
     }
-
-    final remainingAttackers = record.initialAttackerCount - attLosses;
-    final remainingDefenders = record.initialDefenderCount - defLosses;
 
     // 3. Apply Losses to armies and garrison
     _applyCasualtiesToArmy(attacker, attLosses);
@@ -794,12 +791,12 @@ class GameManager extends ChangeNotifier {
       return;
     }
 
-    // 5. Determine winner based on remaining counts
-    final attackerWins = remainingDefenders <= 0 && remainingAttackers > 0;
-    final defenderWins = remainingAttackers <= 0;
+    // 5. Use combat engine's winner determination (authoritative)
+    // Defender wins if combat engine said so, or if attacker has no units left
+    final defenderWins = !record.attackerWon || attacker.units.isEmpty;
 
     // 6. Handle outcomes
-    if (defenderWins || attacker.units.isEmpty) {
+    if (defenderWins) {
       // Attacker lost
       removeArmy(attacker.id);
       if (defenderVillage != null) {
@@ -807,7 +804,7 @@ class GameManager extends ChangeNotifier {
         updateVillage(defenderVillage);
       }
       addTurnEvent(BattleLostEvent(location: record.locationName, casualties: attLosses));
-    } else if (attackerWins) {
+    } else {
       // Attacker won
       if (defenderVillage != null) {
         // Siege victory - conquer (this also updates the army and adds event)
@@ -817,18 +814,6 @@ class GameManager extends ChangeNotifier {
         updateArmy(attacker);
         addTurnEvent(BattleWonEvent(location: record.locationName, casualties: attLosses));
       }
-    } else {
-      // Battle ongoing but ended (partial) - damage garrison, bounce attacker
-      if (defenderVillage != null) {
-        defenderVillage.damageGarrison(max(1, defLosses ~/ 2));
-        defenderVillage.underSiege = false;
-        updateVillage(defenderVillage);
-      }
-      if (record.originVillageId != null) {
-        attacker.station(record.originVillageId!);
-      }
-      updateArmy(attacker);
-      addTurnEvent(BattleLostEvent(location: record.locationName, casualties: attLosses));
     }
 
     // 7. Clean up record
