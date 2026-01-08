@@ -17,10 +17,16 @@ class AIEconomyManager {
     final personality = player.aiPersonality ?? AIPersonality.balanced;
     final resources = GameManager.shared.getGlobalResources(player.id);
 
+    // Track what we built this turn to add diversity
+    bool builtSomething = false;
+
     // 1. Critical Needs Assessment
-    // If food is low, panic build farms
+    // If food is low, try to build farms (but don't exit early!)
     if ((resources[Resource.food] ?? 0) < 50) {
-      if (_tryBuild(village, Building.farm)) return;
+      if (_tryBuild(village, Building.farm)) {
+        builtSomething = true;
+        // Don't return - continue trying other buildings
+      }
     }
 
     // 2. Personality-based prioritization
@@ -32,7 +38,13 @@ class AIEconomyManager {
         continue;
       }
 
-      if (_tryBuild(village, building)) return;
+      // Skip if we already built something this turn (one build per turn)
+      if (builtSomething) break;
+
+      if (_tryBuild(village, building)) {
+        builtSomething = true;
+        break; // One successful build per call
+      }
     }
   }
 
@@ -46,23 +58,17 @@ class AIEconomyManager {
     return false;
   }
 
+  /// Get distinct priority list per personality (no duplicates)
   List<Building> _getPriorities(AIPersonality personality) {
-    final base = [
-      Building.market,
-      Building.ironMine,
-      Building.lumberMill,
-      Building.barracks,
-      Building.farm,
-      Building.fortress,
-    ];
-
     switch (personality) {
       case AIPersonality.aggressive:
         return [
           Building.ironMine,
           Building.barracks,
           Building.market,
-          ...base,
+          Building.lumberMill,
+          Building.farm,
+          Building.fortress,
         ];
       case AIPersonality.economic:
         return [
@@ -70,16 +76,26 @@ class AIEconomyManager {
           Building.farm,
           Building.lumberMill,
           Building.ironMine,
-          ...base,
+          Building.barracks,
+          Building.fortress,
         ];
       case AIPersonality.balanced:
-        return base;
+        return [
+          Building.farm,
+          Building.market,
+          Building.lumberMill,
+          Building.ironMine,
+          Building.barracks,
+          Building.fortress,
+        ];
       case AIPersonality.defensive:
         return [
           Building.fortress,
           Building.barracks,
           Building.farm,
-          ...base,
+          Building.market,
+          Building.lumberMill,
+          Building.ironMine,
         ];
     }
   }

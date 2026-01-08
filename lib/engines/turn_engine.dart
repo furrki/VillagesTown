@@ -20,7 +20,10 @@ class TurnEngine {
     game.currentTurn++;
     game.clearTurnEvents();
 
-    // 0. Reset mobilization counters
+    // 0. Clean up stale battles from previous turns
+    game.cleanupStaleBattles();
+
+    // 0.5. Reset mobilization counters
     for (var i = 0; i < game.map.villages.length; i++) {
       game.map.villages[i].recruitsThisTurn = 0;
     }
@@ -208,6 +211,9 @@ class TurnEngine {
 
     if (army1 == null || army2 == null) return;
 
+    // Pre-battle validation: Don't create battle for empty armies
+    if (army1.units.isEmpty || army2.units.isEmpty) return;
+
     // Check for existing pending battle to prevent duplicates
     final existing = game.pendingBattles.any((b) => b.attackerId == army1Id && b.defenderId == army2Id);
     if (existing) return;
@@ -273,6 +279,9 @@ class TurnEngine {
 
   void _resolveCombat(Army attacker, Village village, {String? savedOrigin}) {
     final game = GameManager.shared;
+
+    // Pre-battle validation: Don't create battle for empty army
+    if (attacker.units.isEmpty) return;
 
     // Check for existing pending battle to prevent duplicates
     final existing = game.pendingBattles.any((b) => b.attackerId == attacker.id && b.defenderId == village.id);

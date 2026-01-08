@@ -121,18 +121,18 @@ class CombatEngine {
   static const double moraleLossPerDeath = 5.0;
   static const double moraleGainPerKill = 2.0;
 
-  /// Fortress modifiers
+  /// Fortress modifiers (reduced from original - was too punishing for attackers)
   double _fortressDamageReduction(int level) => switch (level) {
-        1 => 0.90,
-        2 => 0.80,
-        >= 3 => 0.70,
+        1 => 0.95, // Was 0.90 - only 5% damage reduction now
+        2 => 0.90, // Was 0.80
+        >= 3 => 0.85, // Was 0.70
         _ => 1.0,
       };
 
   double _fortressCavalryPenalty(int level) => switch (level) {
-        1 => 0.70,
-        2 => 0.50,
-        >= 3 => 0.30,
+        1 => 0.85, // Was 0.70
+        2 => 0.75, // Was 0.50
+        >= 3 => 0.65, // Was 0.30 - cavalry now at 65% vs highest fortress (was 30%)
         _ => 1.0,
       };
 
@@ -289,10 +289,10 @@ class CombatEngine {
       attackerMorale = attackerMorale.clamp(0, 100);
       defenderMorale = defenderMorale.clamp(0, 100);
 
-      // Check for routing
+      // Check for routing (reduced from 30% to 10% per tick - was too harsh)
       if (attackerMorale < routThreshold) {
         for (final unit in aliveAttackers) {
-          if (!unit.isRouting && _random.nextDouble() < 0.3) {
+          if (!unit.isRouting && _random.nextDouble() < 0.10) {
             unit.isRouting = true;
             events.add(CombatEvent(
               timestamp: currentTime,
@@ -306,7 +306,7 @@ class CombatEngine {
 
       if (defenderMorale < routThreshold) {
         for (final unit in aliveDefenders) {
-          if (!unit.isRouting && _random.nextDouble() < 0.3) {
+          if (!unit.isRouting && _random.nextDouble() < 0.10) {
             unit.isRouting = true;
             events.add(CombatEvent(
               timestamp: currentTime,
@@ -420,9 +420,9 @@ class CombatEngine {
     // Counter bonuses
     damage *= unit.type.damageMultiplier(target.type);
 
-    // Garrison units are 30% weaker (untrained militia)
+    // Garrison units are 50% weaker (untrained militia) - was 30%
     if (unit.isGarrison) {
-      damage *= 0.7;
+      damage *= 0.5;
     }
 
     // Morale modifier (low morale = weaker attacks)

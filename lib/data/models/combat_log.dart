@@ -76,10 +76,11 @@ enum BattleFormation {
       };
 
   /// Calculate modifier against enemy formation.
-  /// Returns 1.30 if winning, 0.70 if losing, 1.0 if mirror.
+  /// Returns 1.15 if winning, 0.85 if losing, 1.0 if mirror.
+  /// (Reduced from 1.30/0.70 - was too extreme, 86% swing)
   double bonusAgainst(BattleFormation enemy) {
-    if (beats == enemy) return 1.30;
-    if (enemy.beats == this) return 0.70;
+    if (beats == enemy) return 1.15;
+    if (enemy.beats == this) return 0.85;
     return 1.0;
   }
 }

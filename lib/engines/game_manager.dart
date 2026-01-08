@@ -735,10 +735,27 @@ class GameManager extends ChangeNotifier {
       defenderVillage = map.villages.cast<Village?>().firstWhere((v) => v!.id == record.defenderId, orElse: () => null);
     }
 
+    // Verify participants exist - clean up stale battle if not
     if (attacker == null) {
-      // Attacker already removed - just clean up record
       record.isPending = false;
       pendingBattles.removeWhere((b) => b.id == record.id);
+      notifyListeners();
+      return;
+    }
+
+    if (defenderArmy == null && defenderVillage == null) {
+      // Defender no longer exists - clean up
+      record.isPending = false;
+      pendingBattles.removeWhere((b) => b.id == record.id);
+      notifyListeners();
+      return;
+    }
+
+    // Verify attacker still has units
+    if (attacker.units.isEmpty) {
+      record.isPending = false;
+      pendingBattles.removeWhere((b) => b.id == record.id);
+      removeArmy(attacker.id);
       notifyListeners();
       return;
     }
@@ -869,6 +886,40 @@ class GameManager extends ChangeNotifier {
       } else if (oldOwner == 'player') {
         addTurnEvent(VillageLostEvent(villageName: getVillageDisplayName(village)));
       }
+  }
+
+  /// Clean up stale battles where participants no longer exist
+  void cleanupStaleBattles() {
+    pendingBattles.removeWhere((battle) {
+      // Check if attacker army still exists and has units
+      final attacker = armies.cast<Army?>().firstWhere(
+        (a) => a!.id == battle.attackerId,
+        orElse: () => null,
+      );
+      if (attacker == null || attacker.units.isEmpty) {
+        return true; // Remove this battle
+      }
+
+      // Check if defender still exists (army or village)
+      final defenderArmy = armies.cast<Army?>().firstWhere(
+        (a) => a!.id == battle.defenderId,
+        orElse: () => null,
+      );
+      final defenderVillage = map.villages.cast<Village?>().firstWhere(
+        (v) => v!.id == battle.defenderId,
+        orElse: () => null,
+      );
+      if (defenderArmy == null && defenderVillage == null) {
+        return true; // Remove this battle
+      }
+
+      // Check if village ownership changed (conquest already happened)
+      if (defenderVillage != null && defenderVillage.owner == attacker.owner) {
+        return true; // Remove - already conquered
+      }
+
+      return false; // Keep this battle
+    });
   }
 
   /// Auto-finalize battles that don't involve the player
