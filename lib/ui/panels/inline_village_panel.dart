@@ -10,6 +10,7 @@ import '../../data/models/unit.dart';
 import '../../providers/game_provider.dart';
 import '../components/owner_flag_view.dart';
 import '../components/tutorial_highlighter.dart';
+import '../components/defender_strength_bar.dart';
 import '../../engines/tutorial_helper.dart';
 import '../../engines/game_manager.dart';
 
@@ -115,6 +116,10 @@ class InlineVillagePanel extends StatelessWidget {
   }
 
   Widget _buildHeader(GameManager game, Army? playerArmy, bool shouldEndTurn) {
+    // Calculate army strength (stationed units that belong to the village owner)
+    final stationedArmies = game.getArmiesAt(village.id).where((a) => a.owner == village.owner && !a.isMarching);
+    final armyStrength = stationedArmies.fold(0, (sum, a) => sum + a.unitCount);
+
     return Row(
       children: [
         OwnerFlagView(owner: village.owner, size: 44),
@@ -136,10 +141,17 @@ class InlineVillagePanel extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '👥 ${village.population}   🛡️ ${GameManager.shared.getTotalDefenders(village)}   🏠 ${village.buildings.length}/${village.maxBuildings}',
+                    '👥 ${village.population}   🏠 ${village.buildings.length}/${village.maxBuildings}',
                     style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6)),
                   ),
                 ],
+              ),
+              const SizedBox(height: 4),
+              DefenderStrengthBar(
+                garrisonStrength: village.garrisonStrength,
+                armyStrength: armyStrength,
+                height: 6,
+                showLegend: true,
               ),
             ],
           ),
@@ -463,7 +475,11 @@ class InlineVillagePanel extends StatelessWidget {
   }
 
   Widget _buildEnemySection() {
-      return Container(
+    final game = GameManager.shared;
+    final stationedArmies = game.getArmiesAt(village.id).where((a) => a.owner == village.owner && !a.isMarching);
+    final armyStrength = stationedArmies.fold(0, (sum, a) => sum + a.unitCount);
+
+    return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.red.withValues(alpha: 0.1),
@@ -477,10 +493,17 @@ class InlineVillagePanel extends StatelessWidget {
               const Icon(Icons.shield, size: 24, color: Colors.red),
               const SizedBox(width: 10),
               Text(
-                'Defenders: ${GameManager.shared.getTotalDefenders(village)}',
+                'Defenders: ${village.garrisonStrength + armyStrength}',
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          DefenderStrengthBar(
+            garrisonStrength: village.garrisonStrength,
+            armyStrength: armyStrength,
+            height: 10,
+            showLegend: true,
           ),
           const SizedBox(height: 16),
           Text(

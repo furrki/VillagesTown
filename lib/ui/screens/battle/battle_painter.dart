@@ -71,13 +71,13 @@ class BattlePainter extends CustomPainter {
     // Screen shake is now handled by the parent widget transform
     // No additional shake here to avoid double-shaking
 
-    // Draw clash effect in center during melee phase
-    if (simulation.phase == BattlePhase.meleeClash) {
+    // Draw clash effect during combat
+    if (simulation.phase == BattlePhase.combat && simulation.totalTime > 3) {
       _drawClashEffect(canvas, simulation.clashPoint);
     }
 
-    // Draw cavalry charge trails during cavalry phase
-    if (simulation.phase == BattlePhase.cavalryCharge) {
+    // Draw cavalry charge trails during combat
+    if (simulation.phase == BattlePhase.combat) {
       _drawCavalryTrails(canvas);
     }
 

@@ -338,6 +338,7 @@ class Village with ResourceHolder, TreasuryHolder {
   int garrisonMaxStrength;
   bool underSiege;
   int recruitsThisTurn;
+  double garrisonRegenAccumulator;
   List<LatLng>? customTerritory;
 
   Village({
@@ -356,6 +357,7 @@ class Village with ResourceHolder, TreasuryHolder {
     this.garrisonMaxStrength = 10,
     this.underSiege = false,
     this.recruitsThisTurn = 0,
+    this.garrisonRegenAccumulator = 0.0,
     this.customTerritory,
   })  : id = id ?? const Uuid().v4(),
         buildings = buildings ?? Building.starter(),
@@ -451,6 +453,7 @@ class Village with ResourceHolder, TreasuryHolder {
     int? garrisonMaxStrength,
     bool? underSiege,
     int? recruitsThisTurn,
+    double? garrisonRegenAccumulator,
     List<LatLng>? customTerritory,
   }) {
     return Village(
@@ -469,6 +472,8 @@ class Village with ResourceHolder, TreasuryHolder {
       garrisonMaxStrength: garrisonMaxStrength ?? this.garrisonMaxStrength,
       underSiege: underSiege ?? this.underSiege,
       recruitsThisTurn: recruitsThisTurn ?? this.recruitsThisTurn,
+      garrisonRegenAccumulator:
+          garrisonRegenAccumulator ?? this.garrisonRegenAccumulator,
       customTerritory: customTerritory ?? this.customTerritory,
     );
   }
@@ -492,11 +497,17 @@ class Village with ResourceHolder, TreasuryHolder {
       underSiege = false;
       return;
     }
-    var recovery = 1;
-    if (buildings.any((b) => b.name == 'Barracks')) recovery += 1;
-    if (buildings.any((b) => b.name == 'Fortress')) recovery += 2;
+    // Base regen is 0.5 (slower recovery), buildings add their normal bonuses
+    var recovery = 0.5;
+    if (buildings.any((b) => b.name == 'Barracks')) recovery += 1.0;
+    if (buildings.any((b) => b.name == 'Fortress')) recovery += 2.0;
+
+    garrisonRegenAccumulator += recovery;
+    final wholeUnits = garrisonRegenAccumulator.floor();
+    garrisonRegenAccumulator -= wholeUnits;
+
     garrisonMaxStrength = computedGarrisonMax;
-    garrisonStrength = min(garrisonStrength + recovery, garrisonMaxStrength);
+    garrisonStrength = min(garrisonStrength + wholeUnits, garrisonMaxStrength);
   }
 
   void damageGarrison(int amount) {

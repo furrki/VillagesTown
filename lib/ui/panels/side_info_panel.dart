@@ -7,6 +7,8 @@ import '../../data/models/resource.dart';
 import '../../data/models/unit_type.dart';
 import '../../providers/game_provider.dart';
 import '../components/owner_flag_view.dart';
+import '../components/defender_strength_bar.dart';
+import '../../engines/game_manager.dart';
 
 class SideInfoPanel extends StatelessWidget {
   final Village? selectedVillage;
@@ -257,26 +259,42 @@ class _VillageInfoSection extends StatelessWidget {
               ] else ...[
                 // Enemy village info
                 const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                Builder(
+                  builder: (context) {
+                    final game = GameManager.shared;
+                    final stationedArmies = game.getArmiesAt(village.id).where((a) => a.owner == village.owner && !a.isMarching);
+                    final armyCount = stationedArmies.fold(0, (sum, a) => sum + a.unitCount);
+                    final totalDefenders = village.garrisonStrength + armyCount;
+
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
                         children: [
-                          const Icon(Icons.shield, color: Colors.red),
-                          const SizedBox(width: 8),
-                          Text('Garrison: ${village.garrisonStrength}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.shield, color: Colors.red),
+                              const SizedBox(width: 8),
+                              Text('Defenders: $totalDefenders', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          DefenderStrengthBar(
+                            garrisonStrength: village.garrisonStrength,
+                            armyStrength: armyCount,
+                            height: 8,
+                            showLegend: true,
+                          ),
+                          const SizedBox(height: 8),
+                          Text('Send army to conquer', style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5))),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text('Send army to conquer', style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5))),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ],
             ],
@@ -302,6 +320,12 @@ class _StatsGrid extends StatelessWidget {
 
   const _StatsGrid({required this.village, required this.armyStrength});
 
+  int get _armyUnitCount {
+    final game = GameManager.shared;
+    final stationedArmies = game.getArmiesAt(village.id).where((a) => a.owner == village.owner && !a.isMarching);
+    return stationedArmies.fold(0, (sum, a) => sum + a.unitCount);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -315,15 +339,15 @@ class _StatsGrid extends StatelessWidget {
           Row(
             children: [
               Expanded(child: _StatTile(icon: Icons.people, value: '${village.population}', label: 'Population', color: Colors.blue)),
-              Expanded(child: _StatTile(icon: Icons.shield, value: '${village.garrisonStrength}', label: 'Garrison', color: Colors.green)),
+              Expanded(child: _StatTile(icon: Icons.apartment, value: '${village.buildings.length}/${village.maxBuildings}', label: 'Buildings', color: Colors.orange)),
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(child: _StatTile(icon: Icons.apartment, value: '${village.buildings.length}/${village.maxBuildings}', label: 'Buildings', color: Colors.orange)),
-              Expanded(child: _StatTile(icon: Icons.military_tech, value: '$armyStrength', label: 'Army STR', color: Colors.purple)),
-            ],
+          DefenderStrengthBar(
+            garrisonStrength: village.garrisonStrength,
+            armyStrength: _armyUnitCount,
+            height: 8,
+            showLegend: true,
           ),
         ],
       ),
