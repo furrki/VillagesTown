@@ -105,12 +105,17 @@ class Army {
     return max(1, (distanceKm / 100.0).ceil());
   }
 
-  static String generateName(List<Unit> units, String owner) {
-    final prefix = owner == 'player' ? '' : 'Enemy ';
-    final count = units.length;
-    if (count <= 3) return '${prefix}Squad';
-    if (count <= 10) return '${prefix}Warband';
-    if (count <= 25) return '${prefix}Company';
-    return '${prefix}Legion';
+  static String generateName(String villageName, String nationalityId) {
+    const armySuffixes = {
+      'ottoman': 'Ordusu',
+      'byzantine': 'Στρατός',
+      'crusader': 'Army',
+      'bulgarian': 'Войска',
+      'serbian': 'Војска',
+      'armenian': 'Banaki',
+      'mamluk': 'جيش',
+    };
+    final suffix = armySuffixes[nationalityId] ?? 'Army';
+    return '$villageName $suffix';
   }
 }

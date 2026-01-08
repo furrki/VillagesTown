@@ -94,10 +94,13 @@ class GameStateNotifier extends StateNotifier<GameState> {
     required PlayerId owner,
     required VillageId stationedAt,
   }) {
+    final village = state.getVillage(stationedAt);
     final army = Army.create(
       units: units,
       owner: owner,
       stationedAt: stationedAt,
+      villageName: village?.name ?? 'Unknown',
+      nationalityId: village?.originalNationality.value ?? 'crusader',
     );
     state = state.addArmy(army);
   }

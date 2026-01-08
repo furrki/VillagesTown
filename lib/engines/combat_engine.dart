@@ -7,15 +7,19 @@ import '../data/models/combat_log.dart';
 
 /// Phase-based combat engine with stat-based kills.
 ///
-/// Combat flows through three phases:
+/// Combat loops through three phases until one side is eliminated:
 /// 1. Ranged Volley - Archers fire (accuracy-based hits)
 /// 2. Cavalry Charge - Cavalry sweep (kill potential)
 /// 3. Melee Clash - Infantry grind (kill rate attrition)
 ///
 /// Each phase rolls luck (d100 → 0.85-1.15 modifier).
 /// Formation bonuses apply throughout (+30% / -30%).
+/// Fortress bonuses reduce attacker cavalry and boost defender.
 class CombatEngine {
   final Random _random = Random();
+
+  /// Maximum combat rounds to prevent infinite loops.
+  static const int maxRounds = 10;
 
   /// Convert d100 roll to luck modifier (0.85 to 1.15).
   double _luckModifier(int d100) {
@@ -24,6 +28,25 @@ class CombatEngine {
 
   /// Roll d100 for luck.
   int _rollLuck() => _random.nextInt(100) + 1;
+
+  /// Fortress modifier for attacker cavalry (walls negate charges).
+  double _fortressCavalryPenalty(int fortressLevel) => switch (fortressLevel) {
+    1 => 0.7,
+    2 => 0.5,
+    >= 3 => 0.3,
+    _ => 1.0,
+  };
+
+  /// Fortress modifier for defender (defensive bonus).
+  double _fortressDefenderBonus(int fortressLevel) => switch (fortressLevel) {
+    1 => 1.10,
+    2 => 1.20,
+    >= 3 => 1.30,
+    _ => 1.0,
+  };
+
+  /// Fortress penalty for attacker archers (shooting uphill at walls).
+  double _fortressArcherPenalty(int fortressLevel) => fortressLevel >= 3 ? 0.90 : 1.0;
 
   /// Main combat resolution with phase-based system.
   BattleRecord resolveCombat({
@@ -45,6 +68,7 @@ class CombatEngine {
     int defenderBarracksLevel = 0,
     int defenderArcheryLevel = 0,
     int defenderStablesLevel = 0,
+    int defenderFortressLevel = 0,
   }) {
     final phases = <PhaseResult>[];
     final initialAttackerCount = attackers.length;
@@ -58,42 +82,52 @@ class CombatEngine {
     final formationMod = attackerFormation.bonusAgainst(defenderFormation);
     final defenderFormationMod = defenderFormation.bonusAgainst(attackerFormation);
 
-    // --- PHASE 1: RANGED VOLLEY ---
-    final rangedResult = _resolveRangedPhase(
-      attackerUnits: attackerUnits,
-      defenderUnits: defenderUnits,
-      attackerFormationMod: formationMod,
-      defenderFormationMod: defenderFormationMod,
-      attackerArcheryLevel: attackerArcheryLevel,
-      defenderArcheryLevel: defenderArcheryLevel,
-    );
-    phases.add(rangedResult);
-    _applyCasualties(attackerUnits, rangedResult.defenderKills, _targetPriority);
-    _applyCasualties(defenderUnits, rangedResult.attackerKills, _targetPriority);
+    // Calculate fortress modifiers
+    final fortressCavPenalty = _fortressCavalryPenalty(defenderFortressLevel);
+    final fortressDefBonus = _fortressDefenderBonus(defenderFortressLevel);
+    final fortressArcherPenalty = _fortressArcherPenalty(defenderFortressLevel);
 
-    // --- PHASE 2: CAVALRY CHARGE ---
-    if (attackerUnits.isNotEmpty && defenderUnits.isNotEmpty) {
+    // Combat loop - all 3 phases repeat until one side eliminated
+    int round = 0;
+    while (attackerUnits.isNotEmpty && defenderUnits.isNotEmpty && round < maxRounds) {
+      round++;
+
+      // --- PHASE 1: RANGED VOLLEY ---
+      final rangedResult = _resolveRangedPhase(
+        attackerUnits: attackerUnits,
+        defenderUnits: defenderUnits,
+        attackerFormationMod: formationMod * fortressArcherPenalty,
+        defenderFormationMod: defenderFormationMod * fortressDefBonus,
+        attackerArcheryLevel: attackerArcheryLevel,
+        defenderArcheryLevel: defenderArcheryLevel,
+      );
+      phases.add(rangedResult);
+      _applyCasualties(attackerUnits, rangedResult.defenderKills, _targetPriority);
+      _applyCasualties(defenderUnits, rangedResult.attackerKills, _targetPriority);
+
+      if (attackerUnits.isEmpty || defenderUnits.isEmpty) break;
+
+      // --- PHASE 2: CAVALRY CHARGE ---
       final cavalryResult = _resolveCavalryPhase(
         attackerUnits: attackerUnits,
         defenderUnits: defenderUnits,
-        attackerFormationMod: formationMod,
-        defenderFormationMod: defenderFormationMod,
+        attackerFormationMod: formationMod * fortressCavPenalty,
+        defenderFormationMod: defenderFormationMod * fortressDefBonus,
         attackerStablesLevel: attackerStablesLevel,
         defenderStablesLevel: defenderStablesLevel,
       );
       phases.add(cavalryResult);
-      // Cavalry targets ranged first, then infantry
       _applyCasualties(defenderUnits, cavalryResult.attackerKills, _cavalryTargetPriority);
       _applyCasualties(attackerUnits, cavalryResult.defenderKills, _cavalryTargetPriority);
-    }
 
-    // --- PHASE 3: MELEE CLASH ---
-    if (attackerUnits.isNotEmpty && defenderUnits.isNotEmpty) {
+      if (attackerUnits.isEmpty || defenderUnits.isEmpty) break;
+
+      // --- PHASE 3: MELEE CLASH ---
       final meleeResult = _resolveMeleePhase(
         attackerUnits: attackerUnits,
         defenderUnits: defenderUnits,
         attackerFormationMod: formationMod,
-        defenderFormationMod: defenderFormationMod,
+        defenderFormationMod: defenderFormationMod * fortressDefBonus,
         attackerBarracksLevel: attackerBarracksLevel,
         defenderBarracksLevel: defenderBarracksLevel,
       );

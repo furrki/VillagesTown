@@ -494,8 +494,15 @@ class GameManager extends ChangeNotifier {
   }
 
   Army createArmy(List<Unit> units, String villageId, String owner) {
+    final village = map.villages.cast<Village?>().firstWhere(
+      (v) => v?.id == villageId,
+      orElse: () => null,
+    );
     final army = Army(
-      name: Army.generateName(units, owner),
+      name: Army.generateName(
+        village?.name ?? 'Unknown',
+        village?.nationality.id ?? 'crusader',
+      ),
       units: units,
       owner: owner,
       stationedAt: villageId,

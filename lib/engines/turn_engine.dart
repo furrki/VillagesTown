@@ -303,6 +303,7 @@ class TurnEngine {
       map: game.map,
       defendingVillage: village,
       garrisonCount: village.garrisonStrength,
+      defenderFortressLevel: village.fortressLevel,
     );
     
     if (result.rounds.isNotEmpty) {

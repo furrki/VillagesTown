@@ -424,10 +424,15 @@ class Village with ResourceHolder, TreasuryHolder {
     var maxGarrison = 10;
     final barracks = buildings.firstWhereOrNull((b) => b.name == 'Barracks');
     if (barracks != null) maxGarrison += 5 * barracks.level;
-    final fortress = buildings.firstWhereOrNull((b) => b.name == 'Fortress');
-    if (fortress != null) maxGarrison += 15 * fortress.level;
+    maxGarrison += 15 * fortressLevel;
     maxGarrison += level.garrisonBonus;
     return maxGarrison;
+  }
+
+  /// Get fortress level (0 if no fortress).
+  int get fortressLevel {
+    final fortress = buildings.firstWhereOrNull((b) => b.name == 'Fortress');
+    return fortress?.level ?? 0;
   }
 
   Village copyWith({

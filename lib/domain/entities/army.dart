@@ -110,24 +110,31 @@ class Army with _$Army {
   factory Army.create({
     required List<Unit> units,
     required PlayerId owner,
+    required String villageName,
+    required String nationalityId,
     VillageId? stationedAt,
   }) {
     return Army(
       id: ArmyId.generate(),
-      name: _generateName(units, owner),
+      name: _generateName(villageName, nationalityId),
       units: units,
       owner: owner,
       stationedAt: stationedAt,
     );
   }
 
-  /// Generate army name based on size.
-  static String _generateName(List<Unit> units, PlayerId owner) {
-    final prefix = owner == PlayerId.player ? '' : 'Enemy ';
-    final count = units.length;
-    if (count <= 3) return '${prefix}Squad';
-    if (count <= 10) return '${prefix}Warband';
-    if (count <= 25) return '${prefix}Company';
-    return '${prefix}Legion';
+  /// Generate army name based on origin city and nationality.
+  static String _generateName(String villageName, String nationalityId) {
+    const armySuffixes = {
+      'ottoman': 'Ordusu',
+      'byzantine': 'Στρατός',
+      'crusader': 'Army',
+      'bulgarian': 'Войска',
+      'serbian': 'Војска',
+      'armenian': 'Banaki',
+      'mamluk': 'جيش',
+    };
+    final suffix = armySuffixes[nationalityId] ?? 'Army';
+    return '$villageName $suffix';
   }
 }
