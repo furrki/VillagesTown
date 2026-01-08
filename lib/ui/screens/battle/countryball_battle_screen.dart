@@ -78,38 +78,10 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
   void _initialize() {
     final game = GameManager.shared;
 
-    // Find attacker army
-    Army? attackerArmy;
-    for (final a in game.armies) {
-      if (a.id == widget.record.attackerId) {
-        attackerArmy = a;
-        break;
-      }
-    }
-    _isPlayerAttacker = attackerArmy?.owner == 'player';
-    _attackerNationality = game.getNationality(attackerArmy?.owner ?? 'player') ?? Nationality.ottomans;
-
-    // Find defender - check army first (field battle), then village
-    Army? defenderArmy;
-    for (final a in game.armies) {
-      if (a.id == widget.record.defenderId) {
-        defenderArmy = a;
-        break;
-      }
-    }
-
-    if (defenderArmy != null) {
-      _defenderNationality = game.getNationality(defenderArmy.owner) ?? Nationality.byzantines;
-    } else {
-      Village? defenderVillage;
-      for (final v in game.map.villages) {
-        if (v.id == widget.record.defenderId) {
-          defenderVillage = v;
-          break;
-        }
-      }
-      _defenderNationality = defenderVillage?.nationality ?? Nationality.byzantines;
-    }
+    // Use stored owner IDs from battle creation time (not current ownership!)
+    _isPlayerAttacker = widget.record.attackerOwnerId == 'player';
+    _attackerNationality = game.getNationality(widget.record.attackerOwnerId) ?? Nationality.ottomans;
+    _defenderNationality = game.getNationality(widget.record.defenderOwnerId) ?? Nationality.byzantines;
 
     // Load faction images
     _loadFactionImages();
@@ -118,12 +90,20 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
     final attackerCount = widget.record.initialAttackerCount;
     final defenderCount = widget.record.initialDefenderCount + widget.record.initialGarrisonCount;
 
-    // Get unit type samples for visual variety (but use record counts)
+    // Get unit type samples for visual variety (look up armies if they still exist)
     List<UnitType> attackerSampleTypes = [];
     List<UnitType> defenderSampleTypes = [];
 
+    final attackerArmy = game.armies.cast<Army?>().firstWhere(
+      (a) => a!.id == widget.record.attackerId,
+      orElse: () => null,
+    );
+    final defenderArmy = game.armies.cast<Army?>().firstWhere(
+      (a) => a!.id == widget.record.defenderId,
+      orElse: () => null,
+    );
+
     if (attackerArmy != null) {
-      // Sample unit types from army for variety, but we'll create record count of units
       for (final u in attackerArmy.units) {
         attackerSampleTypes.add(u.unitType);
       }
@@ -161,7 +141,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
     );
 
     simulation.onPhaseChanged = () {
-      if (simulation.phase == BattlePhase.meleeClash) {
+      if (simulation.phase == BattlePhase.combat) {
         _triggerShake();
       }
       setState(() {});
@@ -568,18 +548,8 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
         return 'SELECT FORMATION';
       case BattlePhase.setup:
         return '${simulation.playerFormation?.emoji ?? ''} vs ${simulation.enemyFormation?.emoji ?? ''}';
-      case BattlePhase.rangedVolley:
-        return '🏹 ARROWS!';
-      case BattlePhase.cavalryCharge:
-        return '🐴 CHARGE!';
-      case BattlePhase.meleeClash:
-        return '⚔️ CLASH!';
-      case BattlePhase.rolling:
-        return 'ROLLING...';
-      case BattlePhase.resolution:
-        return 'IMPACT!';
-      case BattlePhase.regroup:
-        return 'REGROUP';
+      case BattlePhase.combat:
+        return '⚔️ BATTLE';
       case BattlePhase.victory:
       case BattlePhase.defeat:
         return _playerWon ? '🏆 VICTORY!' : '💀 DEFEAT';
@@ -632,57 +602,57 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
   }
 
   Widget _buildDiceArea() {
-    final showDice = simulation.phase == BattlePhase.rolling ||
-        simulation.phase == BattlePhase.resolution;
-
-    if (!showDice) {
-      return const SizedBox(height: 90);
+    // Show combat progress during battle
+    if (simulation.phase != BattlePhase.combat) {
+      return const SizedBox(height: 60);
     }
 
-    return SizedBox(
-      height: 90,
-      child: Row(
+    // Combat progress indicator instead of dice
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Attacker dice
-          Expanded(
-            child: CustomPaint(
-              painter: DicePainter(
-                values: simulation.attackerDice,
-                color: _attackerNationality!.color,
-                rollProgress: simulation.diceRollProgress,
-                isWinner: _countWins(simulation.attackerDice, simulation.defenderDice) > 0,
+          // Progress bar showing battle intensity
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: (simulation.totalTime / 15).clamp(0.0, 1.0),
+              backgroundColor: Colors.white12,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                simulation.attackerMorale > simulation.defenderMorale
+                    ? _attackerNationality!.color
+                    : _defenderNationality!.color,
               ),
-              size: Size.infinite,
+              minHeight: 6,
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
-            child: Text('vs', style: TextStyle(color: Colors.white38, fontSize: 12)),
-          ),
-          // Defender dice
-          Expanded(
-            child: CustomPaint(
-              painter: DicePainter(
-                values: simulation.defenderDice,
-                color: _defenderNationality!.color,
-                rollProgress: simulation.diceRollProgress,
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Kills: ${simulation.defenderLossesThisRound}',
+                style: TextStyle(
+                  color: _attackerNationality!.color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
               ),
-              size: Size.infinite,
-            ),
+              Text(
+                'Kills: ${simulation.attackerLossesThisRound}',
+                style: TextStyle(
+                  color: _defenderNationality!.color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
-  }
-
-  int _countWins(List<int> attacker, List<int> defender) {
-    int wins = 0;
-    final sorted1 = List<int>.from(attacker)..sort((a, b) => b.compareTo(a));
-    final sorted2 = List<int>.from(defender)..sort((a, b) => b.compareTo(a));
-    for (int i = 0; i < min(sorted1.length, sorted2.length); i++) {
-      if (sorted1[i] > sorted2[i]) wins++;
-    }
-    return wins;
   }
 
   Widget _buildControls() {

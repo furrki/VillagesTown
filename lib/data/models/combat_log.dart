@@ -91,6 +91,8 @@ class BattleRecord {
   final String defenderName;
   final String attackerId;
   final String defenderId;
+  final String attackerOwnerId; // Who owned attacker at battle time
+  final String defenderOwnerId; // Who owned defender at battle time
   final String? originVillageId;
   final String locationName;
   final List<BattleRound> rounds; // Legacy compatibility
@@ -119,6 +121,8 @@ class BattleRecord {
     required this.defenderName,
     required this.attackerId,
     required this.defenderId,
+    required this.attackerOwnerId,
+    required this.defenderOwnerId,
     this.originVillageId,
     required this.locationName,
     required this.rounds,

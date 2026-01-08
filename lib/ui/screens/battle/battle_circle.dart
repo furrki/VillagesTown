@@ -115,24 +115,36 @@ class BattleCircle {
     final time = DateTime.now().millisecondsSinceEpoch / 1000.0;
 
     if (isEngaging) {
-      // ENGAGE: Move deliberately toward clash point
       state = CircleState.fighting;
-      final toTarget = targetCenter - position;
-      final dist = toTarget.distance;
-      if (dist > 3) {
-        // Smooth, deliberate march toward target
-        final moveSpeed = isCavalry ? 180.0 : 120.0;
-        velocity = toTarget / dist * moveSpeed;
-      } else {
-        velocity = Offset.zero;
-      }
-      position += velocity * dt;
 
-      // Slight jitter during combat (fighting animation)
-      position += Offset(
-        sin(time * 8 + position.hashCode) * 0.5,
-        cos(time * 9 + position.hashCode) * 0.5,
-      );
+      // Ranged units stay back and fire - they don't charge into melee
+      if (isRanged) {
+        // Hold position with slight draw-and-fire animation
+        velocity *= 0.9;
+        final drawBack = sin(time * 3 + position.hashCode) * 2.0;
+        position = Offset(
+          homePosition!.dx + (isAttacker ? -drawBack : drawBack),
+          homePosition!.dy + cos(time * 4 + position.hashCode) * 0.5,
+        );
+      } else {
+        // ENGAGE: Melee/cavalry move toward clash point
+        final toTarget = targetCenter - position;
+        final dist = toTarget.distance;
+        if (dist > 3) {
+          // Smooth, deliberate march toward target
+          final moveSpeed = isCavalry ? 180.0 : 120.0;
+          velocity = toTarget / dist * moveSpeed;
+        } else {
+          velocity = Offset.zero;
+        }
+        position += velocity * dt;
+
+        // Slight jitter during combat (fighting animation)
+        position += Offset(
+          sin(time * 8 + position.hashCode) * 0.5,
+          cos(time * 9 + position.hashCode) * 0.5,
+        );
+      }
 
     } else if (isRegrouping) {
       // REGROUP: Return to home position

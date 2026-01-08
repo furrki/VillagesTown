@@ -148,20 +148,11 @@ class _MobileGameLayoutState extends State<MobileGameLayout> {
 
   BattleRecord? _getPlayerBattle(GameManager game) {
     // Find first battle where player is attacker or defender
+    // Use stored owner IDs from battle creation time (not current ownership!)
     for (final battle in game.pendingBattles) {
-      // Check if player's army is the attacker
-      final attackerArmy = game.armies.cast<Army?>().firstWhere(
-        (a) => a!.id == battle.attackerId,
-        orElse: () => null,
-      );
-      if (attackerArmy?.owner == 'player') return battle;
-
-      // Check if player's village is being attacked
-      final defenderVillage = game.map.villages.cast<Village?>().firstWhere(
-        (v) => v!.id == battle.defenderId,
-        orElse: () => null,
-      );
-      if (defenderVillage?.owner == 'player') return battle;
+      if (battle.attackerOwnerId == 'player' || battle.defenderOwnerId == 'player') {
+        return battle;
+      }
     }
     return null;
   }
@@ -203,8 +194,10 @@ class _MobileGameLayoutState extends State<MobileGameLayout> {
               if (_toastMessage != null) _buildToast(),
 
               // Battle Screen Overlay (only show player's battles)
+              // Key ensures new widget instance for each battle (prevents state reuse)
               if (_getPlayerBattle(game) != null)
                 CountryballBattleScreen(
+                  key: ValueKey(_getPlayerBattle(game)!.id),
                   record: _getPlayerBattle(game)!,
                   onDismiss: () {
                     setState(() {

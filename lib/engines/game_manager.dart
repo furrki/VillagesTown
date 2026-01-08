@@ -738,7 +738,7 @@ class GameManager extends ChangeNotifier {
     if (attacker == null) {
       // Attacker already removed - just clean up record
       record.isPending = false;
-      pendingBattles.remove(record);
+      pendingBattles.removeWhere((b) => b.id == record.id);
       notifyListeners();
       return;
     }
@@ -786,7 +786,7 @@ class GameManager extends ChangeNotifier {
       }
       addTurnEvent(BattleLostEvent(location: record.locationName, casualties: attLosses));
       record.isPending = false;
-      pendingBattles.remove(record);
+      pendingBattles.removeWhere((b) => b.id == record.id);
       notifyListeners();
       return;
     }
@@ -794,6 +794,10 @@ class GameManager extends ChangeNotifier {
     // 5. Use combat engine's winner determination (authoritative)
     // Defender wins if combat engine said so, or if attacker has no units left
     final defenderWins = !record.attackerWon || attacker.units.isEmpty;
+
+    // Determine if player was involved and their role
+    final playerWasAttacker = record.attackerOwnerId == 'player';
+    final playerWasDefender = record.defenderOwnerId == 'player';
 
     // 6. Handle outcomes
     if (defenderWins) {
@@ -803,7 +807,12 @@ class GameManager extends ChangeNotifier {
         defenderVillage.underSiege = false;
         updateVillage(defenderVillage);
       }
-      addTurnEvent(BattleLostEvent(location: record.locationName, casualties: attLosses));
+      // Event from player's perspective
+      if (playerWasAttacker) {
+        addTurnEvent(BattleLostEvent(location: record.locationName, casualties: attLosses));
+      } else if (playerWasDefender) {
+        addTurnEvent(BattleWonEvent(location: record.locationName, casualties: defLosses));
+      }
     } else {
       // Attacker won
       if (defenderVillage != null) {
@@ -812,13 +821,18 @@ class GameManager extends ChangeNotifier {
       } else if (defenderArmy != null) {
         // Field battle victory
         updateArmy(attacker);
-        addTurnEvent(BattleWonEvent(location: record.locationName, casualties: attLosses));
+        // Event from player's perspective
+        if (playerWasAttacker) {
+          addTurnEvent(BattleWonEvent(location: record.locationName, casualties: attLosses));
+        } else if (playerWasDefender) {
+          addTurnEvent(BattleLostEvent(location: record.locationName, casualties: defLosses));
+        }
       }
     }
 
     // 7. Clean up record
     record.isPending = false;
-    pendingBattles.remove(record);
+    pendingBattles.removeWhere((b) => b.id == record.id);
     notifyListeners();
   }
   
@@ -846,6 +860,10 @@ class GameManager extends ChangeNotifier {
       attacker.station(village.id);
       updateArmy(attacker);
 
+      // Clean up any other pending battles involving this village
+      // (e.g., multiple armies attacked same village, first one conquered it)
+      pendingBattles.removeWhere((b) => b.defenderId == village.id && b.attackerId != attacker.id);
+
       if (attacker.owner == 'player') {
         addTurnEvent(VillageConqueredEvent(villageName: getVillageDisplayName(village)));
       } else if (oldOwner == 'player') {
@@ -858,23 +876,9 @@ class GameManager extends ChangeNotifier {
     final toFinalize = <BattleRecord>[];
 
     for (final battle in pendingBattles) {
-      bool playerInvolved = false;
-
-      // Check if player's army is the attacker
-      final attackerArmy = armies.cast<Army?>().firstWhere(
-        (a) => a!.id == battle.attackerId,
-        orElse: () => null,
-      );
-      if (attackerArmy?.owner == 'player') playerInvolved = true;
-
-      // Check if player's village is being attacked
-      if (!playerInvolved) {
-        final defenderVillage = map.villages.cast<Village?>().firstWhere(
-          (v) => v!.id == battle.defenderId,
-          orElse: () => null,
-        );
-        if (defenderVillage?.owner == 'player') playerInvolved = true;
-      }
+      // Use stored owner IDs from battle creation time (not current ownership!)
+      final playerInvolved = battle.attackerOwnerId == 'player' ||
+                             battle.defenderOwnerId == 'player';
 
       if (!playerInvolved) {
         toFinalize.add(battle);
