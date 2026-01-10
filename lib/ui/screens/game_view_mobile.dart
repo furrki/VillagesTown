@@ -17,6 +17,7 @@ import '../panels/empty_selection_panel.dart';
 import '../components/floating_hud.dart';
 import 'victory_screen.dart';
 import 'battle/countryball_battle_screen.dart';
+import 'battle/battle_test_screen.dart';
 
 class MobileGameLayout extends StatefulWidget {
   const MobileGameLayout({super.key});
@@ -244,6 +245,21 @@ class _MobileGameLayoutState extends State<MobileGameLayout> {
           left: 10,
           right: 10,
           child: const FloatingHUD(),
+        ),
+        // Battle Test Button (debug)
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 8,
+          right: 10,
+          child: IconButton(
+            icon: const Icon(Icons.science, color: Colors.amber),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const BattleTestScreen()),
+              );
+            },
+            tooltip: 'Battle Test',
+          ),
         ),
       ],
     );

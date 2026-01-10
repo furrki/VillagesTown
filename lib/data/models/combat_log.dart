@@ -58,11 +58,12 @@ class BattleRound {
   });
 }
 
-/// Formation types for tactical combat.
+/// Formation types for tactical combat (Phase 2).
+/// Rock-Paper-Scissors: ShieldWall > Crescent > Skirmish > ShieldWall
 enum BattleFormation {
-  crescent('Crescent', 'Enveloping cavalry maneuver'),
-  romanFormation('Roman Formation', 'Defensive infantry wall'),
-  guerilla('Guerilla', 'Hit-and-run ranged focus');
+  shieldWall('Shield Wall', 'Tight defensive infantry line'),
+  crescent('Crescent', 'Cavalry-forward encirclement'),
+  skirmish('Skirmish', 'Loose spread, mobile harassment');
 
   final String displayName;
   final String description;
@@ -70,19 +71,63 @@ enum BattleFormation {
 
   /// Returns the formation this one beats.
   BattleFormation get beats => switch (this) {
-        BattleFormation.crescent => BattleFormation.guerilla,
-        BattleFormation.guerilla => BattleFormation.romanFormation,
-        BattleFormation.romanFormation => BattleFormation.crescent,
+        BattleFormation.shieldWall => BattleFormation.crescent,
+        BattleFormation.crescent => BattleFormation.skirmish,
+        BattleFormation.skirmish => BattleFormation.shieldWall,
       };
 
-  /// Calculate modifier against enemy formation.
-  /// Returns 1.15 if winning, 0.85 if losing, 1.0 if mirror.
-  /// (Reduced from 1.30/0.70 - was too extreme, 86% swing)
+  /// Calculate overall effectiveness modifier against enemy formation.
+  /// Returns 1.25 if winning, 0.75 if losing, 1.0 if mirror.
   double bonusAgainst(BattleFormation enemy) {
-    if (beats == enemy) return 1.15;
-    if (enemy.beats == this) return 0.85;
+    if (beats == enemy) return 1.25;
+    if (enemy.beats == this) return 0.75;
     return 1.0;
   }
+
+  /// Formation-specific stat modifiers.
+  FormationModifiers get modifiers => switch (this) {
+        BattleFormation.shieldWall => const FormationModifiers(
+            infantryDefenseBonus: 0.15,
+            rangedRangeBonus: 1, // +1 range
+            cavalryChargeMultiplier: 0.75, // Own cavalry charge reduced
+            speedMultiplier: 0.85, // Slower movement
+          ),
+        BattleFormation.crescent => const FormationModifiers(
+            cavalryChargeMultiplier: 1.20, // +20% charge bonus
+            infantryDefenseBonus: -0.10, // Infantry/ranged exposed
+            rangedDefenseBonus: -0.10,
+          ),
+        BattleFormation.skirmish => const FormationModifiers(
+            speedMultiplier: 1.15, // +15% speed
+            rangedRangeBonus: 2, // +2 range
+            rangedDamageTakenMultiplier: 0.85, // -15% damage from enemy ranged
+            meleeAttackMultiplier: 0.90, // -10% melee attack (isolated fights)
+            enemyChargeMultiplier: 0.85, // -15% enemy charge effectiveness
+          ),
+      };
+}
+
+/// Formation-specific modifiers applied to units.
+class FormationModifiers {
+  final double infantryDefenseBonus; // Additive defense %
+  final double rangedDefenseBonus;
+  final int rangedRangeBonus; // Additive range units
+  final double cavalryChargeMultiplier; // Multiplier on own cavalry charge
+  final double speedMultiplier; // Multiplier on movement speed
+  final double rangedDamageTakenMultiplier; // Damage taken from enemy ranged
+  final double meleeAttackMultiplier; // Multiplier on melee attack
+  final double enemyChargeMultiplier; // Multiplier on enemy charge effectiveness
+
+  const FormationModifiers({
+    this.infantryDefenseBonus = 0.0,
+    this.rangedDefenseBonus = 0.0,
+    this.rangedRangeBonus = 0,
+    this.cavalryChargeMultiplier = 1.0,
+    this.speedMultiplier = 1.0,
+    this.rangedDamageTakenMultiplier = 1.0,
+    this.meleeAttackMultiplier = 1.0,
+    this.enemyChargeMultiplier = 1.0,
+  });
 }
 
 /// Complete battle record with phase-based combat.

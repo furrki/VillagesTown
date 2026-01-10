@@ -5,7 +5,13 @@ class UnitStats {
   final int attack;
   final int defense;
   final int hp;
-  final int movement;
+  final int speed; // Units per second on battlefield
+  final int missile; // Ranged damage (0 for melee units)
+  final int charge; // Cavalry charge bonus (0 for non-cavalry)
+  final int range; // Attack range in battlefield units (0 = melee)
+  final int ammo; // Ammunition count (0 = unlimited melee)
+  final double accuracy; // Hit chance for ranged (0.0-1.0)
+  final double fireRate; // Seconds between ranged attacks
   final Map<Resource, int> cost;
   final Map<Resource, int> upkeep;
 
@@ -14,10 +20,19 @@ class UnitStats {
     required this.attack,
     required this.defense,
     required this.hp,
-    required this.movement,
+    required this.speed,
+    this.missile = 0,
+    this.charge = 0,
+    this.range = 0,
+    this.ammo = 0,
+    this.accuracy = 0.0,
+    this.fireRate = 1.0,
     required this.cost,
     required this.upkeep,
   });
+
+  /// Legacy alias for speed (used by Unit entity).
+  int get movement => speed;
 }
 
 enum UnitType {
@@ -67,108 +82,155 @@ enum UnitType {
       };
 
   Map<Resource, int> get cost => stats.cost;
-  
-  int get strength => stats.attack; // Proxy for display
 
+  int get strength => stats.attack;
+
+  /// Damage multiplier against target unit type.
   double damageMultiplier(UnitType target) {
     return switch (this) {
-      // Spearmen are STRONG vs Cavalry
-      spearman when target.category == 'Cavalry' => 1.5,
-      // Cavalry STRONG vs Ranged, WEAK vs Spearmen
-      lightCavalry || knight when target.category == 'Ranged' => 1.5,
-      lightCavalry || knight when target == spearman => 0.6,
-      // Archers STRONG vs Infantry (except shields)
+      // Spearmen are STRONG vs Cavalry (1.75x)
+      spearman when target.category == 'Cavalry' => 1.75,
+      // Cavalry STRONG vs Ranged (2.0x), WEAK vs Spearmen (0.5x)
+      lightCavalry || knight when target.category == 'Ranged' => 2.0,
+      lightCavalry || knight when target == spearman => 0.5,
+      // Archers WEAK vs Cavalry (0.6x) - hard to hit fast moving targets
+      archer || crossbowman when target.category == 'Cavalry' => 0.6,
+      // Archers strong vs light infantry
       archer || crossbowman when target == militia => 1.3,
       archer || crossbowman when target == swordsman => 1.2,
-      // Swordsmen balanced, slight bonus vs militia
+      // Swordsmen slight bonus vs militia
       swordsman when target == militia => 1.2,
       _ => 1.0,
     };
   }
 
-  /// Base accuracy for ranged units (0.0 for non-ranged).
-  double get baseAccuracy => switch (this) {
-        archer => 0.55,
-        crossbowman => 0.70,
-        _ => 0.0,
+  /// Target priority order for AI. Lower index = higher priority.
+  List<String> get targetPriority => switch (this) {
+        // Infantry: Infantry > Archers > Cavalry
+        militia || swordsman => ['Infantry', 'Ranged', 'Cavalry'],
+        // Spearmen: Cavalry > Infantry > Archers
+        spearman => ['Cavalry', 'Infantry', 'Ranged'],
+        // Archers: Infantry > Cavalry > Archers
+        archer || crossbowman => ['Infantry', 'Cavalry', 'Ranged'],
+        // Cavalry: Archers > Cavalry > Infantry
+        lightCavalry => ['Ranged', 'Cavalry', 'Infantry'],
+        // Knights: Archers > Infantry > Cavalry
+        knight => ['Ranged', 'Infantry', 'Cavalry'],
       };
 
-  /// Base kill potential for cavalry (0.0 for non-cavalry).
+  /// Base accuracy for ranged units (0.0 for non-ranged).
+  double get baseAccuracy => stats.accuracy;
+
+  /// Base charge bonus for cavalry (0 for non-cavalry).
+  int get baseCharge => stats.charge;
+
+  /// Attack range in battlefield units.
+  int get baseRange => stats.range;
+
+  /// Ammunition count.
+  int get baseAmmo => stats.ammo;
+
+  /// Fire rate in seconds.
+  double get baseFireRate => stats.fireRate;
+
+  /// Movement speed (battlefield units per second).
+  int get baseSpeed => stats.speed;
+
+  /// Missile damage for ranged attacks.
+  int get baseMissile => stats.missile;
+
+  /// Base kill potential for cavalry (legacy compatibility).
   double get baseKillPotential => switch (this) {
         lightCavalry => 1.5,
         knight => 2.5,
         _ => 0.0,
       };
 
-  /// Base kill rate for infantry melee.
+  /// Base kill rate for infantry melee (legacy compatibility).
   double get baseKillRate => switch (this) {
         militia => 0.25,
         spearman => 0.35,
         swordsman => 0.50,
-        _ => 0.30, // Default for cavalry/ranged in melee
+        _ => 0.30,
       };
 
+  /// Unit stats per Phase 2 battle mechanism doc.
   UnitStats get stats => switch (this) {
+        // Infantry
         militia => const UnitStats(
             name: 'Militia',
-            attack: 5,
+            attack: 3,
             defense: 3,
             hp: 50,
-            movement: 2,
+            speed: 1,
             cost: {Resource.gold: 20, Resource.food: 5},
             upkeep: {Resource.gold: 2, Resource.food: 1},
           ),
         spearman => const UnitStats(
             name: 'Spearman',
-            attack: 7,
-            defense: 8,
+            attack: 4,
+            defense: 7,
             hp: 70,
-            movement: 2,
+            speed: 1,
             cost: {Resource.gold: 30, Resource.iron: 5},
             upkeep: {Resource.gold: 2, Resource.food: 1},
           ),
         swordsman => const UnitStats(
             name: 'Swordsman',
-            attack: 10,
-            defense: 6,
+            attack: 6,
+            defense: 5,
             hp: 80,
-            movement: 2,
+            speed: 1,
             cost: {Resource.gold: 35, Resource.iron: 10},
             upkeep: {Resource.gold: 2, Resource.food: 1},
           ),
+        // Ranged
         archer => const UnitStats(
             name: 'Archer',
-            attack: 9,
-            defense: 3,
+            attack: 1, // Weak in melee
+            defense: 2,
             hp: 50,
-            movement: 2,
+            speed: 1,
+            missile: 6, // Increased from 4
+            range: 8,
+            ammo: 24,
+            accuracy: 0.65, // Increased from 0.55
+            fireRate: 1.5, // Fast fire rate
             cost: {Resource.gold: 35, Resource.wood: 10},
             upkeep: {Resource.gold: 2, Resource.food: 1},
           ),
         crossbowman => const UnitStats(
             name: 'Crossbowman',
-            attack: 12,
-            defense: 4,
+            attack: 2, // Slightly better melee
+            defense: 3,
             hp: 60,
-            movement: 2,
+            speed: 1,
+            missile: 8, // Increased from 6
+            range: 7,
+            ammo: 16,
+            accuracy: 0.75, // Increased from 0.70
+            fireRate: 3.0, // Slow fire rate, high damage
             cost: {Resource.gold: 50, Resource.iron: 10},
             upkeep: {Resource.gold: 3, Resource.food: 1},
           ),
+        // Cavalry
         lightCavalry => const UnitStats(
             name: 'Light Cavalry',
-            attack: 9,
-            defense: 5,
+            attack: 7,
+            defense: 3,
             hp: 70,
-            movement: 4,
+            speed: 4, // Fastest
+            charge: 4,
             cost: {Resource.gold: 60, Resource.food: 15},
             upkeep: {Resource.gold: 4, Resource.food: 2},
           ),
         knight => const UnitStats(
             name: 'Knight',
-            attack: 14,
-            defense: 8,
+            attack: 9,
+            defense: 5,
             hp: 100,
-            movement: 3,
+            speed: 3, // Fast but not as fast as light cav
+            charge: 7, // Devastating charge
             cost: {Resource.gold: 100, Resource.iron: 20},
             upkeep: {Resource.gold: 6, Resource.food: 2},
           ),

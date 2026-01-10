@@ -17,14 +17,14 @@ enum BattlePhase {
 extension BattleFormationUIExt on BattleFormation {
   String get emoji => switch (this) {
         BattleFormation.crescent => '🐴',
-        BattleFormation.romanFormation => '🛡️',
-        BattleFormation.guerilla => '🏹',
+        BattleFormation.shieldWall => '🛡️',
+        BattleFormation.skirmish => '🏹',
       };
 
   String get shortDescription => switch (this) {
-        BattleFormation.crescent => 'Cavalry leads the charge. Strong vs archers.',
-        BattleFormation.romanFormation => 'Infantry forms a wall. Strong vs cavalry.',
-        BattleFormation.guerilla => 'Hit-and-run tactics. Strong vs infantry.',
+        BattleFormation.crescent => 'Cavalry encirclement. Strong vs skirmishers.',
+        BattleFormation.shieldWall => 'Tight infantry wall. Strong vs cavalry.',
+        BattleFormation.skirmish => 'Spread, mobile harassment. Strong vs shield wall.',
       };
 }
 
@@ -149,9 +149,9 @@ class BattleSimulation {
     if (cavalry >= ranged && cavalry >= infantry) {
       return BattleFormation.crescent;
     } else if (ranged >= infantry) {
-      return BattleFormation.guerilla;
+      return BattleFormation.skirmish;
     } else {
-      return BattleFormation.romanFormation;
+      return BattleFormation.shieldWall;
     }
   }
 
@@ -183,7 +183,7 @@ class BattleSimulation {
     final defenderBaseX = battleArea.right - battleArea.width * 0.12;
 
     final totalUnits = attackerUnits.length + defenderUnits.length;
-    final circleRadius = totalUnits > 60 ? 6.0 : totalUnits > 40 ? 7.0 : totalUnits > 25 ? 8.0 : 9.0;
+    final circleRadius = totalUnits > 60 ? 12.0 : totalUnits > 40 ? 14.0 : totalUnits > 25 ? 16.0 : 18.0;
 
     final attackerFormation = isPlayerAttacker ? playerFormation : enemyFormation;
     final defenderFormation = isPlayerAttacker ? enemyFormation : playerFormation;
@@ -227,18 +227,21 @@ class BattleSimulation {
     final cavalry = units.where((u) => u.category == 'Cavalry').toList();
     final infantry = units.where((u) => u.category == 'Infantry').toList();
 
-    switch (formation ?? BattleFormation.romanFormation) {
+    switch (formation ?? BattleFormation.shieldWall) {
       case BattleFormation.crescent:
+        // Cavalry in front on wings, infantry behind, ranged at back
         _positionWedge(cavalry, circles, baseX, battleArea.center.dy, nationality, isAttacker, frontOffset: 80, radius: circleRadius);
         _positionLine(infantry, circles, baseX, battleArea.center.dy, nationality, isAttacker, frontOffset: 0, radius: circleRadius);
         _positionLine(ranged, circles, baseX, battleArea.center.dy, nationality, isAttacker, frontOffset: -70, radius: circleRadius);
 
-      case BattleFormation.romanFormation:
+      case BattleFormation.shieldWall:
+        // Infantry in tight front line, ranged behind, cavalry on flanks
         _positionLine(infantry, circles, baseX, battleArea.center.dy, nationality, isAttacker, frontOffset: 60, tight: true, radius: circleRadius);
         _positionLine(ranged, circles, baseX, battleArea.center.dy, nationality, isAttacker, frontOffset: -30, radius: circleRadius);
         _positionFlanks(cavalry, circles, baseX, battleArea.center.dy, nationality, isAttacker, radius: circleRadius);
 
-      case BattleFormation.guerilla:
+      case BattleFormation.skirmish:
+        // Spread out - ranged in front, infantry scattered, cavalry ready
         _positionLine(ranged, circles, baseX, battleArea.center.dy, nationality, isAttacker, frontOffset: 60, spread: 1.3, radius: circleRadius);
         _positionFlanks(cavalry, circles, baseX, battleArea.center.dy, nationality, isAttacker, radius: circleRadius);
         _positionLine(infantry, circles, baseX, battleArea.center.dy, nationality, isAttacker, frontOffset: -50, radius: circleRadius);

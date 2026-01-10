@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/layout_constants.dart';
 import '../../data/models/army.dart';
 import '../../data/models/building.dart';
+import '../../data/models/combat_log.dart';
 import '../../data/models/unit_type.dart';
 import '../../data/models/village.dart';
 import '../../engines/game_manager.dart';
@@ -13,6 +14,8 @@ import '../../providers/game_provider.dart';
 import '../map/map_view.dart';
 import '../panels/side_info_panel.dart';
 import 'victory_screen.dart';
+import 'battle/countryball_battle_screen.dart';
+import 'battle/battle_test_screen.dart';
 
 class DesktopGameView extends StatefulWidget {
   const DesktopGameView({super.key});
@@ -67,6 +70,21 @@ class _DesktopGameViewState extends State<DesktopGameView> {
   }
 
   void _selectVillage(Village village) {
+    final game = GameManager.shared;
+
+    // If army is selected and tapped village is a valid march target, send the army
+    if (_selectedArmy != null && _selectedArmy!.stationedAt != null) {
+      final armyOrigin = _selectedArmy!.stationedAt!;
+      if (armyOrigin != village.id && game.areNeighbors(armyOrigin, village.id)) {
+        game.sendArmy(_selectedArmy!.id, village.id);
+        setState(() {
+          _selectedArmy = null;
+          _selectedVillage = game.map.villages.firstWhere((v) => v.id == armyOrigin);
+        });
+        return;
+      }
+    }
+
     setState(() {
       _selectedVillage = village;
       _selectedArmy = null;
@@ -120,6 +138,11 @@ class _DesktopGameViewState extends State<DesktopGameView> {
       _selectPlayerVillage(2);
     } else if (event.logicalKey == LogicalKeyboardKey.digit4) {
       _selectPlayerVillage(3);
+    } else if (event.logicalKey == LogicalKeyboardKey.keyT) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const BattleTestScreen()),
+      );
     }
   }
 
@@ -128,6 +151,15 @@ class _DesktopGameViewState extends State<DesktopGameView> {
     if (index < playerVillages.length) {
       _selectVillage(playerVillages[index]);
     }
+  }
+
+  BattleRecord? _getPlayerBattle(GameManager game) {
+    for (final battle in game.pendingBattles) {
+      if (battle.attackerOwnerId == 'player' || battle.defenderOwnerId == 'player') {
+        return battle;
+      }
+    }
+    return null;
   }
 
   @override
@@ -147,43 +179,55 @@ class _DesktopGameViewState extends State<DesktopGameView> {
           onKeyEvent: _handleKeyPress,
           child: Scaffold(
             backgroundColor: Colors.black,
-            body: Row(
+            body: Stack(
               children: [
-                // Map Section
-                Expanded(
-                  flex: 3,
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF1A2A1A), Color(0xFF0D1A0D), Color(0xFF152015)],
+                Row(
+                  children: [
+                    // Map Section
+                    Expanded(
+                      flex: 3,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFF1A2A1A), Color(0xFF0D1A0D), Color(0xFF152015)],
+                          ),
+                        ),
+                        child: MapView(
+                          selectedVillage: _selectedVillage,
+                          selectedArmy: _selectedArmy,
+                          onVillageSelected: _selectVillage,
+                          onArmySelected: _selectArmy,
+                          onArmySent: (army, destination) {
+                            game.sendArmy(army.id, destination.id);
+                          },
+                        ),
                       ),
                     ),
-                    child: MapView(
-                      selectedVillage: _selectedVillage,
-                      selectedArmy: _selectedArmy,
-                      onVillageSelected: _selectVillage,
-                      onArmySelected: _selectArmy,
-                      onArmySent: (army, destination) {
-                        game.sendArmy(army.id, destination.id);
-                      },
+                    // Side Panel
+                    SizedBox(
+                      width: 320,
+                      child: SideInfoPanel(
+                        selectedVillage: _currentVillage,
+                        selectedArmy: _selectedArmy,
+                        onEndTurn: _processTurn,
+                        isProcessingTurn: _isProcessingTurn,
+                        onBuild: _currentVillage != null ? (b) => _quickBuild(b, _currentVillage!) : null,
+                        onUpgrade: _currentVillage != null ? (b) => _quickUpgrade(b, _currentVillage!) : null,
+                        onRecruit: _currentVillage != null ? (t) => _quickRecruit(t, _currentVillage!) : null,
+                        onSelectArmy: _selectArmy,
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-                // Side Panel
-                SizedBox(
-                  width: 320,
-                  child: SideInfoPanel(
-                    selectedVillage: _currentVillage,
-                    selectedArmy: _selectedArmy,
-                    onEndTurn: _processTurn,
-                    isProcessingTurn: _isProcessingTurn,
-                    onBuild: _currentVillage != null ? (b) => _quickBuild(b, _currentVillage!) : null,
-                    onUpgrade: _currentVillage != null ? (b) => _quickUpgrade(b, _currentVillage!) : null,
-                    onRecruit: _currentVillage != null ? (t) => _quickRecruit(t, _currentVillage!) : null,
+                // Battle Screen Overlay
+                if (_getPlayerBattle(game) != null)
+                  CountryballBattleScreen(
+                    key: ValueKey(_getPlayerBattle(game)!.id),
+                    record: _getPlayerBattle(game)!,
+                    onDismiss: () => setState(() {}),
                   ),
-                ),
               ],
             ),
           ),

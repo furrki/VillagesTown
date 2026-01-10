@@ -190,67 +190,258 @@ class BattlePainter extends CustomPainter {
       ..strokeWidth = circle.isAtStake ? 2 : 1;
     canvas.drawCircle(center, radius, borderPaint);
 
-    // Small unit type badge in top-right
-    _drawUnitTypeBadge(canvas, center, radius, circle);
+    // Unit type emoji below the circle
+    _drawUnitEmoji(canvas, center, radius, circle);
+
+    // HP bar above the circle
+    _drawHpBar(canvas, center, radius, circle);
   }
 
-  void _drawUnitTypeBadge(Canvas canvas, Offset center, double radius, BattleCircle circle) {
-    // Badge position: top-right of the circle
-    final badgeCenter = center + Offset(radius * 0.6, -radius * 0.6);
-    final badgeRadius = max(4.0, radius * 0.35);
+  void _drawUnitEmoji(Canvas canvas, Offset center, double radius, BattleCircle circle) {
+    final time = DateTime.now().millisecondsSinceEpoch / 1000.0;
+    final isFighting = circle.state == CircleState.fighting;
+    final animPhase = isFighting ? (time * 0.8) % (2 * pi) : 0.0; // Very slow, only when fighting
 
-    // Badge background
-    final bgColor = circle.isRanged
-        ? Colors.green.shade700
-        : circle.isCavalry
-            ? Colors.blue.shade700
-            : Colors.brown.shade600;
+    canvas.save();
 
-    final bgPaint = Paint()
-      ..color = bgColor.withValues(alpha: circle.opacity)
+    // Position weapon to the right side of the circle
+    canvas.translate(center.dx + radius * 0.8, center.dy);
+
+    switch (circle.unitType.category) {
+      case 'Ranged':
+        _drawBow(canvas, radius, circle, animPhase, isFighting);
+        break;
+      case 'Cavalry':
+        canvas.translate(-radius * 0.8, radius + 4); // Horse below
+        _drawHorse(canvas, radius, circle, animPhase, isFighting);
+        break;
+      default:
+        _drawSword(canvas, radius, circle, animPhase, isFighting);
+    }
+
+    canvas.restore();
+  }
+
+  void _drawSword(Canvas canvas, double radius, BattleCircle circle, double animPhase, bool isFighting) {
+    final scale = radius / 18.0;
+    final time = DateTime.now().millisecondsSinceEpoch / 1000.0;
+    final idleSway = sin(time * 0.5) * 0.05; // Very gentle idle sway
+    final swingAngle = isFighting ? sin(animPhase) * 0.4 : idleSway;
+
+    canvas.save();
+    canvas.rotate(swingAngle - 0.3);
+
+    final bladePaint = Paint()
+      ..color = Colors.grey.shade300.withValues(alpha: circle.opacity)
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(badgeCenter, badgeRadius, bgPaint);
-
-    // Badge border
-    final borderPaint = Paint()
+    final handlePaint = Paint()
+      ..color = Colors.brown.shade700.withValues(alpha: circle.opacity)
+      ..style = PaintingStyle.fill;
+    final edgePaint = Paint()
       ..color = Colors.white.withValues(alpha: circle.opacity * 0.9)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-    canvas.drawCircle(badgeCenter, badgeRadius, borderPaint);
 
-    // Draw icon inside badge
-    final iconPaint = Paint()
-      ..color = Colors.white.withValues(alpha: circle.opacity)
-      ..style = PaintingStyle.fill;
+    // Blade
+    final bladePath = Path();
+    bladePath.moveTo(0, -12 * scale);  // Tip
+    bladePath.lineTo(3 * scale, -2 * scale);
+    bladePath.lineTo(3 * scale, 6 * scale);
+    bladePath.lineTo(-3 * scale, 6 * scale);
+    bladePath.lineTo(-3 * scale, -2 * scale);
+    bladePath.close();
+    canvas.drawPath(bladePath, bladePaint);
+    canvas.drawPath(bladePath, edgePaint);
 
-    final iconSize = badgeRadius * 0.7;
+    // Guard
+    final guardRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset(0, 7 * scale), width: 10 * scale, height: 3 * scale),
+      Radius.circular(1 * scale),
+    );
+    canvas.drawRRect(guardRect, Paint()..color = Colors.amber.shade700.withValues(alpha: circle.opacity));
 
-    if (circle.isRanged) {
-      // Arrow icon
-      final path = Path();
-      path.moveTo(badgeCenter.dx + iconSize, badgeCenter.dy);
-      path.lineTo(badgeCenter.dx - iconSize * 0.5, badgeCenter.dy - iconSize * 0.5);
-      path.lineTo(badgeCenter.dx - iconSize * 0.2, badgeCenter.dy);
-      path.lineTo(badgeCenter.dx - iconSize * 0.5, badgeCenter.dy + iconSize * 0.5);
-      path.close();
-      canvas.drawPath(path, iconPaint);
-    } else if (circle.isCavalry) {
-      // Horse head / chevron
-      final path = Path();
-      path.moveTo(badgeCenter.dx + iconSize * 0.6, badgeCenter.dy);
-      path.lineTo(badgeCenter.dx - iconSize * 0.4, badgeCenter.dy - iconSize * 0.6);
-      path.lineTo(badgeCenter.dx, badgeCenter.dy);
-      path.lineTo(badgeCenter.dx - iconSize * 0.4, badgeCenter.dy + iconSize * 0.6);
-      path.close();
-      canvas.drawPath(path, iconPaint);
-    } else {
-      // Shield for infantry
-      final shieldRect = RRect.fromRectAndRadius(
-        Rect.fromCenter(center: badgeCenter, width: iconSize * 1.2, height: iconSize * 1.4),
-        const Radius.circular(1),
+    // Handle
+    final handleRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset(0, 12 * scale), width: 4 * scale, height: 8 * scale),
+      Radius.circular(1 * scale),
+    );
+    canvas.drawRRect(handleRect, handlePaint);
+
+    // Pommel
+    canvas.drawCircle(Offset(0, 17 * scale), 2.5 * scale, Paint()..color = Colors.amber.shade800.withValues(alpha: circle.opacity));
+
+    canvas.restore();
+  }
+
+  void _drawBow(Canvas canvas, double radius, BattleCircle circle, double animPhase, bool isFighting) {
+    final scale = radius / 18.0;
+    final drawBack = isFighting ? (sin(animPhase) * 0.5 + 0.5) * 6 * scale : 0.0;
+
+    final woodPaint = Paint()
+      ..color = Colors.brown.shade600.withValues(alpha: circle.opacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3 * scale
+      ..strokeCap = StrokeCap.round;
+    final stringPaint = Paint()
+      ..color = Colors.grey.shade400.withValues(alpha: circle.opacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1 * scale;
+    final arrowPaint = Paint()
+      ..color = Colors.brown.shade800.withValues(alpha: circle.opacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2 * scale
+      ..strokeCap = StrokeCap.round;
+
+    // Bow arc
+    final bowPath = Path();
+    bowPath.moveTo(-8 * scale, -10 * scale);
+    bowPath.quadraticBezierTo(8 * scale, 0, -8 * scale, 10 * scale);
+    canvas.drawPath(bowPath, woodPaint);
+
+    // String
+    canvas.drawLine(
+      Offset(-8 * scale, -10 * scale),
+      Offset(-8 * scale + drawBack, 0),
+      stringPaint,
+    );
+    canvas.drawLine(
+      Offset(-8 * scale + drawBack, 0),
+      Offset(-8 * scale, 10 * scale),
+      stringPaint,
+    );
+
+    // Arrow (when drawing)
+    if (isFighting && drawBack > 2 * scale) {
+      canvas.drawLine(
+        Offset(-8 * scale + drawBack - 2 * scale, 0),
+        Offset(-8 * scale + drawBack + 10 * scale, 0),
+        arrowPaint,
       );
-      canvas.drawRRect(shieldRect, iconPaint);
+      // Arrowhead
+      final headPath = Path();
+      headPath.moveTo(-8 * scale + drawBack + 12 * scale, 0);
+      headPath.lineTo(-8 * scale + drawBack + 8 * scale, -2 * scale);
+      headPath.lineTo(-8 * scale + drawBack + 8 * scale, 2 * scale);
+      headPath.close();
+      canvas.drawPath(headPath, Paint()..color = Colors.grey.shade600.withValues(alpha: circle.opacity));
     }
+  }
+
+  void _drawHorse(Canvas canvas, double radius, BattleCircle circle, double animPhase, bool isFighting) {
+    final scale = radius / 18.0;
+    final gallopOffset = isFighting ? sin(animPhase) * 1 * scale : 0.0; // Gentler gallop
+    final legPhase = isFighting ? animPhase : 0.0;
+
+    canvas.save();
+    canvas.translate(0, gallopOffset);
+
+    final bodyPaint = Paint()
+      ..color = Colors.brown.shade700.withValues(alpha: circle.opacity)
+      ..style = PaintingStyle.fill;
+    final manePaint = Paint()
+      ..color = Colors.brown.shade900.withValues(alpha: circle.opacity)
+      ..style = PaintingStyle.fill;
+    final legPaint = Paint()
+      ..color = Colors.brown.shade800.withValues(alpha: circle.opacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5 * scale
+      ..strokeCap = StrokeCap.round;
+
+    // Body (oval)
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset.zero, width: 16 * scale, height: 8 * scale),
+      bodyPaint,
+    );
+
+    // Neck
+    final neckPath = Path();
+    neckPath.moveTo(6 * scale, -2 * scale);
+    neckPath.quadraticBezierTo(10 * scale, -8 * scale, 8 * scale, -12 * scale);
+    neckPath.quadraticBezierTo(6 * scale, -10 * scale, 5 * scale, -3 * scale);
+    neckPath.close();
+    canvas.drawPath(neckPath, bodyPaint);
+
+    // Head
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(9 * scale, -13 * scale), width: 6 * scale, height: 4 * scale),
+      bodyPaint,
+    );
+
+    // Ear
+    final earPath = Path();
+    earPath.moveTo(8 * scale, -14 * scale);
+    earPath.lineTo(7 * scale, -17 * scale);
+    earPath.lineTo(9 * scale, -15 * scale);
+    earPath.close();
+    canvas.drawPath(earPath, bodyPaint);
+
+    // Mane
+    final manePath = Path();
+    manePath.moveTo(7 * scale, -11 * scale);
+    manePath.quadraticBezierTo(4 * scale, -8 * scale, 5 * scale, -4 * scale);
+    manePath.quadraticBezierTo(3 * scale, -6 * scale, 6 * scale, -10 * scale);
+    canvas.drawPath(manePath, manePaint..style = PaintingStyle.stroke..strokeWidth = 2 * scale);
+
+    // Legs (animated) - gentle movement
+    final frontLegAngle1 = sin(legPhase) * 0.2;
+    final frontLegAngle2 = sin(legPhase + pi) * 0.2;
+    final backLegAngle1 = sin(legPhase + pi / 2) * 0.2;
+    final backLegAngle2 = sin(legPhase + pi * 1.5) * 0.2;
+
+    // Front legs
+    _drawLeg(canvas, Offset(5 * scale, 3 * scale), 8 * scale, frontLegAngle1, legPaint);
+    _drawLeg(canvas, Offset(3 * scale, 3 * scale), 8 * scale, frontLegAngle2, legPaint);
+
+    // Back legs
+    _drawLeg(canvas, Offset(-5 * scale, 3 * scale), 8 * scale, backLegAngle1, legPaint);
+    _drawLeg(canvas, Offset(-7 * scale, 3 * scale), 8 * scale, backLegAngle2, legPaint);
+
+    // Tail - gentle sway
+    final tailPath = Path();
+    tailPath.moveTo(-8 * scale, 0);
+    tailPath.quadraticBezierTo(
+      -14 * scale + sin(animPhase) * 0.5 * scale,
+      4 * scale,
+      -12 * scale + sin(animPhase) * 1 * scale,
+      8 * scale,
+    );
+    canvas.drawPath(tailPath, manePaint..strokeWidth = 2.5 * scale);
+
+    canvas.restore();
+  }
+
+  void _drawLeg(Canvas canvas, Offset start, double length, double angle, Paint paint) {
+    canvas.save();
+    canvas.translate(start.dx, start.dy);
+    canvas.rotate(angle);
+    canvas.drawLine(Offset.zero, Offset(0, length), paint);
+    // Hoof
+    canvas.drawLine(Offset(-1, length), Offset(1, length), paint..strokeWidth = paint.strokeWidth * 1.2);
+    canvas.restore();
+  }
+
+  void _drawHpBar(Canvas canvas, Offset center, double radius, BattleCircle circle) {
+    if (circle.isDying || circle.morale >= 1.0) return; // Don't show if full or dying
+
+    final barWidth = radius * 2;
+    final barHeight = 4.0;
+    final barTop = center.dy - radius - 8;
+
+    // Background
+    final bgRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset(center.dx, barTop), width: barWidth, height: barHeight),
+      const Radius.circular(2),
+    );
+    canvas.drawRRect(bgRect, Paint()..color = Colors.black.withValues(alpha: 0.6 * circle.opacity));
+
+    // HP fill
+    final fillWidth = barWidth * circle.morale;
+    final hpColor = circle.morale > 0.5 ? Colors.green : (circle.morale > 0.25 ? Colors.orange : Colors.red);
+    final fillRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(center.dx - barWidth / 2, barTop - barHeight / 2, fillWidth, barHeight),
+      const Radius.circular(2),
+    );
+    canvas.drawRRect(fillRect, Paint()..color = hpColor.withValues(alpha: circle.opacity));
   }
 
   void _drawParticle(Canvas canvas, Particle particle) {

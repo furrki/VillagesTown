@@ -62,7 +62,7 @@ class BattleCircle {
         isRouting = false,
         routeDirection = null;
 
-  static const double defaultBaseRadius = 9.0;
+  static const double defaultBaseRadius = 18.0;
   double baseRadiusOverride;
 
   double get radius => (baseRadiusOverride > 0 ? baseRadiusOverride : defaultBaseRadius) * scale;
@@ -138,12 +138,6 @@ class BattleCircle {
           velocity = Offset.zero;
         }
         position += velocity * dt;
-
-        // Slight jitter during combat (fighting animation)
-        position += Offset(
-          sin(time * 8 + position.hashCode) * 0.5,
-          cos(time * 9 + position.hashCode) * 0.5,
-        );
       }
 
     } else if (isRegrouping) {
@@ -159,13 +153,10 @@ class BattleCircle {
       position += velocity * dt;
 
     } else {
-      // PREPARE: Hold formation with subtle breathing
+      // PREPARE: Hold formation steady
       state = CircleState.ready;
-      velocity *= 0.9; // Slow down
-
-      // Very subtle breathing/ready stance - not chaotic bobbing
-      final breathe = sin(time * 1.5 + position.hashCode * 0.01) * 0.3;
-      scale = 1.0 + breathe * 0.02;
+      velocity *= 0.9;
+      scale = 1.0;
     }
 
     // Gentle collision avoidance (not bouncy)
@@ -185,9 +176,9 @@ class BattleCircle {
       position.dy.clamp(bounds.top + radius, bounds.bottom - radius),
     );
 
-    // Scale for at-stake units
+    // Slight scale for at-stake units (no animation)
     if (isAtStake && !isEngaging) {
-      scale = 1.1 + sin(time * 4) * 0.05;
+      scale = 1.05;
     }
 
     // Opacity based on morale

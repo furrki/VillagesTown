@@ -5,27 +5,64 @@ import '../data/models/unit_type.dart';
 import '../data/models/village.dart';
 import '../data/models/combat_log.dart';
 
+/// 2D position on the battlefield.
+class BattlePosition {
+  double x; // 0-100 (width)
+  double y; // 0-60 (depth)
+
+  BattlePosition(this.x, this.y);
+
+  double distanceTo(BattlePosition other) {
+    final dx = x - other.x;
+    final dy = y - other.y;
+    return sqrt(dx * dx + dy * dy);
+  }
+
+  BattlePosition copy() => BattlePosition(x, y);
+}
+
 /// Combat unit state during battle - tracks individual soldier.
 class CombatUnit {
   final String id;
   final Unit unit;
   final bool isAttacker;
-  final bool isGarrison; // Garrison units are 30% weaker
+  final bool isGarrison;
+
+  // Combat state
   int hp;
-  double attackCooldown; // Seconds until next attack
-  double position; // 0.0 = own side, 1.0 = enemy side (for range calc)
+  double attackCooldown;
+  BattlePosition position;
   CombatUnit? currentTarget;
-  bool isRouting = false;
   bool isDead = false;
+
+  // Ranged state
+  int ammo;
+
+  // Cavalry state
+  int currentCharge; // Decays while in melee
+  double timeInMelee; // Seconds spent in melee (for charge decay)
+  double timeOutOfMelee; // Seconds since last melee (for charge reset)
+  bool hasCharged = false; // Has the initial charge been applied?
+
+  // Formation modifiers (applied at battle start)
+  double defenseModifier = 1.0;
+  int rangeModifier = 0;
+  double chargeModifier = 1.0;
+  double speedModifier = 1.0;
+  double attackModifier = 1.0;
 
   CombatUnit({
     required this.id,
     required this.unit,
     required this.isAttacker,
     this.isGarrison = false,
-  })  : hp = unit.maxHP,
+    required this.position,
+  })  : hp = unit.unitType.stats.hp,
         attackCooldown = 0,
-        position = isAttacker ? 0.0 : 1.0;
+        ammo = unit.unitType.baseAmmo,
+        currentCharge = unit.unitType.baseCharge,
+        timeInMelee = 0,
+        timeOutOfMelee = 0;
 
   UnitType get type => unit.unitType;
   String get category => type.category;
@@ -33,43 +70,44 @@ class CombatUnit {
   bool get isCavalry => category == 'Cavalry';
   bool get isInfantry => category == 'Infantry';
   bool get isAlive => !isDead && hp > 0;
+  bool get hasAmmo => ammo > 0;
 
-  /// Attack speed in seconds (lower = faster).
-  double get attackInterval => switch (type) {
-        UnitType.archer => 2.0,
-        UnitType.crossbowman => 2.5, // Slower but harder hitting
-        UnitType.lightCavalry => 1.2,
-        UnitType.knight => 1.5,
-        UnitType.swordsman => 1.0,
-        UnitType.spearman => 1.3,
-        UnitType.militia => 1.4,
-      };
+  /// Effective attack range in battlefield units.
+  double get attackRange {
+    if (isRanged && hasAmmo) {
+      return (type.baseRange + rangeModifier).toDouble();
+    }
+    return 1.0; // Melee range
+  }
 
-  /// Attack range (0.0-1.0 distance scale).
-  double get attackRange => switch (category) {
-        'Ranged' => 0.8, // Can attack from far
-        'Cavalry' => 0.3, // Medium range (charging)
-        _ => 0.15, // Melee only
-      };
+  /// Movement speed (battlefield units per second).
+  double get moveSpeed => type.baseSpeed * speedModifier;
 
-  /// Base damage per attack.
-  int get baseDamage => switch (type) {
-        UnitType.archer => 15 + unit.bonusAttack,
-        UnitType.crossbowman => 25 + unit.bonusAttack,
-        UnitType.lightCavalry => 20 + unit.bonusAttack,
-        UnitType.knight => 35 + unit.bonusAttack,
-        UnitType.swordsman => 18 + unit.bonusAttack,
-        UnitType.spearman => 14 + unit.bonusAttack,
-        UnitType.militia => 10 + unit.bonusAttack,
-      };
+  /// Attack interval in seconds.
+  double get attackInterval {
+    if (isRanged && hasAmmo) {
+      return type.baseFireRate;
+    }
+    return 1.0; // 1 second melee interval
+  }
 
-  /// Movement speed (distance per second).
-  double get moveSpeed => switch (category) {
-        'Cavalry' => 0.25,
-        'Infantry' => 0.12,
-        'Ranged' => 0.08, // Archers move slowly, prefer distance
-        _ => 0.10,
-      };
+  /// Get effective attack stat.
+  int get effectiveAttack {
+    final base = type.stats.attack + unit.bonusAttack;
+    return (base * attackModifier).round();
+  }
+
+  /// Get effective defense stat.
+  int get effectiveDefense {
+    final base = type.stats.defense + unit.bonusDefense;
+    return (base * defenseModifier).round();
+  }
+
+  /// Get effective missile stat.
+  int get effectiveMissile => type.baseMissile + unit.bonusAttack;
+
+  /// Get effective charge bonus.
+  int get effectiveCharge => (currentCharge * chargeModifier).round();
 }
 
 /// A single combat event for visualization.
@@ -81,6 +119,7 @@ class CombatEvent {
   final int damage;
   final bool isCrit;
   final String? message;
+  final BattlePosition? position; // For visual effects
 
   CombatEvent({
     required this.timestamp,
@@ -90,53 +129,68 @@ class CombatEvent {
     this.damage = 0,
     this.isCrit = false,
     this.message,
+    this.position,
   });
 }
 
 enum CombatEventType {
   attack,
+  rangedAttack,
   kill,
-  rout,
-  charge, // Cavalry charge bonus
-  volley, // Ranged volley
+  charge,
+  volley,
   meleeClash,
   victory,
   defeat,
 }
 
-/// Tick-based continuous combat engine.
-/// Simulates real-time battle where units attack independently based on cooldowns.
+/// Battlefield constants.
+class Battlefield {
+  static const double width = 100.0;
+  static const double height = 60.0;
+  static const double attackerSpawnMinY = 0.0;
+  static const double attackerSpawnMaxY = 30.0;
+  static const double defenderSpawnMinY = 70.0;
+  static const double defenderSpawnMaxY = 100.0;
+}
+
+/// Phase 2 tick-based continuous combat engine.
+/// No morale, no routing - fight to the death.
 class CombatEngine {
   final Random _random = Random();
 
   /// Simulation tick rate (seconds per tick).
   static const double tickRate = 0.1;
 
-  /// Maximum battle duration (seconds).
-  static const double maxBattleDuration = 60.0;
+  /// Maximum battle duration (seconds) - extended for larger battles.
+  static const double maxBattleDuration = 120.0;
 
-  /// Morale thresholds
-  static const double startingMorale = 100.0;
-  static const double routThreshold = 20.0;
-  static const double moraleLossPerDeath = 5.0;
-  static const double moraleGainPerKill = 2.0;
+  /// Defender bonus constants.
+  static const double baseDefenderBonus = 0.10; // +10% defense
 
-  /// Fortress modifiers (reduced from original - was too punishing for attackers)
-  double _fortressDamageReduction(int level) => switch (level) {
-        1 => 0.95, // Was 0.90 - only 5% damage reduction now
-        2 => 0.90, // Was 0.80
-        >= 3 => 0.85, // Was 0.70
-        _ => 1.0,
+  /// Fortress modifiers for defenders.
+  double _fortressDefenseBonus(int level) => switch (level) {
+        1 => 0.15,
+        2 => 0.30,
+        >= 3 => 0.50,
+        _ => 0.0,
+      };
+
+  int _fortressRangeBonus(int level) => switch (level) {
+        1 => 1,
+        2 => 1,
+        >= 3 => 2,
+        _ => 0,
       };
 
   double _fortressCavalryPenalty(int level) => switch (level) {
-        1 => 0.85, // Was 0.70
-        2 => 0.75, // Was 0.50
-        >= 3 => 0.65, // Was 0.30 - cavalry now at 65% vs highest fortress (was 30%)
+        1 => 0.80, // -20%
+        2 => 0.60, // -40%
+        >= 3 => 0.40, // -60%
         _ => 1.0,
       };
 
-  /// Main combat resolution - continuous tick-based simulation.
+  /// Main combat resolution - Phase 2 continuous tick-based simulation.
   BattleRecord resolveCombat({
     required String attackerName,
     required String defenderName,
@@ -150,8 +204,8 @@ class CombatEngine {
     required GameMap map,
     Village? defendingVillage,
     int garrisonCount = 0,
-    BattleFormation attackerFormation = BattleFormation.romanFormation,
-    BattleFormation defenderFormation = BattleFormation.romanFormation,
+    BattleFormation attackerFormation = BattleFormation.shieldWall,
+    BattleFormation defenderFormation = BattleFormation.shieldWall,
     int attackerBarracksLevel = 0,
     int attackerArcheryLevel = 0,
     int attackerStablesLevel = 0,
@@ -164,39 +218,37 @@ class CombatEngine {
     final initialAttackerCount = attackers.length;
     final initialDefenderCount = defenders.length;
 
-    // Create combat units
-    final attackerUnits = <CombatUnit>[];
-    final defenderUnits = <CombatUnit>[];
+    // Create combat units with 2D positions
+    final attackerUnits = _createUnits(
+      attackers,
+      isAttacker: true,
+      formation: attackerFormation,
+      garrisonCount: 0,
+    );
 
-    for (int i = 0; i < attackers.length; i++) {
-      attackerUnits.add(CombatUnit(
-        id: 'atk_$i',
-        unit: attackers[i],
-        isAttacker: true,
-      ));
-    }
+    final defenderUnits = _createUnits(
+      defenders,
+      isAttacker: false,
+      formation: defenderFormation,
+      garrisonCount: garrisonCount,
+    );
 
-    // Garrison units are the last garrisonCount defenders (appended at end)
-    final garrisonStartIndex = defenders.length - garrisonCount;
-    for (int i = 0; i < defenders.length; i++) {
-      defenderUnits.add(CombatUnit(
-        id: 'def_$i',
-        unit: defenders[i],
-        isAttacker: false,
-        isGarrison: i >= garrisonStartIndex,
-      ));
-    }
+    // Apply formation modifiers
+    _applyFormationModifiers(attackerUnits, attackerFormation);
+    _applyFormationModifiers(defenderUnits, defenderFormation);
 
-    // Morale tracking
-    double attackerMorale = startingMorale;
-    double defenderMorale = startingMorale;
+    // Apply defender bonuses
+    _applyDefenderBonuses(defenderUnits, defenderFortressLevel);
 
-    // Formation modifier
+    // Formation effectiveness modifier
     final formationMod = attackerFormation.bonusAgainst(defenderFormation);
     final defenderFormationMod = defenderFormation.bonusAgainst(attackerFormation);
 
-    // Fortress modifiers for defenders
-    final fortressDmgReduction = _fortressDamageReduction(defenderFortressLevel);
+    // Enemy formation modifiers (affects incoming damage)
+    final enemyChargeModForAttacker = defenderFormation.modifiers.enemyChargeMultiplier;
+    final enemyChargeModForDefender = attackerFormation.modifiers.enemyChargeMultiplier;
+
+    // Fortress cavalry penalty for attackers
     final fortressCavPenalty = _fortressCavalryPenalty(defenderFortressLevel);
 
     // Simulation state
@@ -204,21 +256,21 @@ class CombatEngine {
     bool battleEnded = false;
     bool attackerWon = false;
 
-    // Initial charge event
-    if (attackerUnits.any((u) => u.isCavalry)) {
+    // Initial charge event if cavalry present
+    if (attackerUnits.any((u) => u.isCavalry) || defenderUnits.any((u) => u.isCavalry)) {
       events.add(CombatEvent(
         timestamp: 0,
         eventType: CombatEventType.charge,
-        message: 'Cavalry charges!',
+        message: 'Cavalry prepares to charge!',
       ));
     }
 
-    // Main simulation loop
+    // Main simulation loop - fight to the death
     while (!battleEnded && currentTime < maxBattleDuration) {
       currentTime += tickRate;
 
-      final aliveAttackers = attackerUnits.where((u) => u.isAlive && !u.isRouting).toList();
-      final aliveDefenders = defenderUnits.where((u) => u.isAlive && !u.isRouting).toList();
+      final aliveAttackers = attackerUnits.where((u) => u.isAlive).toList();
+      final aliveDefenders = defenderUnits.where((u) => u.isAlive).toList();
 
       // Check win conditions
       if (aliveAttackers.isEmpty) {
@@ -244,7 +296,6 @@ class CombatEngine {
       }
 
       // Process each attacker unit
-      // Attackers deal REDUCED damage when attacking a fortress (walls protect defenders)
       for (final unit in aliveAttackers) {
         _processUnitTick(
           unit: unit,
@@ -253,14 +304,13 @@ class CombatEngine {
           events: events,
           currentTime: currentTime,
           formationMod: formationMod,
-          fortressDmgReduction: fortressDmgReduction, // Fortress walls reduce attacker damage
-          fortressCavPenalty: fortressCavPenalty,
-          morale: attackerMorale,
+          enemyChargeMod: enemyChargeModForDefender,
+          cavalryPenalty: fortressCavPenalty,
+          isAttacker: true,
         );
       }
 
       // Process each defender unit
-      // Defenders deal full damage (fortress doesn't penalize their attacks)
       for (final unit in aliveDefenders) {
         _processUnitTick(
           unit: unit,
@@ -269,66 +319,19 @@ class CombatEngine {
           events: events,
           currentTime: currentTime,
           formationMod: defenderFormationMod,
-          fortressDmgReduction: 1.0, // Defenders deal full damage
-          fortressCavPenalty: 1.0,
-          morale: defenderMorale,
+          enemyChargeMod: enemyChargeModForAttacker,
+          cavalryPenalty: 1.0, // Defenders don't have fortress penalty
+          isAttacker: false,
         );
       }
 
-      // Update morale based on recent deaths
-      final recentAttackerDeaths = attackerUnits.where((u) => u.isDead).length;
-      final recentDefenderDeaths = defenderUnits.where((u) => u.isDead).length;
+      // Move units toward enemies
+      _moveUnits(aliveAttackers, aliveDefenders, tickRate);
+      _moveUnits(aliveDefenders, aliveAttackers, tickRate);
 
-      attackerMorale = startingMorale -
-          (recentAttackerDeaths * moraleLossPerDeath) +
-          (recentDefenderDeaths * moraleGainPerKill * 0.5);
-      defenderMorale = startingMorale -
-          (recentDefenderDeaths * moraleLossPerDeath) +
-          (recentAttackerDeaths * moraleGainPerKill * 0.5);
-
-      attackerMorale = attackerMorale.clamp(0, 100);
-      defenderMorale = defenderMorale.clamp(0, 100);
-
-      // Check for routing (reduced from 30% to 10% per tick - was too harsh)
-      if (attackerMorale < routThreshold) {
-        for (final unit in aliveAttackers) {
-          if (!unit.isRouting && _random.nextDouble() < 0.10) {
-            unit.isRouting = true;
-            events.add(CombatEvent(
-              timestamp: currentTime,
-              eventType: CombatEventType.rout,
-              attackerId: unit.id,
-              message: '${unit.type.displayName} flees!',
-            ));
-          }
-        }
-      }
-
-      if (defenderMorale < routThreshold) {
-        for (final unit in aliveDefenders) {
-          if (!unit.isRouting && _random.nextDouble() < 0.10) {
-            unit.isRouting = true;
-            events.add(CombatEvent(
-              timestamp: currentTime,
-              eventType: CombatEventType.rout,
-              attackerId: unit.id,
-              message: '${unit.type.displayName} flees!',
-            ));
-          }
-        }
-      }
-
-      // Move units toward engagement
-      for (final unit in aliveAttackers) {
-        if (!unit.isRouting) {
-          unit.position = min(1.0, unit.position + unit.moveSpeed * tickRate);
-        }
-      }
-      for (final unit in aliveDefenders) {
-        if (!unit.isRouting) {
-          unit.position = max(0.0, unit.position - unit.moveSpeed * tickRate);
-        }
-      }
+      // Update charge decay/reset for cavalry
+      _updateChargeState(aliveAttackers, aliveDefenders, tickRate);
+      _updateChargeState(aliveDefenders, aliveAttackers, tickRate);
     }
 
     // Determine final outcome if battle timed out
@@ -337,10 +340,6 @@ class CombatEngine {
       final remainingDefenders = defenderUnits.where((u) => u.isAlive).length;
       attackerWon = remainingAttackers > remainingDefenders;
     }
-
-    // NOTE: We do NOT modify original unit lists here.
-    // finalizeBattle() handles casualty application based on rounds played.
-    // This allows partial battles (retreat) to apply fewer casualties.
 
     // Create legacy phases for compatibility with existing UI
     final phases = _createPhasesFromEvents(events, initialAttackerCount, initialDefenderCount);
@@ -374,7 +373,203 @@ class CombatEngine {
     );
   }
 
-  /// Process a single unit's tick - attack if ready, find target, etc.
+  /// Create combat units with initial positions based on formation.
+  List<CombatUnit> _createUnits(
+    List<Unit> units, {
+    required bool isAttacker,
+    required BattleFormation formation,
+    required int garrisonCount,
+  }) {
+    final combatUnits = <CombatUnit>[];
+    final garrisonStartIndex = units.length - garrisonCount;
+
+    // Sort units by category for formation positioning
+    final infantry = <int>[];
+    final ranged = <int>[];
+    final cavalry = <int>[];
+
+    for (int i = 0; i < units.length; i++) {
+      switch (units[i].unitType.category) {
+        case 'Infantry':
+          infantry.add(i);
+        case 'Ranged':
+          ranged.add(i);
+        case 'Cavalry':
+          cavalry.add(i);
+      }
+    }
+
+    // Position units based on formation
+    final positions = _getFormationPositions(
+      formation: formation,
+      isAttacker: isAttacker,
+      infantryCount: infantry.length,
+      rangedCount: ranged.length,
+      cavalryCount: cavalry.length,
+    );
+
+    int posIndex = 0;
+
+    // Place infantry
+    for (final i in infantry) {
+      combatUnits.add(CombatUnit(
+        id: '${isAttacker ? "atk" : "def"}_$i',
+        unit: units[i],
+        isAttacker: isAttacker,
+        isGarrison: i >= garrisonStartIndex,
+        position: positions[posIndex++],
+      ));
+    }
+
+    // Place ranged
+    for (final i in ranged) {
+      combatUnits.add(CombatUnit(
+        id: '${isAttacker ? "atk" : "def"}_$i',
+        unit: units[i],
+        isAttacker: isAttacker,
+        isGarrison: i >= garrisonStartIndex,
+        position: positions[posIndex++],
+      ));
+    }
+
+    // Place cavalry
+    for (final i in cavalry) {
+      combatUnits.add(CombatUnit(
+        id: '${isAttacker ? "atk" : "def"}_$i',
+        unit: units[i],
+        isAttacker: isAttacker,
+        isGarrison: i >= garrisonStartIndex,
+        position: positions[posIndex++],
+      ));
+    }
+
+    return combatUnits;
+  }
+
+  /// Get formation positions for units.
+  /// Returns positions in order: [infantry positions], [ranged positions], [cavalry positions]
+  /// to match the order in _createUnits.
+  List<BattlePosition> _getFormationPositions({
+    required BattleFormation formation,
+    required bool isAttacker,
+    required int infantryCount,
+    required int rangedCount,
+    required int cavalryCount,
+  }) {
+    final infantryPositions = <BattlePosition>[];
+    final rangedPositions = <BattlePosition>[];
+    final cavalryPositions = <BattlePosition>[];
+
+    final totalCount = infantryCount + rangedCount + cavalryCount;
+    if (totalCount == 0) return [];
+
+    // Spawn positions - attackers at bottom, defenders at top
+    final baseY = isAttacker ? 15.0 : 45.0;
+    final direction = isAttacker ? 1.0 : -1.0;
+
+    switch (formation) {
+      case BattleFormation.shieldWall:
+        // Infantry in front line, ranged behind, cavalry on flanks
+        for (int i = 0; i < infantryCount; i++) {
+          final x = 50.0 + (i - infantryCount / 2) * 3;
+          infantryPositions.add(BattlePosition(x.clamp(10, 90), baseY));
+        }
+        for (int i = 0; i < rangedCount; i++) {
+          final x = 50.0 + (i - rangedCount / 2) * 4;
+          rangedPositions.add(BattlePosition(x.clamp(10, 90), baseY - direction * 8));
+        }
+        for (int i = 0; i < cavalryCount; i++) {
+          final side = i % 2 == 0 ? -1 : 1;
+          final offset = (i ~/ 2) * 3;
+          final x = 50.0 + side * (35 + offset);
+          cavalryPositions.add(BattlePosition(x.clamp(5, 95), baseY + direction * 3));
+        }
+
+      case BattleFormation.crescent:
+        // Cavalry in front on wings, infantry in middle, ranged at back
+        for (int i = 0; i < infantryCount; i++) {
+          final x = 50.0 + (i - infantryCount / 2) * 3;
+          infantryPositions.add(BattlePosition(x.clamp(20, 80), baseY));
+        }
+        for (int i = 0; i < rangedCount; i++) {
+          final x = 50.0 + (i - rangedCount / 2) * 4;
+          rangedPositions.add(BattlePosition(x.clamp(20, 80), baseY - direction * 10));
+        }
+        final lightCav = cavalryCount ~/ 2;
+        for (int i = 0; i < lightCav; i++) {
+          final x = 15.0 + i * 4;
+          cavalryPositions.add(BattlePosition(x, baseY + direction * 10));
+        }
+        for (int i = lightCav; i < cavalryCount; i++) {
+          final x = 85.0 - (i - lightCav) * 4;
+          cavalryPositions.add(BattlePosition(x, baseY + direction * 10));
+        }
+
+      case BattleFormation.skirmish:
+        // Ranged in front, infantry scattered middle, cavalry at back
+        for (int i = 0; i < infantryCount; i++) {
+          final x = 25.0 + (i * 50.0 / max(1, infantryCount - 1));
+          infantryPositions.add(BattlePosition(x.clamp(15, 85), baseY - direction * 3));
+        }
+        for (int i = 0; i < rangedCount; i++) {
+          final x = 20.0 + (i * 60.0 / max(1, rangedCount - 1));
+          rangedPositions.add(BattlePosition(x.clamp(10, 90), baseY + direction * 5));
+        }
+        for (int i = 0; i < cavalryCount; i++) {
+          final x = 30.0 + (i * 40.0 / max(1, cavalryCount - 1));
+          cavalryPositions.add(BattlePosition(x.clamp(20, 80), baseY - direction * 10));
+        }
+    }
+
+    // Return in order: infantry, ranged, cavalry (matching _createUnits order)
+    return [...infantryPositions, ...rangedPositions, ...cavalryPositions];
+  }
+
+  /// Apply formation-specific modifiers to units.
+  /// Uses additive defense bonuses for predictable stacking.
+  void _applyFormationModifiers(List<CombatUnit> units, BattleFormation formation) {
+    final mods = formation.modifiers;
+
+    for (final unit in units) {
+      // Speed modifier applies to all (multiplicative is fine for speed)
+      unit.speedModifier *= mods.speedMultiplier;
+
+      // Category-specific modifiers - defense is additive
+      if (unit.isInfantry) {
+        unit.defenseModifier += mods.infantryDefenseBonus;
+      } else if (unit.isRanged) {
+        unit.defenseModifier += mods.rangedDefenseBonus;
+        unit.rangeModifier += mods.rangedRangeBonus;
+      } else if (unit.isCavalry) {
+        unit.chargeModifier *= mods.cavalryChargeMultiplier;
+      }
+
+      // Melee attack modifier (multiplicative)
+      unit.attackModifier *= mods.meleeAttackMultiplier;
+    }
+  }
+
+  /// Apply defender bonuses (base + fortress).
+  /// Uses additive stacking for predictable bonuses.
+  void _applyDefenderBonuses(List<CombatUnit> units, int fortressLevel) {
+    final fortressDefense = _fortressDefenseBonus(fortressLevel);
+    final fortressRange = _fortressRangeBonus(fortressLevel);
+
+    // Total defender bonus is additive: base + fortress
+    final totalDefenseBonus = baseDefenderBonus + fortressDefense;
+
+    for (final unit in units) {
+      // Apply total defense bonus additively
+      unit.defenseModifier += totalDefenseBonus;
+
+      // Fortress range bonus for ranged units
+      if (unit.isRanged) {
+        unit.rangeModifier += fortressRange;
+      }
+    }
+  }
+
+  /// Process a single unit's tick.
   void _processUnitTick({
     required CombatUnit unit,
     required List<CombatUnit> enemies,
@@ -382,9 +577,9 @@ class CombatEngine {
     required List<CombatEvent> events,
     required double currentTime,
     required double formationMod,
-    required double fortressDmgReduction,
-    required double fortressCavPenalty,
-    required double morale,
+    required double enemyChargeMod,
+    required double cavalryPenalty,
+    required bool isAttacker,
   }) {
     // Reduce cooldown
     unit.attackCooldown = max(0, unit.attackCooldown - tickRate);
@@ -392,55 +587,61 @@ class CombatEngine {
     // Can't attack if on cooldown
     if (unit.attackCooldown > 0) return;
 
-    // Find target
+    // Find target based on priority
     final target = _findTarget(unit, enemies);
     if (target == null) return;
 
     // Check range
-    final distance = (unit.position - target.position).abs();
+    final distance = unit.position.distanceTo(target.position);
     if (distance > unit.attackRange) return;
 
     // Execute attack
     unit.attackCooldown = unit.attackInterval;
 
-    // Calculate damage
-    double damage = unit.baseDamage.toDouble();
+    // Determine if this is ranged or melee attack
+    final isRangedAttack = unit.isRanged && unit.hasAmmo && distance > 1.5;
 
-    // Apply formation modifier
-    damage *= formationMod;
+    // Calculate damage using Phase 2 formula
+    double damage;
+    if (isRangedAttack) {
+      // Ranged: Missile * (100 / (100 + Defense))
+      damage = unit.effectiveMissile * (100.0 / (100.0 + target.effectiveDefense));
+      unit.ammo--;
 
-    // Apply fortress damage reduction (attackers deal less damage to fortified defenders)
-    damage *= fortressDmgReduction;
-
-    // Cavalry penalty vs fortress
-    if (unit.isCavalry) {
-      damage *= fortressCavPenalty;
-    }
-
-    // Counter bonuses
-    damage *= unit.type.damageMultiplier(target.type);
-
-    // Garrison units are 50% weaker (untrained militia) - was 30%
-    if (unit.isGarrison) {
-      damage *= 0.5;
-    }
-
-    // Morale modifier (low morale = weaker attacks)
-    damage *= (0.5 + morale / 200.0);
-
-    // Accuracy for ranged (chance to miss)
-    if (unit.isRanged) {
+      // Accuracy check
       final accuracy = min(0.90, unit.type.baseAccuracy + unit.unit.bonusAccuracy);
       if (_random.nextDouble() > accuracy) {
-        // Miss - no event needed for every miss
-        return;
+        return; // Miss
       }
+    } else {
+      // Melee: Attack * (100 / (100 + Defense))
+      int attackStat = unit.effectiveAttack;
+
+      // Add charge bonus for cavalry on first contact
+      if (unit.isCavalry && unit.effectiveCharge > 0 && !unit.hasCharged) {
+        attackStat += unit.effectiveCharge;
+        unit.hasCharged = true;
+
+        // Apply enemy formation's charge reduction and fortress penalty
+        final chargeMultiplier = enemyChargeMod * (isAttacker ? cavalryPenalty : 1.0);
+        attackStat = (attackStat * chargeMultiplier).round();
+      }
+
+      damage = attackStat * (100.0 / (100.0 + target.effectiveDefense));
     }
 
-    // Critical hit chance (10%)
-    final isCrit = _random.nextDouble() < 0.10;
-    if (isCrit) {
-      damage *= 1.5;
+    // Apply formation effectiveness modifier
+    damage *= formationMod;
+
+    // Apply type counter multiplier
+    damage *= unit.type.damageMultiplier(target.type);
+
+    // Random variance ±10%
+    damage *= 0.9 + _random.nextDouble() * 0.2;
+
+    // Garrison units are 50% weaker
+    if (unit.isGarrison) {
+      damage *= 0.5;
     }
 
     // Apply damage
@@ -448,14 +649,14 @@ class CombatEngine {
     target.hp -= finalDamage;
 
     // Record attack event (not every single one to avoid spam)
-    if (_random.nextDouble() < 0.3 || isCrit || target.hp <= 0) {
+    if (_random.nextDouble() < 0.3 || target.hp <= 0) {
       events.add(CombatEvent(
         timestamp: currentTime,
-        eventType: CombatEventType.attack,
+        eventType: isRangedAttack ? CombatEventType.rangedAttack : CombatEventType.attack,
         attackerId: unit.id,
         targetId: target.id,
         damage: finalDamage,
-        isCrit: isCrit,
+        position: target.position.copy(),
       ));
     }
 
@@ -468,38 +669,115 @@ class CombatEngine {
         attackerId: unit.id,
         targetId: target.id,
         message: '${unit.type.displayName} kills ${target.type.displayName}!',
+        position: target.position.copy(),
       ));
     }
   }
 
-  /// Find the best target for a unit.
+  /// Find the best target for a unit based on priority.
   CombatUnit? _findTarget(CombatUnit unit, List<CombatUnit> enemies) {
-    final validTargets = enemies.where((e) => e.isAlive && !e.isRouting).toList();
+    final validTargets = enemies.where((e) => e.isAlive).toList();
     if (validTargets.isEmpty) return null;
 
-    // Priority targeting based on unit type
-    if (unit.isCavalry) {
-      // Cavalry prioritize ranged units
-      final ranged = validTargets.where((e) => e.isRanged).toList();
-      if (ranged.isNotEmpty) {
-        return ranged[_random.nextInt(ranged.length)];
-      }
-    } else if (unit.isRanged) {
-      // Archers prioritize infantry (easier targets)
-      final infantry = validTargets.where((e) => e.isInfantry).toList();
-      if (infantry.isNotEmpty) {
-        return infantry[_random.nextInt(infantry.length)];
+    // Sort by priority
+    final priority = unit.type.targetPriority;
+
+    // Find targets by priority category
+    for (final category in priority) {
+      final categoryTargets = validTargets.where((e) => e.category == category).toList();
+      if (categoryTargets.isNotEmpty) {
+        // Return closest in that category
+        categoryTargets.sort((a, b) {
+          final distA = unit.position.distanceTo(a.position);
+          final distB = unit.position.distanceTo(b.position);
+          return distA.compareTo(distB);
+        });
+        return categoryTargets.first;
       }
     }
 
-    // Default: closest target by position
+    // Fallback: closest target
     validTargets.sort((a, b) {
-      final distA = (unit.position - a.position).abs();
-      final distB = (unit.position - b.position).abs();
+      final distA = unit.position.distanceTo(a.position);
+      final distB = unit.position.distanceTo(b.position);
       return distA.compareTo(distB);
     });
 
     return validTargets.first;
+  }
+
+  /// Move units toward their targets.
+  void _moveUnits(List<CombatUnit> units, List<CombatUnit> enemies, double dt) {
+    for (final unit in units) {
+      if (!unit.isAlive) continue;
+
+      final target = _findTarget(unit, enemies);
+      if (target == null) continue;
+
+      final distance = unit.position.distanceTo(target.position);
+
+      // Ranged units try to maintain distance
+      if (unit.isRanged && unit.hasAmmo) {
+        if (distance < 2.0) {
+          // Too close, retreat
+          final dx = unit.position.x - target.position.x;
+          final dy = unit.position.y - target.position.y;
+          final len = sqrt(dx * dx + dy * dy);
+          if (len > 0) {
+            unit.position.x += (dx / len) * unit.moveSpeed * dt;
+            unit.position.y += (dy / len) * unit.moveSpeed * dt;
+          }
+        }
+        // Otherwise stay put and fire
+        continue;
+      }
+
+      // Move toward target if not in range
+      if (distance > unit.attackRange) {
+        final dx = target.position.x - unit.position.x;
+        final dy = target.position.y - unit.position.y;
+        final len = sqrt(dx * dx + dy * dy);
+        if (len > 0) {
+          unit.position.x += (dx / len) * unit.moveSpeed * dt;
+          unit.position.y += (dy / len) * unit.moveSpeed * dt;
+        }
+      }
+
+      // Clamp to battlefield
+      unit.position.x = unit.position.x.clamp(0, Battlefield.width);
+      unit.position.y = unit.position.y.clamp(0, Battlefield.height);
+    }
+  }
+
+  /// Update cavalry charge state (decay in melee, reset when disengaged).
+  void _updateChargeState(List<CombatUnit> units, List<CombatUnit> enemies, double dt) {
+    for (final unit in units) {
+      if (!unit.isCavalry || !unit.isAlive) continue;
+
+      // Check if in melee
+      final inMelee = enemies.any((e) =>
+          e.isAlive && unit.position.distanceTo(e.position) <= 1.5);
+
+      if (inMelee) {
+        unit.timeInMelee += dt;
+        unit.timeOutOfMelee = 0;
+
+        // Charge decays by 1 per second in melee
+        if (unit.timeInMelee >= 1.0 && unit.currentCharge > 0) {
+          unit.currentCharge--;
+          unit.timeInMelee -= 1.0;
+        }
+      } else {
+        unit.timeOutOfMelee += dt;
+        unit.timeInMelee = 0;
+
+        // Charge resets after 3 seconds out of melee
+        if (unit.timeOutOfMelee >= 3.0) {
+          unit.currentCharge = unit.type.baseCharge;
+          unit.hasCharged = false;
+        }
+      }
+    }
   }
 
   /// Create phase summaries from combat events for UI compatibility.
@@ -511,12 +789,12 @@ class CombatEngine {
     final phases = <PhaseResult>[];
 
     // Ranged phase (first third of battle)
-    final rangedEvents = events.where((e) => e.timestamp < 20).toList();
+    final rangedEvents = events.where((e) => e.timestamp < 40).toList();
     final rangedAttackerKills = rangedEvents
-        .where((e) => e.eventType == CombatEventType.kill && (e.attackerId?.startsWith('atk_') ?? false))
+        .where((e) => e.eventType == CombatEventType.kill && (e.attackerId?.startsWith('atk') ?? false))
         .length;
     final rangedDefenderKills = rangedEvents
-        .where((e) => e.eventType == CombatEventType.kill && (e.attackerId?.startsWith('def_') ?? false))
+        .where((e) => e.eventType == CombatEventType.kill && (e.attackerId?.startsWith('def') ?? false))
         .length;
 
     phases.add(PhaseResult(
@@ -535,12 +813,12 @@ class CombatEngine {
     ));
 
     // Cavalry phase (middle)
-    final cavalryEvents = events.where((e) => e.timestamp >= 20 && e.timestamp < 40).toList();
+    final cavalryEvents = events.where((e) => e.timestamp >= 40 && e.timestamp < 80).toList();
     final cavAttackerKills = cavalryEvents
-        .where((e) => e.eventType == CombatEventType.kill && (e.attackerId?.startsWith('atk_') ?? false))
+        .where((e) => e.eventType == CombatEventType.kill && (e.attackerId?.startsWith('atk') ?? false))
         .length;
     final cavDefenderKills = cavalryEvents
-        .where((e) => e.eventType == CombatEventType.kill && (e.attackerId?.startsWith('def_') ?? false))
+        .where((e) => e.eventType == CombatEventType.kill && (e.attackerId?.startsWith('def') ?? false))
         .length;
 
     phases.add(PhaseResult(
@@ -559,12 +837,12 @@ class CombatEngine {
     ));
 
     // Melee phase (final)
-    final meleeEvents = events.where((e) => e.timestamp >= 40).toList();
+    final meleeEvents = events.where((e) => e.timestamp >= 80).toList();
     final meleeAttackerKills = meleeEvents
-        .where((e) => e.eventType == CombatEventType.kill && (e.attackerId?.startsWith('atk_') ?? false))
+        .where((e) => e.eventType == CombatEventType.kill && (e.attackerId?.startsWith('atk') ?? false))
         .length;
     final meleeDefenderKills = meleeEvents
-        .where((e) => e.eventType == CombatEventType.kill && (e.attackerId?.startsWith('def_') ?? false))
+        .where((e) => e.eventType == CombatEventType.kill && (e.attackerId?.startsWith('def') ?? false))
         .length;
 
     phases.add(PhaseResult(

@@ -18,6 +18,7 @@ class SideInfoPanel extends StatelessWidget {
   final void Function(Building)? onBuild;
   final void Function(Building)? onUpgrade;
   final void Function(UnitType)? onRecruit;
+  final void Function(Army)? onSelectArmy;
 
   const SideInfoPanel({
     super.key,
@@ -28,6 +29,7 @@ class SideInfoPanel extends StatelessWidget {
     this.onBuild,
     this.onUpgrade,
     this.onRecruit,
+    this.onSelectArmy,
   });
 
   @override
@@ -76,6 +78,7 @@ class SideInfoPanel extends StatelessWidget {
                     onBuild: onBuild,
                     onUpgrade: onUpgrade,
                     onRecruit: onRecruit,
+                    onSelectArmy: onSelectArmy,
                   )
                 : selectedArmy != null
                     ? _ArmyInfoSection(army: selectedArmy!)
@@ -117,12 +120,14 @@ class _VillageInfoSection extends StatelessWidget {
   final void Function(Building)? onBuild;
   final void Function(Building)? onUpgrade;
   final void Function(UnitType)? onRecruit;
+  final void Function(Army)? onSelectArmy;
 
   const _VillageInfoSection({
     required this.village,
     this.onBuild,
     this.onUpgrade,
     this.onRecruit,
+    this.onSelectArmy,
   });
 
   bool get isPlayerVillage => village.owner == 'player';
@@ -256,6 +261,38 @@ class _VillageInfoSection extends StatelessWidget {
                 Text('VILLAGE RESOURCES', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.5))),
                 const SizedBox(height: 8),
                 _ResourcesRow(resources: village.resources),
+
+                // COMMAND CENTER (Army Management)
+                if (onSelectArmy != null) ...[
+                  const SizedBox(height: 20),
+                  Text('COMMAND CENTER', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.5))),
+                  const SizedBox(height: 8),
+                  Builder(
+                    builder: (context) {
+                      final stationedArmies = armies.where((a) => a.owner == 'player' && !a.isMarching).toList();
+                      if (stationedArmies.isEmpty) {
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'No troops stationed here.\nRecruit units to build an army.',
+                            style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.4)),
+                            textAlign: TextAlign.center,
+                          ),
+                        );
+                      }
+                      return Column(
+                        children: stationedArmies.map((army) => _ArmyCard(
+                          army: army,
+                          onMarch: () => onSelectArmy!(army),
+                        )).toList(),
+                      );
+                    },
+                  ),
+                ],
               ] else ...[
                 // Enemy village info
                 const SizedBox(height: 20),
@@ -665,6 +702,64 @@ class _EmptySection extends StatelessWidget {
           Icon(Icons.touch_app, size: 48, color: Colors.white.withOpacity(0.2)),
           const SizedBox(height: 16),
           Text('Select a village or army', style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.4))),
+        ],
+      ),
+    );
+  }
+}
+
+class _ArmyCard extends StatelessWidget {
+  final Army army;
+  final VoidCallback onMarch;
+
+  const _ArmyCard({required this.army, required this.onMarch});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.2),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.blueAccent),
+            ),
+            child: Center(child: Text(army.emoji, style: const TextStyle(fontSize: 18))),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(army.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                Text('${army.unitCount} Units • ${army.strength} Power', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
+              ],
+            ),
+          ),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: onMarch,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.blue[800],
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text('March', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ),
         ],
       ),
     );

@@ -247,51 +247,53 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
   }
 
   Widget _buildFormationSelection() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Text(
-          'CHOOSE YOUR FORMATION',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2,
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text(
+            'CHOOSE YOUR FORMATION',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2,
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Select how your army will engage',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
-        ),
-        const SizedBox(height: 32),
-        ...BattleFormation.values.map((formation) => _buildFormationCard(formation)),
-        const SizedBox(height: 24),
-        // Rock-paper-scissors hint
-        Container(
-          padding: const EdgeInsets.all(16),
-          margin: const EdgeInsets.symmetric(horizontal: 24),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          const SizedBox(height: 8),
+          Text(
+            'Select how your army will engage',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
           ),
-          child: const Column(
-            children: [
-              Text(
-                '🐴 > 🏹 > 🛡️ > 🐴',
-                style: TextStyle(fontSize: 24),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Crescent beats Guerilla\nGuerilla beats Roman\nRoman beats Crescent',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-            ],
+          const SizedBox(height: 32),
+          ...BattleFormation.values.map((formation) => _buildFormationCard(formation)),
+          const SizedBox(height: 24),
+          // Rock-paper-scissors hint
+          Container(
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            ),
+            child: const Column(
+              children: [
+                Text(
+                  '🐴 > 🏹 > 🛡️ > 🐴',
+                  style: TextStyle(fontSize: 24),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Crescent beats Guerilla\nGuerilla beats Roman\nRoman beats Crescent',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
