@@ -88,6 +88,7 @@ class BattleSimulation {
   BattlePhase phase = BattlePhase.formationSelect;
   double phaseTimer = 0;
   double totalTime = 0;
+  double combatTime = 0; // Only counts during combat phase
   bool isAutoPlay = true;
   TerrainType terrain = TerrainType.plains;
   double attackerMorale = 1.0;
@@ -437,6 +438,7 @@ class BattleSimulation {
         break;
 
       case BattlePhase.combat:
+        combatTime += dt; // Only count combat time here
         _processContinuousCombat(dt);
         _checkBattleEnd();
         break;
@@ -454,11 +456,11 @@ class BattleSimulation {
       _nextArrowTime = totalTime + 0.3 + _random.nextDouble() * 0.4; // Every 0.3-0.7s
     }
 
-    // Apply casualties continuously based on time
+    // Apply casualties continuously based on combat time (not total time)
     // Pace kills over ~8-15 seconds of combat
     final battleDuration = 12.0;
-    final expectedAttackerKillsNow = (_totalAttackerKills * min(1.0, totalTime / battleDuration)).floor();
-    final expectedDefenderKillsNow = (_totalDefenderKills * min(1.0, totalTime / battleDuration)).floor();
+    final expectedAttackerKillsNow = (_totalAttackerKills * min(1.0, combatTime / battleDuration)).floor();
+    final expectedDefenderKillsNow = (_totalDefenderKills * min(1.0, combatTime / battleDuration)).floor();
 
     // Apply attacker kills (kill defenders)
     while (_attackerKillsApplied < expectedAttackerKillsNow) {
@@ -550,7 +552,7 @@ class BattleSimulation {
     final allKillsApplied = _attackerKillsApplied >= _totalAttackerKills && _defenderKillsApplied >= _totalDefenderKills;
     final oneEliminated = attackersLeft <= 0 || defendersLeft <= 0;
 
-    if (allKillsApplied || oneEliminated || totalTime > 20) {
+    if (allKillsApplied || oneEliminated || combatTime > 20) {
       // Use record's predetermined outcome
       if (record.attackerWon) {
         for (final c in defenderCircles.where((c) => c.isAlive && !c.isDying)) {
