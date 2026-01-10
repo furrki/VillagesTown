@@ -130,10 +130,10 @@ class TurnEngine {
   void _processSiegeCombat() {
     final game = GameManager.shared;
 
-    // Find armies stationed at enemy villages
-    final siegeArmies = <(Army, Village)>[];
+    // Find besieging armies and advance their siege timers
+    final assaultReady = <(Army, Village)>[];
     for (final army in game.armies) {
-      if (army.isMarching) continue;
+      if (army.state != ArmyState.besieging) continue;
       final villageId = army.stationedAt;
       if (villageId == null) continue;
 
@@ -143,14 +143,24 @@ class TurnEngine {
       );
       if (village == null) continue;
 
-      // Army at enemy village - should attack
-      if (army.owner != village.owner) {
-        siegeArmies.add((army, village));
+      // Advance siege and check if ready to assault
+      if (army.advanceSiege()) {
+        assaultReady.add((army, village));
+      } else {
+        // Siege just started - notify player
+        game.addTurnEvent(SiegeStartedEvent(
+          armyName: army.name,
+          villageName: village.name,
+        ));
       }
     }
 
-    // Resolve siege combat
-    for (final (army, village) in siegeArmies) {
+    // Resolve siege assaults (after 1 turn of preparation)
+    for (final (army, village) in assaultReady) {
+      game.addTurnEvent(SiegeAssaultEvent(
+        armyName: army.name,
+        villageName: village.name,
+      ));
       _resolveCombat(army, village);
     }
   }
@@ -242,17 +252,17 @@ class TurnEngine {
 
   void _processArmyMovement() {
     final game = GameManager.shared;
-    final arrivedArmies = <(Army, Village, String?)>[]; // Added origin
+    final arrivedArmies = <(Army, Village, String?)>[]; // (army, destination, origin)
 
     // Advance all marching armies
     for (var i = 0; i < game.armies.length; i++) {
       if (game.armies[i].isMarching) {
-        // Save origin BEFORE advancing (advanceMarch clears it)
+        // Save destination and origin BEFORE advancing
+        final destId = game.armies[i].destination;
         final originBeforeAdvance = game.armies[i].origin;
-        game.armies[i].advanceMarch();
 
-        if (!game.armies[i].isMarching) {
-          final destId = game.armies[i].stationedAt;
+        // advanceMarch returns true if army just arrived
+        if (game.armies[i].advanceMarch()) {
           if (destId != null) {
             final destination = game.map.villages.cast<Village?>().firstWhere(
                   (v) => v!.id == destId,
@@ -266,11 +276,19 @@ class TurnEngine {
       }
     }
 
-    // Process arrivals
-    for (final (army, destination, origin) in arrivedArmies) {
+    // Process arrivals - now with siege preparation
+    for (final (army, destination, _) in arrivedArmies) {
       if (army.owner != destination.owner) {
-        _resolveCombat(army, destination, savedOrigin: origin);
+        // Enemy village - begin siege (combat next turn)
+        army.beginSiege();
+        destination.underSiege = true;
+        game.addTurnEvent(ArmyArrivedAtEnemyEvent(
+          armyName: army.name,
+          villageName: destination.name,
+        ));
       } else {
+        // Friendly village - arrive normally
+        army.arriveAtFriendly();
         game.mergeArmiesAt(destination.id, army.owner);
         game.addTurnEvent(ArmyArrivedEvent(armyName: army.name, destination: destination.name));
       }

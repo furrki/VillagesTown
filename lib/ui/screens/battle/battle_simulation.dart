@@ -134,6 +134,12 @@ class BattleSimulation {
   }
 
   BattleFormation _pickAIFormation() {
+    // 30% chance to pick random formation (less predictable)
+    if (_random.nextDouble() < 0.30) {
+      return BattleFormation.values[_random.nextInt(BattleFormation.values.length)];
+    }
+
+    // 70% chance to pick based on army composition
     final units = isPlayerAttacker ? defenderUnits : attackerUnits;
     int ranged = 0, cavalry = 0, infantry = 0;
     for (final u in units) {

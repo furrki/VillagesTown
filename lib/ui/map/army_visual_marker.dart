@@ -7,6 +7,7 @@ class ArmyVisualMarker extends StatelessWidget {
   final Nationality nationality;
   final bool isSelected;
   final bool isMarching;
+  final bool isBesieging;
 
   const ArmyVisualMarker({
     super.key,
@@ -14,6 +15,7 @@ class ArmyVisualMarker extends StatelessWidget {
     required this.nationality,
     required this.isSelected,
     this.isMarching = false,
+    this.isBesieging = false,
   });
 
   @override
@@ -106,6 +108,33 @@ class ArmyVisualMarker extends StatelessWidget {
                     fontSize: 9,
                     fontWeight: FontWeight.w900,
                   ),
+                ),
+              ),
+            ),
+
+          // Siege indicator
+          if (isBesieging)
+            Positioned(
+              top: -8,
+              right: -8,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.orange,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.orange.withValues(alpha: 0.6),
+                      blurRadius: 6,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.shield,
+                  size: 12,
+                  color: Colors.white,
                 ),
               ),
             ),

@@ -16,6 +16,7 @@ import '../data/models/unit_type.dart';
 import '../data/models/village.dart';
 import '../data/models/building.dart';
 import '../data/models/combat_log.dart';
+import 'combat_engine.dart';
 import 'turn_engine.dart';
 
 class GameManager extends ChangeNotifier {
@@ -490,7 +491,27 @@ class GameManager extends ChangeNotifier {
   }
 
   List<Army> getStationedArmiesFor(String playerId) {
-    return armies.where((a) => a.owner == playerId && !a.isMarching).toList();
+    return armies.where((a) => a.owner == playerId && a.state == ArmyState.stationed).toList();
+  }
+
+  /// Get all armies currently besieging a village
+  List<Army> getBesiegingArmiesAt(String villageId) {
+    return armies.where((a) => a.stationedAt == villageId && a.state == ArmyState.besieging).toList();
+  }
+
+  /// Get villages under siege by a specific player
+  List<Village> getSiegedVillagesFor(String playerId) {
+    return map.villages.where((v) {
+      final besiegers = getBesiegingArmiesAt(v.id);
+      return besiegers.any((a) => a.owner == playerId);
+    }).toList();
+  }
+
+  /// Get villages owned by player that are under siege
+  List<Village> getVillagesUnderSiegeFor(String playerId) {
+    return map.villages.where((v) {
+      return v.owner == playerId && getBesiegingArmiesAt(v.id).isNotEmpty;
+    }).toList();
   }
 
   Army createArmy(List<Unit> units, String villageId, String owner) {
@@ -535,6 +556,122 @@ class GameManager extends ChangeNotifier {
     createArmy(allUnits, villageId, owner);
   }
 
+  /// Defender sallies out to fight besiegers in the field (no fortress bonus)
+  /// Returns the battle record if sally was successful
+  BattleRecord? sallyOut(String villageId) {
+    final village = map.villages.cast<Village?>().firstWhere(
+      (v) => v!.id == villageId,
+      orElse: () => null,
+    );
+    if (village == null) return null;
+
+    final besiegers = getBesiegingArmiesAt(villageId);
+    if (besiegers.isEmpty) return null;
+
+    // Get all defenders (garrison + stationed armies)
+    final defenderArmies = getArmiesAt(villageId)
+        .where((a) => a.owner == village.owner && a.state == ArmyState.stationed)
+        .toList();
+    final defenderUnits = defenderArmies.expand((a) => a.units).toList();
+    final garrisonUnits = List.generate(
+      village.garrisonStrength,
+      (_) => Unit.create(UnitType.militia, village.owner, village.coordinates),
+    );
+    final allDefenders = [...defenderUnits, ...garrisonUnits];
+
+    if (allDefenders.isEmpty) return null;
+
+    // Combine all besieging armies
+    final attackerUnits = besiegers.expand((a) => a.units).toList();
+    if (attackerUnits.isEmpty) return null;
+
+    // Create a field battle (NO fortress bonus - sallyOut negates it)
+    final combatEngine = CombatEngine();
+    final result = combatEngine.resolveCombat(
+      attackerName: besiegers.first.name,
+      defenderName: getVillageDisplayName(village),
+      attackerId: besiegers.first.id,
+      defenderId: villageId,
+      attackerOwnerId: besiegers.first.owner,
+      defenderOwnerId: village.owner,
+      originVillageId: besiegers.first.origin,
+      attackers: attackerUnits,
+      defenders: allDefenders,
+      map: map,
+      defendingVillage: village,
+      garrisonCount: village.garrisonStrength,
+      defenderFortressLevel: 0, // NO fortress bonus for sally out!
+    );
+
+    if (result.rounds.isNotEmpty) {
+      pendingBattles.add(result);
+      village.underSiege = false; // Battle resolving the siege
+
+      // Reset besiegers to stationed state (battle will determine outcome)
+      for (final army in besiegers) {
+        army.state = ArmyState.stationed;
+        army.siegeTurns = 0;
+      }
+
+      addTurnEvent(GeneralEvent(text: '${village.name} garrison sallied out!'));
+      notifyListeners();
+      return result;
+    }
+    return null;
+  }
+
+  /// Send army to intercept a marching enemy army
+  /// Returns true if interception was set up successfully
+  bool interceptArmy(String interceptorId, String targetArmyId) {
+    final interceptor = armies.cast<Army?>().firstWhere(
+      (a) => a!.id == interceptorId,
+      orElse: () => null,
+    );
+    if (interceptor == null) return false;
+
+    // Interceptor must be stationed
+    if (interceptor.state != ArmyState.stationed) return false;
+    if (interceptor.stationedAt == null) return false;
+
+    final target = armies.cast<Army?>().firstWhere(
+      (a) => a!.id == targetArmyId,
+      orElse: () => null,
+    );
+    if (target == null) return false;
+
+    // Target must be marching and enemy
+    if (!target.isMarching) return false;
+    if (target.owner == interceptor.owner) return false;
+
+    // Check if interceptor can reach target's path
+    // Interceptor must be adjacent to target's destination
+    final targetDest = target.destination;
+    if (targetDest == null) return false;
+    if (!areNeighbors(interceptor.stationedAt!, targetDest)) return false;
+
+    // Send interceptor to target's destination - they'll meet there
+    final destination = map.villages.cast<Village?>().firstWhere(
+      (v) => v!.id == targetDest,
+      orElse: () => null,
+    );
+    if (destination == null) return false;
+
+    final originVillage = map.villages.cast<Village?>().firstWhere(
+      (v) => v!.id == interceptor.stationedAt,
+      orElse: () => null,
+    );
+    if (originVillage == null) return false;
+
+    // Calculate turns to intercept (try to arrive same time or earlier)
+    final turns = Army.calculateTravelTime(originVillage.coordinates, destination.coordinates);
+    interceptor.marchTo(targetDest, min(turns, target.turnsUntilArrival), interceptor.stationedAt);
+    updateArmy(interceptor);
+
+    addTurnEvent(GeneralEvent(text: '${interceptor.name} moving to intercept ${target.name}'));
+    notifyListeners();
+    return true;
+  }
+
   /// Check if two villages are neighbors (using pre-computed K-nearest graph)
   bool areNeighbors(String villageId1, String villageId2) {
     return cityConnections[villageId1]?.contains(villageId2) ?? false;
@@ -571,42 +708,37 @@ class GameManager extends ChangeNotifier {
 
     final army = armies[armyIndex];
 
-    // If attacking non-friendly village (enemy OR neutral), trigger combat immediately
+    // Check for undefended village - instant capture
     if (destination.owner != army.owner) {
-      // Check if there's anything to fight (garrison or defending armies)
       final defendingArmies = getArmiesAt(destination.id).where((a) => a.owner == destination.owner).toList();
       final hasDefenders = destination.garrisonStrength > 0 || defendingArmies.isNotEmpty;
 
-      if (hasDefenders) {
-        // Move army to destination for combat
-        army.stationedAt = destinationVillageId;
-        army.destination = null;
-        army.turnsUntilArrival = 0;
-        army.origin = origin; // Preserve origin for retreat
-        updateArmy(army);
-
-        // Trigger combat via TurnEngine
-        turnEngine.triggerImmediateCombat(army, destination, origin);
-        notifyListeners();
-        return true;
-      } else {
-        // No defenders - instant capture
+      if (!hasDefenders) {
+        // No defenders - instant capture (no siege needed)
         _captureUndefendedVillage(army, destination, origin);
         notifyListeners();
         return true;
       }
     }
 
-    // Normal march for friendly destinations
+    // March to destination (friendly or enemy - siege mechanics handled by turn engine)
     final turns = Army.calculateTravelTime(originVillage.coordinates, destination.coordinates);
     army.marchTo(destinationVillageId, turns, origin);
     updateArmy(army);
 
-    addTurnEvent(ArmySentEvent(
-      armyName: army.name,
-      destination: destination.name,
-      turns: turns,
-    ));
+    if (destination.owner != army.owner) {
+      addTurnEvent(ArmySentEvent(
+        armyName: army.name,
+        destination: '${destination.name} (siege)',
+        turns: turns,
+      ));
+    } else {
+      addTurnEvent(ArmySentEvent(
+        armyName: army.name,
+        destination: destination.name,
+        turns: turns,
+      ));
+    }
 
     notifyListeners();
     return true;
@@ -618,10 +750,7 @@ class GameManager extends ChangeNotifier {
     village.garrisonStrength = 3;
     updateVillage(village);
 
-    army.stationedAt = village.id;
-    army.destination = null;
-    army.turnsUntilArrival = 0;
-    army.origin = null;
+    army.station(village.id); // Use station() to properly set state
     updateArmy(army);
 
     if (army.owner == 'player') {

@@ -55,6 +55,54 @@ class ArmyArrivedEvent extends TurnEvent {
   bool get isImportant => false;
 }
 
+class ArmyArrivedAtEnemyEvent extends TurnEvent {
+  final String armyName;
+  final String villageName;
+
+  ArmyArrivedAtEnemyEvent({required this.armyName, required this.villageName});
+
+  @override
+  String get emoji => '🏰';
+
+  @override
+  String get message => '$armyName arrived at $villageName - preparing siege!';
+
+  @override
+  bool get isImportant => true;
+}
+
+class SiegeStartedEvent extends TurnEvent {
+  final String armyName;
+  final String villageName;
+
+  SiegeStartedEvent({required this.armyName, required this.villageName});
+
+  @override
+  String get emoji => '🏰';
+
+  @override
+  String get message => '$armyName besieging $villageName';
+
+  @override
+  bool get isImportant => true;
+}
+
+class SiegeAssaultEvent extends TurnEvent {
+  final String armyName;
+  final String villageName;
+
+  SiegeAssaultEvent({required this.armyName, required this.villageName});
+
+  @override
+  String get emoji => '⚔️';
+
+  @override
+  String get message => '$armyName assaulting $villageName!';
+
+  @override
+  bool get isImportant => true;
+}
+
 class ArmyInterceptedEvent extends TurnEvent {
   final String army1Name;
   final String army2Name;

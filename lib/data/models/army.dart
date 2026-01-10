@@ -4,6 +4,8 @@ import 'geo_coordinate.dart';
 import 'unit.dart';
 import 'unit_type.dart';
 
+enum ArmyState { stationed, marching, besieging }
+
 class Army {
   final String id;
   String name;
@@ -13,6 +15,8 @@ class Army {
   String? destination;
   int turnsUntilArrival;
   String? origin;
+  ArmyState state;
+  int siegeTurns;
 
   Army({
     String? id,
@@ -23,9 +27,12 @@ class Army {
     this.destination,
     this.turnsUntilArrival = 0,
     this.origin,
+    this.state = ArmyState.stationed,
+    this.siegeTurns = 0,
   }) : id = id ?? const Uuid().v4();
 
-  bool get isMarching => destination != null && turnsUntilArrival > 0;
+  bool get isMarching => state == ArmyState.marching;
+  bool get isBesieging => state == ArmyState.besieging;
 
   int get totalAttack => units.fold(0, (sum, u) => sum + u.attack);
   int get totalDefense => units.fold(0, (sum, u) => sum + u.defense);
@@ -53,6 +60,8 @@ class Army {
     String? destination,
     int? turnsUntilArrival,
     String? origin,
+    ArmyState? state,
+    int? siegeTurns,
   }) {
     return Army(
       id: id ?? this.id,
@@ -63,6 +72,8 @@ class Army {
       destination: destination ?? this.destination,
       turnsUntilArrival: turnsUntilArrival ?? this.turnsUntilArrival,
       origin: origin ?? this.origin,
+      state: state ?? this.state,
+      siegeTurns: siegeTurns ?? this.siegeTurns,
     );
   }
 
@@ -79,17 +90,43 @@ class Army {
     stationedAt = null;
     destination = villageId;
     turnsUntilArrival = turns;
+    state = ArmyState.marching;
+    siegeTurns = 0;
   }
 
-  void advanceMarch() {
+  /// Decrements march counter. Returns true if army just arrived at destination.
+  bool advanceMarch() {
     if (turnsUntilArrival > 0) {
       turnsUntilArrival--;
     }
-    if (turnsUntilArrival == 0 && destination != null) {
-      stationedAt = destination;
-      destination = null;
-      origin = null;
+    return turnsUntilArrival == 0 && destination != null;
+  }
+
+  /// Called when army arrives at a friendly village.
+  void arriveAtFriendly() {
+    stationedAt = destination;
+    destination = null;
+    origin = null;
+    state = ArmyState.stationed;
+    siegeTurns = 0;
+  }
+
+  /// Called when army arrives at an enemy village to begin siege.
+  void beginSiege() {
+    stationedAt = destination; // stationed "at" but besieging
+    destination = null;
+    origin = null;
+    state = ArmyState.besieging;
+    siegeTurns = 0;
+  }
+
+  /// Advances siege by one turn. Returns true if siege is ready to assault.
+  bool advanceSiege() {
+    if (state == ArmyState.besieging) {
+      siegeTurns++;
+      return siegeTurns >= 1; // Ready to assault after 1 turn
     }
+    return false;
   }
 
   void station(String villageId) {
@@ -97,6 +134,8 @@ class Army {
     destination = null;
     turnsUntilArrival = 0;
     origin = null;
+    state = ArmyState.stationed;
+    siegeTurns = 0;
   }
 
   static int calculateTravelTime(GeoCoordinate from, GeoCoordinate to) {

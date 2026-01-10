@@ -413,11 +413,11 @@ Loose, spread formation. Mobile harassment, avoid direct engagement.
 
 | Formation | Beats | Loses To | Ideal Army |
 |-----------|-------|----------|------------|
-| **Shield Wall** | Crescent (+30% effectiveness) | Skirmish (-30%) | Infantry-heavy with ranged support |
-| **Crescent** | Skirmish (+30% effectiveness) | Shield Wall (-30%) | Cavalry-dominant |
-| **Skirmish** | Shield Wall (+30% effectiveness) | Crescent (-30%) | Ranged-heavy, mobile |
+| **Shield Wall** | Crescent (+20% effectiveness) | Skirmish (-20%) | Infantry-heavy with ranged support |
+| **Crescent** | Skirmish (+20% effectiveness) | Shield Wall (-20%) | Cavalry-dominant |
+| **Skirmish** | Shield Wall (+20% effectiveness) | Crescent (-20%) | Ranged-heavy, mobile |
 
-The +30%/-30% represents overall combat effectiveness modifier applied to damage calculations.
+The +20%/-20% represents overall combat effectiveness modifier applied to damage calculations.
 
 ### Formation Modifiers (Detailed)
 
@@ -429,7 +429,7 @@ The +30%/-30% represents overall combat effectiveness modifier applied to damage
 
 **Crescent:**
 - Cavalry gets +40% Charge bonus (momentum from flanks)
-- +25% damage on successful encirclement
+- +25% damage on successful encirclement *(not yet implemented)*
 - Infantry and Ranged get -20% Defense (exposed, formation gaps)
 
 **Skirmish:**

@@ -328,7 +328,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
                 ),
                 SizedBox(height: 4),
                 Text(
-                  '+30% damage bonus against countered formation',
+                  '+20% damage bonus against countered formation',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white38, fontSize: 11),
                 ),

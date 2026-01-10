@@ -242,6 +242,7 @@ class _MapViewState extends State<MapView> {
   List<Marker> _buildMarchingArmyMarkers(List<Army> armies, GameManager game) {
     final markers = <Marker>[];
 
+    // Marching armies
     for (final army in armies.where((a) => a.isMarching)) {
       final origin = game.map.villages.cast<Village?>().firstWhere(
         (v) => v!.id == army.origin,
@@ -280,6 +281,38 @@ class _MapViewState extends State<MapView> {
         ),
       ));
     }
+
+    // Besieging armies - show near the village they're besieging
+    for (final army in armies.where((a) => a.isBesieging)) {
+      final village = game.map.villages.cast<Village?>().firstWhere(
+        (v) => v!.id == army.stationedAt,
+        orElse: () => null,
+      );
+      if (village == null) continue;
+
+      final nationality = _getNationality(army.owner, game);
+
+      // Offset slightly from village center to show siege
+      final offset = 0.03;
+      markers.add(Marker(
+        point: LatLng(
+          village.coordinates.latitude + offset,
+          village.coordinates.longitude - offset,
+        ),
+        width: 52,
+        height: 60,
+        child: GestureDetector(
+          onTap: () => widget.onArmySelected(army),
+          child: ArmyVisualMarker(
+            army: army,
+            nationality: nationality,
+            isSelected: widget.selectedArmy?.id == army.id,
+            isBesieging: true,
+          ),
+        ),
+      ));
+    }
+
     return markers;
   }
 

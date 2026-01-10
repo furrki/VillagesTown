@@ -96,6 +96,10 @@ class InlineVillagePanel extends StatelessWidget {
               // Header
               _buildHeader(game, primaryArmy, shouldEndTurn),
               const SizedBox(height: 12),
+
+              // Siege Alert (if under siege)
+              _buildSiegeAlert(game),
+
               // Content
               if (isPlayerVillage) ...[
                 // 1. Village Architecture (Radial Control Pad + Army)
@@ -188,6 +192,80 @@ class InlineVillagePanel extends StatelessWidget {
       ),
     ),
    );
+  }
+
+  Widget _buildSiegeAlert(GameManager game) {
+    final besiegers = game.getBesiegingArmiesAt(village.id);
+    if (besiegers.isEmpty) return const SizedBox.shrink();
+
+    final totalEnemyUnits = besiegers.fold(0, (sum, a) => sum + a.unitCount);
+    final turnsUntilAssault = besiegers.first.siegeTurns >= 1 ? 0 : 1;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange, width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'UNDER SIEGE!',
+                  style: const TextStyle(
+                    color: Colors.orange,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${besiegers.first.name} with $totalEnemyUnits units',
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            turnsUntilAssault == 0
+                ? 'Assault imminent next turn!'
+                : 'Assault in $turnsUntilAssault turn(s)',
+            style: TextStyle(
+              color: turnsUntilAssault == 0 ? Colors.red : Colors.white70,
+              fontSize: 12,
+            ),
+          ),
+          if (isPlayerVillage) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  final result = game.sallyOut(village.id);
+                  if (result != null) {
+                    showToast('Garrison sallied out!');
+                  }
+                },
+                icon: const Icon(Icons.sports_kabaddi, size: 18),
+                label: const Text('Sally Out (No Fortress Bonus)'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _buildRadialVillage(Map<Resource, int> resources, TutorialAction tutorialAction, bool shouldEndTurn) {

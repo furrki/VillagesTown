@@ -65,7 +65,7 @@ final List<BattleTestScenario> testScenarios = [
   // Scenario 3: Formation Counter - Skirmish vs Shield Wall
   BattleTestScenario(
     name: '3. Skirmish beats Shield Wall',
-    description: 'Ranged-heavy (Skirmish) vs Infantry (Shield Wall)\nSkirmish counters Shield Wall (+30%).\nExpected: Skirmish formation wins.',
+    description: 'Ranged-heavy (Skirmish) vs Infantry (Shield Wall)\nSkirmish counters Shield Wall (+20%).\nExpected: Skirmish formation wins.',
     expectedWinner: 'attacker',
     attackerUnits: [...List.filled(5, UnitType.archer), ...List.filled(2, UnitType.militia)],
     defenderUnits: List.filled(6, UnitType.militia),
@@ -133,7 +133,7 @@ final List<BattleTestScenario> testScenarios = [
   // Scenario 8: Crescent vs Shield Wall - Formation counter
   BattleTestScenario(
     name: '8. Shield Wall beats Crescent',
-    description: 'Shield Wall counters Crescent (+30%).\nEqual armies, formation decides.\nExpected: Defender wins.',
+    description: 'Shield Wall counters Crescent (+20%).\nEqual armies, formation decides.\nExpected: Defender wins.',
     expectedWinner: 'defender',
     attackerUnits: [
       ...List.filled(3, UnitType.militia),

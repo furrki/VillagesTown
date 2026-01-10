@@ -77,10 +77,10 @@ enum BattleFormation {
       };
 
   /// Calculate overall effectiveness modifier against enemy formation.
-  /// Returns 1.30 if winning, 0.70 if losing, 1.0 if mirror.
+  /// Returns 1.20 if winning, 0.80 if losing, 1.0 if mirror.
   double bonusAgainst(BattleFormation enemy) {
-    if (beats == enemy) return 1.30;
-    if (enemy.beats == this) return 0.70;
+    if (beats == enemy) return 1.20;
+    if (enemy.beats == this) return 0.80;
     return 1.0;
   }
 
@@ -96,7 +96,7 @@ enum BattleFormation {
             cavalryChargeMultiplier: 1.40, // +40% charge bonus
             infantryDefenseBonus: -0.20, // Infantry exposed
             rangedDefenseBonus: -0.20, // Ranged exposed
-            flankDamageBonus: 0.25, // +25% damage on successful encirclement
+            // Note: flankDamageBonus (+25%) not yet implemented in combat engine
           ),
         BattleFormation.skirmish => const FormationModifiers(
             speedMultiplier: 1.30, // +30% speed

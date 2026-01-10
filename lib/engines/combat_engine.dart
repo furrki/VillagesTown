@@ -32,7 +32,6 @@ class CombatUnit {
   int hp;
   double attackCooldown;
   BattlePosition position;
-  CombatUnit? currentTarget;
   bool isDead = false;
 
   // Ranged state
@@ -750,8 +749,6 @@ class CombatEngine {
 
       // Ranged units try to maintain optimal distance
       if (unit.isRanged && unit.hasAmmo) {
-        final optimalRange = unit.attackRange * 0.8; // Stay at 80% of max range
-
         if (distance < 2.0) {
           // Too close, retreat
           final dx = unit.position.x - target.position.x;
