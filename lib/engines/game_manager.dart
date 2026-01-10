@@ -873,6 +873,12 @@ class GameManager extends ChangeNotifier {
       village.underSiege = false;
       updateVillage(village);
 
+      // Remove or rout any defender armies that were stationed here
+      final defenderArmies = armies.where((a) => a.stationedAt == village.id && a.owner == oldOwner).toList();
+      for (final army in defenderArmies) {
+        removeArmy(army.id);
+      }
+
       // Station attacking army
       attacker.station(village.id);
       updateArmy(attacker);

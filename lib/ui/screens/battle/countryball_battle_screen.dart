@@ -119,11 +119,11 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
     if (defenderSampleTypes.isEmpty) defenderSampleTypes = [UnitType.militia];
 
     // Create full unit lists using record counts, cycling through sample types
-    List<UnitType> attackerUnits = List.generate(
+    _attackerUnits = List.generate(
       attackerCount,
       (i) => attackerSampleTypes[i % attackerSampleTypes.length],
     );
-    List<UnitType> defenderUnits = List.generate(
+    _defenderUnits = List.generate(
       defenderCount,
       (i) => defenderSampleTypes[i % defenderSampleTypes.length],
     );
@@ -135,8 +135,8 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
       attackerNationality: _attackerNationality!,
       defenderNationality: _defenderNationality!,
       screenSize: size,
-      attackerUnits: attackerUnits,
-      defenderUnits: defenderUnits,
+      attackerUnits: _attackerUnits,
+      defenderUnits: _defenderUnits,
       isPlayerAttacker: _isPlayerAttacker,
     );
 
@@ -246,48 +246,91 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
     );
   }
 
+  // Store unit lists for overview display
+  List<UnitType> _attackerUnits = [];
+  List<UnitType> _defenderUnits = [];
+  BattleFormation? _selectedFormation;
+
   Widget _buildFormationSelection() {
+    // Calculate power balance
+    final attackerPower = _calculateArmyPower(_attackerUnits);
+    final defenderPower = _calculateArmyPower(_defenderUnits);
+    final totalPower = attackerPower + defenderPower;
+    final attackerPercent = totalPower > 0 ? attackerPower / totalPower : 0.5;
+
+    // Count units by category
+    final attackerCounts = _countByCategory(_attackerUnits);
+    final defenderCounts = _countByCategory(_defenderUnits);
+
     return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // Battle Location
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.location_on, color: Colors.amber.shade400, size: 18),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  'Battle at ${widget.record.locationName}',
+                  style: TextStyle(
+                    color: Colors.amber.shade200,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Power Balance Bar
+          _buildPowerBalanceBar(attackerPercent, attackerPower, defenderPower),
+          const SizedBox(height: 16),
+
+          // Army Overview (compact)
+          _buildArmyOverviewRow(attackerCounts, defenderCounts),
+          const SizedBox(height: 20),
+
+          // Formation Selection Title
           const Text(
             'CHOOSE YOUR FORMATION',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 20,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               letterSpacing: 2,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Select how your army will engage',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
-          ),
-          const SizedBox(height: 32),
-          ...BattleFormation.values.map((formation) => _buildFormationCard(formation)),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+
+          // Formation Cards with preview
+          ...BattleFormation.values.map((formation) => _buildFormationCardWithPreview(formation)),
+
+          const SizedBox(height: 16),
+
           // Rock-paper-scissors hint
           Container(
-            padding: const EdgeInsets.all(16),
-            margin: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             ),
             child: const Column(
               children: [
                 Text(
-                  '🐴 > 🏹 > 🛡️ > 🐴',
-                  style: TextStyle(fontSize: 24),
+                  '🛡️ Shield Wall > 🐴 Crescent > 🏹 Skirmish > 🛡️',
+                  style: TextStyle(fontSize: 14, color: Colors.white70),
                 ),
-                SizedBox(height: 8),
+                SizedBox(height: 4),
                 Text(
-                  'Crescent beats Guerilla\nGuerilla beats Roman\nRoman beats Crescent',
+                  '+30% damage bonus against countered formation',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                  style: TextStyle(color: Colors.white38, fontSize: 11),
                 ),
               ],
             ),
@@ -297,58 +340,251 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
     );
   }
 
-  Widget _buildFormationCard(BattleFormation formation) {
+  int _calculateArmyPower(List<UnitType> units) {
+    int power = 0;
+    for (final unit in units) {
+      final stats = unit.stats;
+      power += ((stats.attack + stats.missile + stats.charge) * stats.hp ~/ 10) + (stats.defense * 2);
+    }
+    return power;
+  }
+
+  Map<String, int> _countByCategory(List<UnitType> units) {
+    final counts = <String, int>{'Infantry': 0, 'Ranged': 0, 'Cavalry': 0};
+    for (final unit in units) {
+      counts[unit.category] = (counts[unit.category] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  Widget _buildPowerBalanceBar(double attackerPercent, int attackerPower, int defenderPower) {
+    return Column(
+      children: [
+        const Text(
+          'POWER BALANCE',
+          style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 28,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.white24),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: max(1, (attackerPercent * 100).round()),
+                  child: Container(
+                    color: _attackerNationality?.color.withOpacity(0.8) ?? Colors.red,
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$attackerPower',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: max(1, ((1 - attackerPercent) * 100).round()),
+                  child: Container(
+                    color: _defenderNationality?.color.withOpacity(0.8) ?? Colors.blue,
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$defenderPower',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildArmyOverviewRow(Map<String, int> attackerCounts, Map<String, int> defenderCounts) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildArmySummary(
+            widget.record.attackerName,
+            _isPlayerAttacker ? 'YOUR ARMY' : 'ENEMY',
+            _attackerNationality?.color ?? Colors.red,
+            attackerCounts,
+            _attackerUnits.length,
+          ),
+        ),
+        Container(
+          width: 1,
+          height: 80,
+          color: Colors.white24,
+          margin: const EdgeInsets.symmetric(horizontal: 12),
+        ),
+        Expanded(
+          child: _buildArmySummary(
+            widget.record.defenderName,
+            _isPlayerAttacker ? 'ENEMY' : 'DEFENDING',
+            _defenderNationality?.color ?? Colors.blue,
+            defenderCounts,
+            _defenderUnits.length,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildArmySummary(String name, String subtitle, Color color, Map<String, int> counts, int total) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(subtitle, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 2),
+        Text(
+          name,
+          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        Text('$total Units', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 4,
+          children: [
+            if ((counts['Infantry'] ?? 0) > 0)
+              _buildCategoryBadge('⚔️${counts['Infantry']}', Colors.grey),
+            if ((counts['Ranged'] ?? 0) > 0)
+              _buildCategoryBadge('🏹${counts['Ranged']}', Colors.green),
+            if ((counts['Cavalry'] ?? 0) > 0)
+              _buildCategoryBadge('🐴${counts['Cavalry']}', Colors.orange),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryBadge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(text, style: TextStyle(color: color, fontSize: 10)),
+    );
+  }
+
+  Widget _buildFormationCardWithPreview(BattleFormation formation) {
+    final isSelected = _selectedFormation == formation;
+
+    // Simulate what enemy might pick based on their army composition
+    final enemyFormation = _predictEnemyFormation();
+    final bonus = formation.bonusAgainst(enemyFormation);
+    final bonusText = bonus > 1.0
+        ? '+${((bonus - 1) * 100).round()}%'
+        : bonus < 1.0
+            ? '-${((1 - bonus) * 100).round()}%'
+            : '0%';
+    final bonusColor = bonus > 1.0 ? Colors.green : bonus < 1.0 ? Colors.red : Colors.grey;
+
     return GestureDetector(
       onTap: () {
         HapticFeedback.mediumImpact();
-        simulation.selectFormation(formation);
-        setState(() {});
+        setState(() => _selectedFormation = formation);
+        // Brief delay to show selection before transitioning
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) {
+            simulation.selectFormation(formation);
+            _lastTick = DateTime.now(); // Reset tick timer
+            setState(() {});
+          }
+        });
       },
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
-        padding: const EdgeInsets.all(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Colors.white.withValues(alpha: 0.1),
-              Colors.white.withValues(alpha: 0.05),
-            ],
+            colors: isSelected
+                ? [Colors.amber.withOpacity(0.3), Colors.amber.withOpacity(0.1)]
+                : [Colors.white.withOpacity(0.1), Colors.white.withOpacity(0.05)],
           ),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? Colors.amber : Colors.white24,
+            width: isSelected ? 2 : 1,
+          ),
         ),
         child: Row(
           children: [
-            Text(formation.emoji, style: const TextStyle(fontSize: 32)),
-            const SizedBox(width: 16),
+            Text(formation.emoji, style: const TextStyle(fontSize: 28)),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    formation.displayName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        formation.displayName,
+                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: bonusColor.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          bonusText,
+                          style: TextStyle(color: bonusColor, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
                     formation.shortDescription,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.white38),
+            Icon(
+              isSelected ? Icons.check_circle : Icons.chevron_right,
+              color: isSelected ? Colors.amber : Colors.white38,
+            ),
           ],
         ),
       ),
     );
+  }
+
+  BattleFormation _predictEnemyFormation() {
+    // AI picks formation based on army composition
+    int ranged = 0, cavalry = 0, infantry = 0;
+    for (final u in _defenderUnits) {
+      switch (u.category) {
+        case 'Ranged':
+          ranged++;
+        case 'Cavalry':
+          cavalry++;
+        default:
+          infantry++;
+      }
+    }
+    if (cavalry >= ranged && cavalry >= infantry) {
+      return BattleFormation.crescent;
+    } else if (ranged >= infantry) {
+      return BattleFormation.skirmish;
+    } else {
+      return BattleFormation.shieldWall;
+    }
   }
 
   Widget _buildHeader() {

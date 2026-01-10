@@ -190,6 +190,38 @@ class CombatEngine {
         _ => 1.0,
       };
 
+  /// Simplified battle simulation for testing.
+  /// Wraps resolveCombat with test-friendly parameter names.
+  BattleRecord simulateBattle({
+    required List<Unit> attackerUnits,
+    required List<Unit> defenderUnits,
+    required BattleFormation attackerFormation,
+    required BattleFormation defenderFormation,
+    required String attackerName,
+    required String defenderName,
+    required String attackerId,
+    required String defenderId,
+    required String attackerOwnerId,
+    required String defenderOwnerId,
+    required GameMap gameMap,
+    int defenderFortressLevel = 0,
+  }) {
+    return resolveCombat(
+      attackerName: attackerName,
+      defenderName: defenderName,
+      attackerId: attackerId,
+      defenderId: defenderId,
+      attackerOwnerId: attackerOwnerId,
+      defenderOwnerId: defenderOwnerId,
+      attackers: attackerUnits,
+      defenders: defenderUnits,
+      map: gameMap,
+      attackerFormation: attackerFormation,
+      defenderFormation: defenderFormation,
+      defenderFortressLevel: defenderFortressLevel,
+    );
+  }
+
   /// Main combat resolution - Phase 2 continuous tick-based simulation.
   BattleRecord resolveCombat({
     required String attackerName,
@@ -716,8 +748,10 @@ class CombatEngine {
 
       final distance = unit.position.distanceTo(target.position);
 
-      // Ranged units try to maintain distance
+      // Ranged units try to maintain optimal distance
       if (unit.isRanged && unit.hasAmmo) {
+        final optimalRange = unit.attackRange * 0.8; // Stay at 80% of max range
+
         if (distance < 2.0) {
           // Too close, retreat
           final dx = unit.position.x - target.position.x;
@@ -727,8 +761,17 @@ class CombatEngine {
             unit.position.x += (dx / len) * unit.moveSpeed * dt;
             unit.position.y += (dy / len) * unit.moveSpeed * dt;
           }
+        } else if (distance > unit.attackRange) {
+          // Out of range, move closer
+          final dx = target.position.x - unit.position.x;
+          final dy = target.position.y - unit.position.y;
+          final len = sqrt(dx * dx + dy * dy);
+          if (len > 0) {
+            unit.position.x += (dx / len) * unit.moveSpeed * dt;
+            unit.position.y += (dy / len) * unit.moveSpeed * dt;
+          }
         }
-        // Otherwise stay put and fire
+        // In range, stay put and fire
         continue;
       }
 

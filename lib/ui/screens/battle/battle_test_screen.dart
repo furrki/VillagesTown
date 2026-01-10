@@ -65,7 +65,7 @@ final List<BattleTestScenario> testScenarios = [
   // Scenario 3: Formation Counter - Skirmish vs Shield Wall
   BattleTestScenario(
     name: '3. Skirmish beats Shield Wall',
-    description: 'Ranged-heavy (Skirmish) vs Infantry (Shield Wall)\nSkirmish counters Shield Wall (+25%).\nExpected: Skirmish formation wins.',
+    description: 'Ranged-heavy (Skirmish) vs Infantry (Shield Wall)\nSkirmish counters Shield Wall (+30%).\nExpected: Skirmish formation wins.',
     expectedWinner: 'attacker',
     attackerUnits: [...List.filled(5, UnitType.archer), ...List.filled(2, UnitType.militia)],
     defenderUnits: List.filled(6, UnitType.militia),
@@ -76,7 +76,7 @@ final List<BattleTestScenario> testScenarios = [
   // Scenario 4: Fortress Defense Bonus
   BattleTestScenario(
     name: '4. Fortress Defense (Level 3)',
-    description: 'Equal numbers, defender has Castle (L3).\n+65% defense, +2 range, -60% cavalry charge.\nExpected: Defender wins.',
+    description: 'Equal numbers, defender has Castle (L3).\n+60% defense (10% base + 50% fortress), +2 range.\nExpected: Defender wins.',
     expectedWinner: 'defender',
     attackerUnits: [...List.filled(4, UnitType.militia), ...List.filled(2, UnitType.swordsman)],
     defenderUnits: [...List.filled(2, UnitType.spearman), ...List.filled(4, UnitType.archer)],
@@ -88,7 +88,7 @@ final List<BattleTestScenario> testScenarios = [
   // Scenario 5: Mixed Army - Balanced Fight
   BattleTestScenario(
     name: '5. Balanced Armies',
-    description: 'Mixed armies with all unit types.\nTests overall balance and AI targeting.\nExpected: Close fight.',
+    description: 'Mixed armies with all unit types.\nEqual formations, defender has +10% base defense.\nExpected: Close fight.',
     expectedWinner: 'close',
     attackerUnits: [
       ...List.filled(3, UnitType.swordsman),
@@ -133,7 +133,7 @@ final List<BattleTestScenario> testScenarios = [
   // Scenario 8: Crescent vs Shield Wall - Formation counter
   BattleTestScenario(
     name: '8. Shield Wall beats Crescent',
-    description: 'Shield Wall counters Crescent (+25%).\nEqual armies, formation decides.\nExpected: Defender wins.',
+    description: 'Shield Wall counters Crescent (+30%).\nEqual armies, formation decides.\nExpected: Defender wins.',
     expectedWinner: 'defender',
     attackerUnits: [
       ...List.filled(3, UnitType.militia),
@@ -172,7 +172,7 @@ final List<BattleTestScenario> testScenarios = [
   // Scenario 11: Crescent beats Skirmish (missing formation counter)
   BattleTestScenario(
     name: '11. Crescent beats Skirmish',
-    description: 'Crescent counters Skirmish (+25%).\nCavalry catches spread-out skirmishers.\nExpected: Attacker wins.',
+    description: 'Crescent counters Skirmish (+30%).\nCavalry catches spread-out skirmishers.\nExpected: Attacker wins.',
     expectedWinner: 'attacker',
     attackerUnits: [
       ...List.filled(2, UnitType.militia),
@@ -661,6 +661,7 @@ class _TestBattleViewerState extends State<_TestBattleViewer>
   late AnimationController _tickController;
   Map<String, ui.Image?> factionImages = {};
   bool _initialized = false;
+  bool _showingOverview = true; // Start with overview
 
   // Use distinct nationalities for visibility
   final _attackerNation = Nationality.ottomans;
@@ -703,17 +704,25 @@ class _TestBattleViewerState extends State<_TestBattleViewer>
     simulation.onPhaseChanged = () => setState(() {});
     simulation.onBattleEnd = () => setState(() {});
 
-    // Skip formation selection, go straight to combat
+    // Stay in overview mode until user clicks "Start Battle"
+    simulation.phase = BattlePhase.formationSelect;
+
+    setState(() => _initialized = true);
+  }
+
+  void _startBattle() {
+    setState(() => _showingOverview = false);
     simulation.phase = BattlePhase.setup;
+    simulation.totalTime = 0; // Reset battle time
+    simulation.phaseTimer = 0;
+    _lastTick = DateTime.now(); // Reset tick timer
+    _tickController.repeat();
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
         simulation.phase = BattlePhase.combat;
         setState(() {});
       }
     });
-
-    setState(() => _initialized = true);
-    _tickController.repeat();
   }
 
   void _initializeCirclesForTest() {
@@ -952,6 +961,11 @@ class _TestBattleViewerState extends State<_TestBattleViewer>
       );
     }
 
+    // Show pre-battle overview
+    if (_showingOverview) {
+      return _buildOverviewScreen();
+    }
+
     final isEnded = simulation.phase == BattlePhase.victory ||
         simulation.phase == BattlePhase.defeat;
 
@@ -975,6 +989,430 @@ class _TestBattleViewerState extends State<_TestBattleViewer>
           Expanded(child: _buildBattleArea()),
           _buildBottomInfo(),
         ],
+      ),
+    );
+  }
+
+  /// Calculate army power for a list of unit types.
+  int _calculateArmyPower(List<UnitType> units) {
+    int power = 0;
+    for (final unit in units) {
+      final stats = unit.stats;
+      // Power = (Attack + Missile + Charge) * HP / 10 + Defense * 2
+      power += ((stats.attack + stats.missile + stats.charge) * stats.hp ~/ 10) + (stats.defense * 2);
+    }
+    return power;
+  }
+
+  /// Count units by category.
+  Map<String, int> _countByCategory(List<UnitType> units) {
+    final counts = <String, int>{'Infantry': 0, 'Ranged': 0, 'Cavalry': 0};
+    for (final unit in units) {
+      counts[unit.category] = (counts[unit.category] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  Widget _buildOverviewScreen() {
+    final attackerPower = _calculateArmyPower(widget.scenario.attackerUnits);
+    final defenderPower = _calculateArmyPower(widget.scenario.defenderUnits);
+    final totalPower = attackerPower + defenderPower;
+    final attackerPercent = totalPower > 0 ? attackerPower / totalPower : 0.5;
+
+    final attackerCounts = _countByCategory(widget.scenario.attackerUnits);
+    final defenderCounts = _countByCategory(widget.scenario.defenderUnits);
+
+    final formationBonus = widget.scenario.attackerFormation.bonusAgainst(widget.scenario.defenderFormation);
+    final formationText = formationBonus > 1.0
+        ? 'Attacker +${((formationBonus - 1) * 100).round()}%'
+        : formationBonus < 1.0
+            ? 'Defender +${((1 - formationBonus) * 100).round()}%'
+            : 'Neutral';
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF1a1a1a),
+      appBar: AppBar(
+        title: const Text('BATTLE OVERVIEW'),
+        backgroundColor: Colors.transparent,
+        centerTitle: true,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Power balance bar
+            _buildPowerBalanceBar(attackerPercent, attackerPower, defenderPower),
+            const SizedBox(height: 24),
+
+            // Formation matchup
+            _buildFormationMatchup(formationText, formationBonus),
+            const SizedBox(height: 24),
+
+            // Army comparison
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildArmyPanel(
+                      'ATTACKERS',
+                      _attackerNation.color,
+                      widget.scenario.attackerUnits,
+                      attackerCounts,
+                      widget.scenario.attackerFormation,
+                      attackerPower,
+                    ),
+                  ),
+                  Container(
+                    width: 2,
+                    margin: const EdgeInsets.symmetric(horizontal: 8),
+                    color: Colors.grey.shade700,
+                  ),
+                  Expanded(
+                    child: _buildArmyPanel(
+                      'DEFENDERS',
+                      _defenderNation.color,
+                      widget.scenario.defenderUnits,
+                      defenderCounts,
+                      widget.scenario.defenderFormation,
+                      defenderPower,
+                      isDefender: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Fortress bonus indicator
+            if (widget.scenario.defenderFortressLevel > 0)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.brown.shade900.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.brown.shade700),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.fort, color: Colors.brown, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Fortress Level ${widget.scenario.defenderFortressLevel}: +${widget.scenario.defenderFortressLevel * 15 + 10}% Defense, +${widget.scenario.defenderFortressLevel} Range',
+                      style: TextStyle(color: Colors.brown.shade200),
+                    ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 16),
+
+            // Start battle button
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: _startBattle,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade800,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.sports_kabaddi, size: 24),
+                    SizedBox(width: 12),
+                    Text(
+                      'START BATTLE',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPowerBalanceBar(double attackerPercent, int attackerPower, int defenderPower) {
+    return Column(
+      children: [
+        const Text(
+          'POWER BALANCE',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          height: 32,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.grey.shade600),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: (attackerPercent * 100).round(),
+                  child: Container(
+                    color: _attackerNation.color.withOpacity(0.8),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$attackerPower',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: ((1 - attackerPercent) * 100).round(),
+                  child: Container(
+                    color: _defenderNation.color.withOpacity(0.8),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$defenderPower',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('ATTACKERS', style: TextStyle(color: _attackerNation.color, fontSize: 10)),
+            Text('DEFENDERS', style: TextStyle(color: _defenderNation.color, fontSize: 10)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormationMatchup(String formationText, double bonus) {
+    final advantageColor = bonus > 1.0
+        ? _attackerNation.color
+        : bonus < 1.0
+            ? _defenderNation.color
+            : Colors.grey;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: advantageColor.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: advantageColor.withOpacity(0.5)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          Column(
+            children: [
+              Text(
+                widget.scenario.attackerFormation.displayName.toUpperCase(),
+                style: TextStyle(
+                  color: _attackerNation.color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              Text(
+                'ATK Formation',
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
+              ),
+            ],
+          ),
+          Column(
+            children: [
+              const Icon(Icons.compare_arrows, color: Colors.white54),
+              Text(
+                formationText,
+                style: TextStyle(
+                  color: advantageColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          Column(
+            children: [
+              Text(
+                widget.scenario.defenderFormation.displayName.toUpperCase(),
+                style: TextStyle(
+                  color: _defenderNation.color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              Text(
+                'DEF Formation',
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildArmyPanel(
+    String title,
+    Color color,
+    List<UnitType> units,
+    Map<String, int> counts,
+    BattleFormation formation,
+    int power, {
+    bool isDefender = false,
+  }) {
+    // Group units by type
+    final unitCounts = <UnitType, int>{};
+    for (final unit in units) {
+      unitCounts[unit] = (unitCounts[unit] ?? 0) + 1;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: color, width: 2)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Total units
+        Text(
+          '${units.length} Units',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Category breakdown
+        Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          children: [
+            _buildCategoryChip('Infantry', counts['Infantry'] ?? 0, Colors.grey),
+            _buildCategoryChip('Ranged', counts['Ranged'] ?? 0, Colors.green),
+            _buildCategoryChip('Cavalry', counts['Cavalry'] ?? 0, Colors.orange),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Unit list
+        Expanded(
+          child: ListView(
+            children: unitCounts.entries.map((e) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Text(e.key.emoji, style: const TextStyle(fontSize: 16)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        e.key.displayName,
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'x${e.value}',
+                        style: TextStyle(
+                          color: color,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+
+        // Defender bonus
+        if (isDefender) ...[
+          const Divider(color: Colors.grey),
+          Row(
+            children: [
+              const Icon(Icons.shield, color: Colors.blue, size: 14),
+              const SizedBox(width: 4),
+              Text(
+                '+10% Defense (Defender)',
+                style: TextStyle(color: Colors.blue.shade300, fontSize: 11),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCategoryChip(String label, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '$count $label',
+        style: TextStyle(color: color, fontSize: 10),
       ),
     );
   }

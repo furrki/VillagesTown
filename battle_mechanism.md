@@ -282,7 +282,7 @@ Attack: 4 (+levels)
 Defense: 7 (+levels)
 HP: 70
 Speed: 1 (+levels)
-Anti-Cavalry: 1.5x damage vs cavalry
+Anti-Cavalry: 1.75x damage vs cavalry
 
 **Swordsman** -> Elite infantry. High damage output, decent survivability. Best for aggressive pushes.
 
@@ -296,25 +296,27 @@ Speed: 1 (+levels)
 
 **Archer** -> Light skirmishers. Fast rate of fire, lower damage per shot. Flexible positioning.
 
-Missile: 4 (+levels)
+Missile: 6 (+levels)
 Attack: 1 (+levels)
 Defense: 2 (+levels)
 HP: 50
 Speed: 1 (+levels)
 Range: 8
 Ammo: 24
-Accuracy: 55%
+Accuracy: 65%
+Fire Rate: 1.5 seconds
 
 **Crossbowman** -> Heavy ranged. Slower fire rate, devastating damage. Better armor penetration.
 
-Missile: 6 (+levels)
+Missile: 8 (+levels)
 Attack: 2 (+levels)
 Defense: 3 (+levels)
 HP: 60
 Speed: 1 (+levels)
 Range: 7
 Ammo: 16
-Accuracy: 70%
+Accuracy: 75%
+Fire Rate: 3.0 seconds
 
 ### Cavalry
 
@@ -417,6 +419,26 @@ Loose, spread formation. Mobile harassment, avoid direct engagement.
 
 The +30%/-30% represents overall combat effectiveness modifier applied to damage calculations.
 
+### Formation Modifiers (Detailed)
+
+**Shield Wall:**
+- Infantry gets +30% Defense (tight formation, overlapping shields)
+- Ranged gets +1 Range (elevated/protected firing position)
+- Own Cavalry Charge reduced by 50% (no room to build momentum)
+- Movement speed -30% (formation must stay tight)
+
+**Crescent:**
+- Cavalry gets +40% Charge bonus (momentum from flanks)
+- +25% damage on successful encirclement
+- Infantry and Ranged get -20% Defense (exposed, formation gaps)
+
+**Skirmish:**
+- All units get +30% Speed (loose formation)
+- Ranged gets +2 Range (freedom to position optimally)
+- -30% damage taken from enemy ranged (spread targets)
+- Melee units get -20% Attack (isolated fights)
+- Enemy Charge reduced by 30% (hard to hit dispersed targets)
+
 ---
 
 ## Defender Bonuses
@@ -430,9 +452,9 @@ Defending armies fight on home turf with significant advantages.
 | Fortress Level | Defense Bonus | Ranged Bonus | Notes |
 |----------------|---------------|--------------|-------|
 | 0 (none) | +0% | +0 Range | No fortifications |
-| 1 (Palisade) | +10% Defense | +1 Range | Wooden walls |
-| 2 (Stone Walls) | +20% Defense | +1 Range | Solid fortifications |
-| 3 (Castle) | +30% Defense | +2 Range | Major stronghold |
+| 1 (Palisade) | +15% Defense | +1 Range | Wooden walls |
+| 2 (Stone Walls) | +30% Defense | +1 Range | Solid fortifications |
+| 3 (Castle) | +50% Defense | +2 Range | Major stronghold |
 
 ### Fortress Effects
 - **Defense bonus:** Applies to all defending units (walls provide cover)
@@ -443,10 +465,10 @@ Defending armies fight on home turf with significant advantages.
 ### Combined Example
 Defender at Level 2 Fortress:
 - Base: +10% Defense
-- Fortress: +20% Defense
-- Ranged: +2 Range
+- Fortress: +30% Defense
+- Ranged: +1 Range
 - Enemy cavalry: -40% Charge bonus
-- **Total: +30% Defense for all units**
+- **Total: +40% Defense for all units**
 
 ---
 

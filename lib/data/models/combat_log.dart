@@ -77,32 +77,33 @@ enum BattleFormation {
       };
 
   /// Calculate overall effectiveness modifier against enemy formation.
-  /// Returns 1.25 if winning, 0.75 if losing, 1.0 if mirror.
+  /// Returns 1.30 if winning, 0.70 if losing, 1.0 if mirror.
   double bonusAgainst(BattleFormation enemy) {
-    if (beats == enemy) return 1.25;
-    if (enemy.beats == this) return 0.75;
+    if (beats == enemy) return 1.30;
+    if (enemy.beats == this) return 0.70;
     return 1.0;
   }
 
-  /// Formation-specific stat modifiers.
+  /// Formation-specific stat modifiers (per Phase 2 doc).
   FormationModifiers get modifiers => switch (this) {
         BattleFormation.shieldWall => const FormationModifiers(
-            infantryDefenseBonus: 0.15,
-            rangedRangeBonus: 1, // +1 range
-            cavalryChargeMultiplier: 0.75, // Own cavalry charge reduced
-            speedMultiplier: 0.85, // Slower movement
+            infantryDefenseBonus: 0.30, // +30% defense (tight formation)
+            rangedRangeBonus: 1, // +1 range (elevated position)
+            cavalryChargeMultiplier: 0.50, // Own cavalry charge reduced by 50%
+            speedMultiplier: 0.70, // -30% speed (must stay tight)
           ),
         BattleFormation.crescent => const FormationModifiers(
-            cavalryChargeMultiplier: 1.20, // +20% charge bonus
-            infantryDefenseBonus: -0.10, // Infantry/ranged exposed
-            rangedDefenseBonus: -0.10,
+            cavalryChargeMultiplier: 1.40, // +40% charge bonus
+            infantryDefenseBonus: -0.20, // Infantry exposed
+            rangedDefenseBonus: -0.20, // Ranged exposed
+            flankDamageBonus: 0.25, // +25% damage on successful encirclement
           ),
         BattleFormation.skirmish => const FormationModifiers(
-            speedMultiplier: 1.15, // +15% speed
+            speedMultiplier: 1.30, // +30% speed
             rangedRangeBonus: 2, // +2 range
-            rangedDamageTakenMultiplier: 0.85, // -15% damage from enemy ranged
-            meleeAttackMultiplier: 0.90, // -10% melee attack (isolated fights)
-            enemyChargeMultiplier: 0.85, // -15% enemy charge effectiveness
+            rangedDamageTakenMultiplier: 0.70, // -30% damage from enemy ranged
+            meleeAttackMultiplier: 0.80, // -20% melee attack (isolated fights)
+            enemyChargeMultiplier: 0.70, // -30% enemy charge effectiveness
           ),
       };
 }
@@ -117,6 +118,7 @@ class FormationModifiers {
   final double rangedDamageTakenMultiplier; // Damage taken from enemy ranged
   final double meleeAttackMultiplier; // Multiplier on melee attack
   final double enemyChargeMultiplier; // Multiplier on enemy charge effectiveness
+  final double flankDamageBonus; // Bonus damage when flanking (Crescent)
 
   const FormationModifiers({
     this.infantryDefenseBonus = 0.0,
@@ -127,6 +129,7 @@ class FormationModifiers {
     this.rangedDamageTakenMultiplier = 1.0,
     this.meleeAttackMultiplier = 1.0,
     this.enemyChargeMultiplier = 1.0,
+    this.flankDamageBonus = 0.0,
   });
 }
 

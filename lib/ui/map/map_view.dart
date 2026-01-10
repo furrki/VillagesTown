@@ -34,12 +34,28 @@ class MapView extends StatefulWidget {
 class _MapViewState extends State<MapView> {
   final MapController _mapController = MapController();
   double _currentZoom = 5.0;
+  bool _hasCenteredOnPlayer = false;
 
   // Map bounds for the Byzantine/Ottoman region
   static const _initialCenter = LatLng(38.5, 30.0);
   static const _initialZoom = 5.0;
   static const _minZoom = 4.0;
   static const _maxZoom = 8.0;
+
+  @override
+  void didUpdateWidget(MapView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Center on player's village once at game start
+    if (!_hasCenteredOnPlayer && widget.selectedVillage != null) {
+      _hasCenteredOnPlayer = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _mapController.move(
+          widget.selectedVillage!.coordinates.toLatLng(),
+          6.0,
+        );
+      });
+    }
+  }
 
   void _onMapEvent(MapEvent event) {
     if (event is MapEventMove || event is MapEventDoubleTapZoom || event is MapEventScrollWheelZoom) {

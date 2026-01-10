@@ -119,12 +119,12 @@ class BattleCircle {
 
       // Ranged units stay back and fire - they don't charge into melee
       if (isRanged) {
-        // Hold position with slight draw-and-fire animation
+        // Hold position with very subtle sway (not constant jitter)
         velocity *= 0.9;
-        final drawBack = sin(time * 3 + position.hashCode) * 2.0;
+        final sway = sin(time * 0.3 + position.hashCode) * 0.5;
         position = Offset(
-          homePosition!.dx + (isAttacker ? -drawBack : drawBack),
-          homePosition!.dy + cos(time * 4 + position.hashCode) * 0.5,
+          homePosition!.dx + sway,
+          homePosition!.dy,
         );
       } else {
         // ENGAGE: Melee/cavalry move toward clash point
