@@ -168,10 +168,12 @@ class TurnEngine {
   void _processArmyInterception() {
     final game = GameManager.shared;
     final marchingArmies = game.armies.where((a) => a.isMarching).toList();
+    final besiegingArmies = game.armies.where((a) => a.isBesieging).toList();
 
     final processedPairs = <String>{};
     final interceptedArmyIds = <String>{};
 
+    // 1. Check marching vs marching interceptions
     for (final army1 in marchingArmies) {
       for (final army2 in marchingArmies) {
         if (army1.id == army2.id) continue;
@@ -185,20 +187,23 @@ class TurnEngine {
         processedPairs.add(key);
 
         // Check if armies intercept:
-        // 1. Same path opposite directions (will pass each other)
+        // 1a. Heading toward each other (destinations are each other's current path)
+        final headingToward = army1.destination == army2.origin || army2.destination == army1.origin;
+
+        // 1b. Same path opposite directions (will pass each other)
         final oppositeDirection = army1.destination == army2.origin && army1.origin == army2.destination;
 
-        // 2. Same destination, close to each other
+        // 1c. Same destination, close to each other
         final sameDestination = army1.destination == army2.destination;
         final bothCloseToArrival = army1.turnsUntilArrival <= 1 && army2.turnsUntilArrival <= 1;
 
-        // 3. One army's destination is the other's origin (pursuing)
-        final pursuing = army1.destination == army2.origin || army2.destination == army1.origin;
-        final closeEnough = (army1.turnsUntilArrival - army2.turnsUntilArrival).abs() <= 1;
+        // 1d. Will pass each other this turn (both close to arrival and heading toward each other)
+        final willPassThisTurn = headingToward &&
+            army1.turnsUntilArrival <= 1 && army2.turnsUntilArrival <= 1;
 
         final shouldIntercept = oppositeDirection ||
-            (sameDestination && bothCloseToArrival) ||
-            (pursuing && closeEnough && army1.turnsUntilArrival <= 1);
+            willPassThisTurn ||
+            (sameDestination && bothCloseToArrival);
 
         if (shouldIntercept) {
           game.addTurnEvent(ArmyInterceptedEvent(
@@ -208,6 +213,51 @@ class TurnEngine {
           _resolveFieldBattle(army1.id, army2.id);
           interceptedArmyIds.add(army1.id);
           interceptedArmyIds.add(army2.id);
+        }
+      }
+    }
+
+    // 2. Check besieging vs marching interceptions (relief force interception)
+    for (final besiegingArmy in besiegingArmies) {
+      if (interceptedArmyIds.contains(besiegingArmy.id)) continue;
+
+      final besiegedVillageId = besiegingArmy.stationedAt;
+      if (besiegedVillageId == null) continue;
+
+      for (final marchingArmy in marchingArmies) {
+        if (marchingArmy.owner == besiegingArmy.owner) continue;
+        if (interceptedArmyIds.contains(marchingArmy.id)) continue;
+
+        // Relief force heading to the besieged village
+        final isReliefForce = marchingArmy.destination == besiegedVillageId &&
+            marchingArmy.turnsUntilArrival <= 1;
+
+        if (isReliefForce) {
+          final pairKey = [besiegingArmy.id, marchingArmy.id]..sort();
+          final key = pairKey.join('-');
+          if (processedPairs.contains(key)) continue;
+          processedPairs.add(key);
+
+          // Besieging army sallies out to meet the relief force
+          game.addTurnEvent(ArmyInterceptedEvent(
+            army1Name: besiegingArmy.name,
+            army2Name: marchingArmy.name,
+          ));
+
+          // Break siege - the besieging army moves to intercept
+          final village = game.map.villages.cast<Village?>().firstWhere(
+            (v) => v!.id == besiegedVillageId,
+            orElse: () => null,
+          );
+          if (village != null) {
+            village.underSiege = false;
+          }
+          besiegingArmy.state = ArmyState.stationed;
+          besiegingArmy.siegeTurns = 0;
+
+          _resolveFieldBattle(besiegingArmy.id, marchingArmy.id);
+          interceptedArmyIds.add(besiegingArmy.id);
+          interceptedArmyIds.add(marchingArmy.id);
         }
       }
     }

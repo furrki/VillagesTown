@@ -88,8 +88,8 @@ enum UnitType {
   /// Damage multiplier against target unit type.
   double damageMultiplier(UnitType target) {
     return switch (this) {
-      // Spearmen are STRONG vs Cavalry (1.75x)
-      spearman when target.category == 'Cavalry' => 1.75,
+      // Spearmen are STRONG vs Cavalry (2.0x) - buffed from 1.75x
+      spearman when target.category == 'Cavalry' => 2.0,
       // Cavalry STRONG vs Ranged (2.0x), WEAK vs Spearmen (0.5x)
       lightCavalry || knight when target.category == 'Ranged' => 2.0,
       lightCavalry || knight when target == spearman => 0.5,
@@ -226,11 +226,11 @@ enum UnitType {
           ),
         knight => const UnitStats(
             name: 'Knight',
-            attack: 9,
+            attack: 7, // Nerfed from 9
             defense: 5,
-            hp: 100,
+            hp: 80, // Nerfed from 100
             speed: 3, // Fast but not as fast as light cav
-            charge: 7, // Devastating charge
+            charge: 5, // Nerfed from 7
             cost: {Resource.gold: 100, Resource.iron: 20},
             upkeep: {Resource.gold: 6, Resource.food: 2},
           ),

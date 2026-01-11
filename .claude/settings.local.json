@@ -9,7 +9,9 @@
       "Bash(for f in assets/*.png)",
       "Bash(for i in 1 2 3)",
       "Bash(do echo \"=== Run $i ===\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(for:*)",
+      "Bash(do flutter test test/combat_engine_test.dart)"
     ],
     "deny": [],
     "ask": []

@@ -195,10 +195,8 @@ class BattleCircle {
 
   void damageMorale(double amount) {
     morale = max(0, morale - amount);
-    // Check for routing
-    if (morale <= 0.2 && !isRouting && Random().nextDouble() > morale) {
-      route();
-    }
+    // No automatic routing - units fight to the death
+    // Player must manually choose to surrender/retreat
   }
 
   void die() {

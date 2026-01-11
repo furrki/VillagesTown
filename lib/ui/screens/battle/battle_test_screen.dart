@@ -38,217 +38,304 @@ class BattleTestScenario {
   });
 }
 
-/// Pre-defined test scenarios.
+/// Pre-defined test scenarios - 30 comprehensive battle tests.
 final List<BattleTestScenario> testScenarios = [
-  // Scenario 1: Cavalry vs Archers (Cavalry should win - counters ranged)
+  // ============================================================
+  // GROUP 1: DECISIVE ATTACKER WINS (80%+)
+  // ============================================================
   BattleTestScenario(
-    name: '1. Cavalry vs Archers',
-    description: 'Light Cavalry (6) vs Archers (6)\nCavalry counters ranged 1.5x.\nExpected: Cavalry wins decisively.',
+    name: '1. Knights vs Archers',
+    description: 'Knights (4) vs Archers (6)\nNo spearmen = cavalry devastates ranged.\nExpected: Knights win 80%+',
+    expectedWinner: 'attacker',
+    attackerUnits: List.filled(4, UnitType.knight),
+    defenderUnits: List.filled(6, UnitType.archer),
+    attackerFormation: BattleFormation.crescent,
+    defenderFormation: BattleFormation.skirmish,
+  ),
+  BattleTestScenario(
+    name: '2. Light Cav vs Crossbows',
+    description: 'Light Cavalry (6) vs Crossbowmen (5)\nSpeed beats slow ranged.\nExpected: Cavalry wins 80%+',
     expectedWinner: 'attacker',
     attackerUnits: List.filled(6, UnitType.lightCavalry),
-    defenderUnits: List.filled(6, UnitType.archer),
-    attackerFormation: BattleFormation.crescent,
-    defenderFormation: BattleFormation.skirmish,
-  ),
-
-  // Scenario 2: Spearmen vs Knights (Spearmen should win - anti-cavalry)
-  BattleTestScenario(
-    name: '2. Spearmen vs Knights',
-    description: 'Spearmen (8) vs Knights (4)\nSpearmen counter cavalry 1.5x, take 0.6x.\nExpected: Spearmen win.',
-    expectedWinner: 'attacker',
-    attackerUnits: List.filled(8, UnitType.spearman),
-    defenderUnits: List.filled(4, UnitType.knight),
-    attackerFormation: BattleFormation.shieldWall,
-    defenderFormation: BattleFormation.crescent,
-  ),
-
-  // Scenario 3: Formation Counter - Skirmish vs Shield Wall
-  BattleTestScenario(
-    name: '3. Skirmish beats Shield Wall',
-    description: 'Ranged-heavy (Skirmish) vs Infantry (Shield Wall)\nSkirmish counters Shield Wall (+20%).\nExpected: Skirmish formation wins.',
-    expectedWinner: 'attacker',
-    attackerUnits: [...List.filled(5, UnitType.archer), ...List.filled(2, UnitType.militia)],
-    defenderUnits: List.filled(6, UnitType.militia),
-    attackerFormation: BattleFormation.skirmish,
-    defenderFormation: BattleFormation.shieldWall,
-  ),
-
-  // Scenario 4: Fortress Defense Bonus
-  BattleTestScenario(
-    name: '4. Fortress Defense (Level 3)',
-    description: 'Equal numbers, defender has Castle (L3).\n+60% defense (10% base + 50% fortress), +2 range.\nExpected: Defender wins.',
-    expectedWinner: 'defender',
-    attackerUnits: [...List.filled(4, UnitType.militia), ...List.filled(2, UnitType.swordsman)],
-    defenderUnits: [...List.filled(2, UnitType.spearman), ...List.filled(4, UnitType.archer)],
-    attackerFormation: BattleFormation.shieldWall,
-    defenderFormation: BattleFormation.shieldWall,
-    defenderFortressLevel: 3,
-  ),
-
-  // Scenario 5: Mixed Army - Balanced Fight
-  BattleTestScenario(
-    name: '5. Balanced Armies',
-    description: 'Mixed armies with all unit types.\nEqual formations, defender has +10% base defense.\nExpected: Close fight.',
-    expectedWinner: 'close',
-    attackerUnits: [
-      ...List.filled(3, UnitType.swordsman),
-      ...List.filled(2, UnitType.spearman),
-      ...List.filled(2, UnitType.archer),
-      ...List.filled(2, UnitType.lightCavalry),
-      UnitType.knight,
-    ],
-    defenderUnits: [
-      ...List.filled(3, UnitType.swordsman),
-      ...List.filled(2, UnitType.spearman),
-      ...List.filled(2, UnitType.crossbowman),
-      ...List.filled(2, UnitType.lightCavalry),
-      UnitType.knight,
-    ],
-    attackerFormation: BattleFormation.shieldWall,
-    defenderFormation: BattleFormation.shieldWall,
-  ),
-
-  // Scenario 6: Swordsmen vs Militia - Elite beats numbers
-  BattleTestScenario(
-    name: '6. Elite vs Numbers',
-    description: 'Swordsmen (5) vs Militia (8).\nElite infantry should beat militia.\nExpected: Attacker wins.',
-    expectedWinner: 'attacker',
-    attackerUnits: List.filled(5, UnitType.swordsman),
-    defenderUnits: List.filled(8, UnitType.militia),
-    attackerFormation: BattleFormation.shieldWall,
-    defenderFormation: BattleFormation.shieldWall,
-  ),
-
-  // Scenario 7: Knights charge archers - Devastating if no spearmen
-  BattleTestScenario(
-    name: '7. Knight Charge (no counter)',
-    description: 'Knights (3) vs Archers (6).\nNo spearmen to counter = devastation.\nExpected: Knights win decisively.',
-    expectedWinner: 'attacker',
-    attackerUnits: List.filled(3, UnitType.knight),
-    defenderUnits: List.filled(6, UnitType.archer),
-    attackerFormation: BattleFormation.crescent,
-    defenderFormation: BattleFormation.skirmish,
-  ),
-
-  // Scenario 8: Crescent vs Shield Wall - Formation counter
-  BattleTestScenario(
-    name: '8. Shield Wall beats Crescent',
-    description: 'Shield Wall counters Crescent (+20%).\nEqual armies, formation decides.\nExpected: Defender wins.',
-    expectedWinner: 'defender',
-    attackerUnits: [
-      ...List.filled(3, UnitType.militia),
-      ...List.filled(3, UnitType.lightCavalry),
-    ],
-    defenderUnits: [
-      ...List.filled(4, UnitType.spearman),
-      ...List.filled(2, UnitType.archer),
-    ],
-    attackerFormation: BattleFormation.crescent,
-    defenderFormation: BattleFormation.shieldWall,
-  ),
-
-  // Scenario 9: Crossbowmen vs Spearmen - Ranged advantage
-  BattleTestScenario(
-    name: '9. Crossbows vs Spearmen',
-    description: 'Crossbowmen (4) vs Spearmen (4).\nRanged can kite slow infantry.\nExpected: Crossbows win.',
-    expectedWinner: 'attacker',
-    attackerUnits: List.filled(4, UnitType.crossbowman),
-    defenderUnits: List.filled(4, UnitType.spearman),
-    attackerFormation: BattleFormation.skirmish,
-    defenderFormation: BattleFormation.shieldWall,
-  ),
-
-  // Scenario 10: Outnumbered attacker loses
-  BattleTestScenario(
-    name: '10. Numbers Advantage',
-    description: 'Militia (4) vs Militia (8).\nPure numbers test - 2:1 should win.\nExpected: Defender wins.',
-    expectedWinner: 'defender',
-    attackerUnits: List.filled(4, UnitType.militia),
-    defenderUnits: List.filled(8, UnitType.militia),
-    attackerFormation: BattleFormation.shieldWall,
-    defenderFormation: BattleFormation.shieldWall,
-  ),
-
-  // Scenario 11: Crescent beats Skirmish (missing formation counter)
-  BattleTestScenario(
-    name: '11. Crescent beats Skirmish',
-    description: 'Crescent counters Skirmish (+30%).\nCavalry catches spread-out skirmishers.\nExpected: Attacker wins.',
-    expectedWinner: 'attacker',
-    attackerUnits: [
-      ...List.filled(2, UnitType.militia),
-      ...List.filled(4, UnitType.lightCavalry),
-    ],
-    defenderUnits: [
-      ...List.filled(4, UnitType.archer),
-      ...List.filled(2, UnitType.militia),
-    ],
-    attackerFormation: BattleFormation.crescent,
-    defenderFormation: BattleFormation.skirmish,
-  ),
-
-  // Scenario 12: Archers kite militia
-  BattleTestScenario(
-    name: '12. Archers vs Militia',
-    description: 'Archers (6) vs Militia (6).\nRanged kites weak infantry (1.3x bonus).\nExpected: Archers win.',
-    expectedWinner: 'attacker',
-    attackerUnits: List.filled(6, UnitType.archer),
-    defenderUnits: List.filled(6, UnitType.militia),
-    attackerFormation: BattleFormation.skirmish,
-    defenderFormation: BattleFormation.shieldWall,
-  ),
-
-  // Scenario 13: Counter composition beats raw power
-  BattleTestScenario(
-    name: '13. Counter Composition',
-    description: 'Spearmen + Archers vs Knights.\nPerfect counter army beats elite.\nExpected: Defender wins.',
-    expectedWinner: 'defender',
-    attackerUnits: List.filled(4, UnitType.knight),
-    defenderUnits: [
-      ...List.filled(4, UnitType.spearman),
-      ...List.filled(3, UnitType.archer),
-    ],
-    attackerFormation: BattleFormation.crescent,
-    defenderFormation: BattleFormation.shieldWall,
-  ),
-
-  // Scenario 14: Fortress negates cavalry charge
-  BattleTestScenario(
-    name: '14. Fortress vs Cavalry',
-    description: 'Cavalry army vs Fortress L2.\nFortress reduces charge by 40%.\nExpected: Defender wins.',
-    expectedWinner: 'defender',
-    attackerUnits: [
-      ...List.filled(3, UnitType.lightCavalry),
-      ...List.filled(2, UnitType.knight),
-    ],
-    defenderUnits: [
-      ...List.filled(3, UnitType.spearman),
-      ...List.filled(2, UnitType.crossbowman),
-    ],
-    attackerFormation: BattleFormation.crescent,
-    defenderFormation: BattleFormation.shieldWall,
-    defenderFortressLevel: 2,
-  ),
-
-  // Scenario 15: Light cavalry speed advantage
-  BattleTestScenario(
-    name: '15. Speed Hunters',
-    description: 'Light Cavalry (5) vs Crossbowmen (5).\nFast cavalry catches slow ranged.\nExpected: Cavalry wins.',
-    expectedWinner: 'attacker',
-    attackerUnits: List.filled(5, UnitType.lightCavalry),
     defenderUnits: List.filled(5, UnitType.crossbowman),
     attackerFormation: BattleFormation.crescent,
     defenderFormation: BattleFormation.skirmish,
   ),
-
-  // Scenario 16: Pure archer vs pure archer (defender bonus)
   BattleTestScenario(
-    name: '16. Archer Mirror + Defender Bonus',
-    description: 'Archers (6) vs Archers (6).\nDefender gets +10% base defense.\nExpected: Defender wins.',
+    name: '3. Swordsmen vs Militia',
+    description: 'Swordsmen (6) vs Militia (6)\nElite quality crushes militia.\nExpected: Swordsmen win 80%+',
+    expectedWinner: 'attacker',
+    attackerUnits: List.filled(6, UnitType.swordsman),
+    defenderUnits: List.filled(6, UnitType.militia),
+    attackerFormation: BattleFormation.shieldWall,
+    defenderFormation: BattleFormation.shieldWall,
+  ),
+  BattleTestScenario(
+    name: '4. 2:1 Numbers Advantage',
+    description: 'Militia (12) vs Militia (6)\nOverwhelming force wins.\nExpected: Attacker wins 80%+',
+    expectedWinner: 'attacker',
+    attackerUnits: List.filled(12, UnitType.militia),
+    defenderUnits: List.filled(6, UnitType.militia),
+    attackerFormation: BattleFormation.shieldWall,
+    defenderFormation: BattleFormation.shieldWall,
+  ),
+  BattleTestScenario(
+    name: '5. Cavalry Charge',
+    description: 'Knights (4) + Light Cav (3) vs Militia (6)\nHeavy cavalry breaks militia.\nExpected: Cavalry wins 80%+',
+    expectedWinner: 'attacker',
+    attackerUnits: [...List.filled(4, UnitType.knight), ...List.filled(3, UnitType.lightCavalry)],
+    defenderUnits: List.filled(6, UnitType.militia),
+    attackerFormation: BattleFormation.crescent,
+    defenderFormation: BattleFormation.shieldWall,
+  ),
+  BattleTestScenario(
+    name: '6. Archers vs Militia (Kiting)',
+    description: 'Archers (8) vs Militia (6)\nRanged kites slow infantry.\nExpected: Archers win 80%+',
+    expectedWinner: 'attacker',
+    attackerUnits: List.filled(8, UnitType.archer),
+    defenderUnits: List.filled(6, UnitType.militia),
+    attackerFormation: BattleFormation.skirmish,
+    defenderFormation: BattleFormation.shieldWall,
+  ),
+
+  // ============================================================
+  // GROUP 2: DECISIVE DEFENDER WINS (<20%)
+  // ============================================================
+  BattleTestScenario(
+    name: '7. Siege vs Castle (L3)',
+    description: 'Militia (8) vs Archers (5) in Castle\n+60% defense repels assault.\nExpected: Defender wins 80%+',
     expectedWinner: 'defender',
-    attackerUnits: List.filled(6, UnitType.archer),
-    defenderUnits: List.filled(6, UnitType.archer),
+    attackerUnits: List.filled(8, UnitType.militia),
+    defenderUnits: List.filled(5, UnitType.archer),
+    attackerFormation: BattleFormation.shieldWall,
+    defenderFormation: BattleFormation.shieldWall,
+    defenderFortressLevel: 3,
+  ),
+  BattleTestScenario(
+    name: '8. Knights vs Spearmen',
+    description: 'Knights (4) vs Spearmen (8)\nSpearmen 1.75x counter destroys cavalry.\nExpected: Defender wins 80%+',
+    expectedWinner: 'defender',
+    attackerUnits: List.filled(4, UnitType.knight),
+    defenderUnits: List.filled(8, UnitType.spearman),
+    attackerFormation: BattleFormation.crescent,
+    defenderFormation: BattleFormation.shieldWall,
+  ),
+  BattleTestScenario(
+    name: '9. 3:1 Numbers (Hopeless)',
+    description: 'Swordsmen (4) vs Militia (12)\nEven elite cant beat 3:1.\nExpected: Defender wins 80%+',
+    expectedWinner: 'defender',
+    attackerUnits: List.filled(4, UnitType.swordsman),
+    defenderUnits: List.filled(12, UnitType.militia),
+    attackerFormation: BattleFormation.shieldWall,
+    defenderFormation: BattleFormation.shieldWall,
+  ),
+  BattleTestScenario(
+    name: '10. Cavalry vs Fortress+Spears',
+    description: 'Knights (4) vs Spears+Xbows in Fortress L2\nWorst case cavalry attack.\nExpected: Defender wins',
+    expectedWinner: 'defender',
+    attackerUnits: List.filled(4, UnitType.knight),
+    defenderUnits: [...List.filled(6, UnitType.spearman), ...List.filled(4, UnitType.crossbowman)],
+    attackerFormation: BattleFormation.crescent,
+    defenderFormation: BattleFormation.shieldWall,
+    defenderFortressLevel: 2,
+  ),
+  BattleTestScenario(
+    name: '11. Archers vs Cavalry Rush',
+    description: 'Archers (5) vs Light Cavalry (6)\nCavalry hunts archers (2.0x).\nExpected: Defender wins',
+    expectedWinner: 'defender',
+    attackerUnits: List.filled(5, UnitType.archer),
+    defenderUnits: List.filled(6, UnitType.lightCavalry),
+    attackerFormation: BattleFormation.skirmish,
+    defenderFormation: BattleFormation.crescent,
+  ),
+  BattleTestScenario(
+    name: '12. Wrong Formation (Crescent vs Spears)',
+    description: 'Cavalry+Militia in Crescent vs Spear Wall\nFormation + unit counter.\nExpected: Defender wins',
+    expectedWinner: 'defender',
+    attackerUnits: [...List.filled(3, UnitType.lightCavalry), ...List.filled(2, UnitType.militia)],
+    defenderUnits: [...List.filled(6, UnitType.spearman), ...List.filled(3, UnitType.archer)],
+    attackerFormation: BattleFormation.crescent,
+    defenderFormation: BattleFormation.shieldWall,
+  ),
+
+  // ============================================================
+  // GROUP 3: COMPETITIVE BATTLES (40-60%)
+  // ============================================================
+  BattleTestScenario(
+    name: '13. Mirror Infantry',
+    description: 'Swords+Spears vs Swords+Spears\nDefender has +10% edge.\nExpected: Close fight',
+    expectedWinner: 'close',
+    attackerUnits: [...List.filled(4, UnitType.swordsman), ...List.filled(3, UnitType.spearman)],
+    defenderUnits: [...List.filled(4, UnitType.swordsman), ...List.filled(3, UnitType.spearman)],
+    attackerFormation: BattleFormation.shieldWall,
+    defenderFormation: BattleFormation.shieldWall,
+  ),
+  BattleTestScenario(
+    name: '14. Mixed Arms vs Mixed Arms',
+    description: 'Balanced armies with all types.\nDefender has crossbows + bonus.\nExpected: Slight defender edge',
+    expectedWinner: 'close',
+    attackerUnits: [...List.filled(2, UnitType.swordsman), ...List.filled(2, UnitType.spearman), ...List.filled(2, UnitType.archer), ...List.filled(2, UnitType.lightCavalry)],
+    defenderUnits: [...List.filled(2, UnitType.swordsman), ...List.filled(2, UnitType.spearman), ...List.filled(2, UnitType.crossbowman), ...List.filled(2, UnitType.lightCavalry)],
+    attackerFormation: BattleFormation.shieldWall,
+    defenderFormation: BattleFormation.shieldWall,
+  ),
+  BattleTestScenario(
+    name: '15. Elite vs Numbers',
+    description: 'Swordsmen (6) vs Militia (8)\nQuality vs quantity.\nExpected: Elite should win',
+    expectedWinner: 'attacker',
+    attackerUnits: List.filled(6, UnitType.swordsman),
+    defenderUnits: List.filled(8, UnitType.militia),
+    attackerFormation: BattleFormation.shieldWall,
+    defenderFormation: BattleFormation.shieldWall,
+  ),
+  BattleTestScenario(
+    name: '16. Fortress L1 Assault',
+    description: 'Swords+Archers vs Spears+Archers in L1\nSuperior force vs walls.\nExpected: Beatable',
+    expectedWinner: 'attacker',
+    attackerUnits: [...List.filled(5, UnitType.swordsman), ...List.filled(3, UnitType.archer)],
+    defenderUnits: [...List.filled(3, UnitType.spearman), ...List.filled(3, UnitType.archer)],
+    attackerFormation: BattleFormation.shieldWall,
+    defenderFormation: BattleFormation.shieldWall,
+    defenderFortressLevel: 1,
+  ),
+
+  // ============================================================
+  // GROUP 4: UNIT COUNTER TESTS (60-80%)
+  // ============================================================
+  BattleTestScenario(
+    name: '17. Cavalry vs Archers (2.0x)',
+    description: 'Light Cavalry (5) vs Archers (5)\nHard counter dominates.\nExpected: Cavalry wins 80%+',
+    expectedWinner: 'attacker',
+    attackerUnits: List.filled(5, UnitType.lightCavalry),
+    defenderUnits: List.filled(5, UnitType.archer),
+    attackerFormation: BattleFormation.crescent,
+    defenderFormation: BattleFormation.skirmish,
+  ),
+  BattleTestScenario(
+    name: '18. Spearmen vs Knights (1.75x)',
+    description: 'Spearmen (5) vs Knights (3)\nAnti-cavalry specialists.\nExpected: Spearmen win 60%+',
+    expectedWinner: 'attacker',
+    attackerUnits: List.filled(5, UnitType.spearman),
+    defenderUnits: List.filled(3, UnitType.knight),
+    attackerFormation: BattleFormation.shieldWall,
+    defenderFormation: BattleFormation.crescent,
+  ),
+  BattleTestScenario(
+    name: '19. Archers Kite Spearmen',
+    description: 'Archers (5) vs Spearmen (5)\nRanged kites slow infantry.\nExpected: Archers win 60%+',
+    expectedWinner: 'attacker',
+    attackerUnits: List.filled(5, UnitType.archer),
+    defenderUnits: List.filled(5, UnitType.spearman),
+    attackerFormation: BattleFormation.skirmish,
+    defenderFormation: BattleFormation.shieldWall,
+  ),
+  BattleTestScenario(
+    name: '20. Crossbows vs Militia',
+    description: 'Crossbowmen (5) vs Militia (5)\nHigh damage ranged.\nExpected: Crossbows win 60%+',
+    expectedWinner: 'attacker',
+    attackerUnits: List.filled(5, UnitType.crossbowman),
+    defenderUnits: List.filled(5, UnitType.militia),
+    attackerFormation: BattleFormation.skirmish,
+    defenderFormation: BattleFormation.shieldWall,
+  ),
+
+  // ============================================================
+  // GROUP 5: FORMATION COUNTER TESTS (60-80%)
+  // ============================================================
+  BattleTestScenario(
+    name: '21. Skirmish vs Shield Wall',
+    description: 'Archers+Militia in Skirmish vs Militia Wall\n+20% formation bonus.\nExpected: Skirmish wins',
+    expectedWinner: 'attacker',
+    attackerUnits: [...List.filled(4, UnitType.archer), ...List.filled(2, UnitType.militia)],
+    defenderUnits: List.filled(5, UnitType.militia),
+    attackerFormation: BattleFormation.skirmish,
+    defenderFormation: BattleFormation.shieldWall,
+  ),
+  BattleTestScenario(
+    name: '22. Crescent vs Skirmish',
+    description: 'Light Cav+Militia in Crescent vs Archers\nCavalry catches spread units.\nExpected: Crescent wins',
+    expectedWinner: 'attacker',
+    attackerUnits: [...List.filled(4, UnitType.lightCavalry), ...List.filled(2, UnitType.militia)],
+    defenderUnits: [...List.filled(4, UnitType.archer), ...List.filled(2, UnitType.militia)],
+    attackerFormation: BattleFormation.crescent,
+    defenderFormation: BattleFormation.skirmish,
+  ),
+  BattleTestScenario(
+    name: '23. Shield Wall vs Crescent',
+    description: 'Spears+Archers in Wall vs Light Cav\nStops cavalry charge.\nExpected: Shield Wall wins',
+    expectedWinner: 'attacker',
+    attackerUnits: [...List.filled(4, UnitType.spearman), ...List.filled(2, UnitType.archer)],
+    defenderUnits: [...List.filled(4, UnitType.lightCavalry), ...List.filled(2, UnitType.militia)],
+    attackerFormation: BattleFormation.shieldWall,
+    defenderFormation: BattleFormation.crescent,
+  ),
+
+  // ============================================================
+  // GROUP 6: SPECIAL TACTICAL SCENARIOS
+  // ============================================================
+  BattleTestScenario(
+    name: '24. All Cavalry vs Spear Defense',
+    description: 'Knights (5) vs Spears (8) + Xbows (3)\nPure cavalry vs counters.\nExpected: Defender edge',
+    expectedWinner: 'defender',
+    attackerUnits: List.filled(5, UnitType.knight),
+    defenderUnits: [...List.filled(8, UnitType.spearman), ...List.filled(3, UnitType.crossbowman)],
+    attackerFormation: BattleFormation.crescent,
+    defenderFormation: BattleFormation.shieldWall,
+  ),
+  BattleTestScenario(
+    name: '25. Ranged Duel (Xbow vs Archer)',
+    description: 'Crossbows (5) vs Archers (5)\nArchers have defender bonus.\nExpected: Archers favored',
+    expectedWinner: 'defender',
+    attackerUnits: List.filled(5, UnitType.crossbowman),
+    defenderUnits: List.filled(5, UnitType.archer),
     attackerFormation: BattleFormation.skirmish,
     defenderFormation: BattleFormation.skirmish,
+  ),
+  BattleTestScenario(
+    name: '26. Cavalry Raid',
+    description: 'Light Cavalry (6) vs Militia (4)\nFast in and out.\nExpected: Cavalry wins 70%+',
+    expectedWinner: 'attacker',
+    attackerUnits: List.filled(6, UnitType.lightCavalry),
+    defenderUnits: List.filled(4, UnitType.militia),
+    attackerFormation: BattleFormation.crescent,
+    defenderFormation: BattleFormation.shieldWall,
+  ),
+  BattleTestScenario(
+    name: '27. Elite Defense (Fortress)',
+    description: 'Swords+Archers vs Knights+Xbows in L2\nElite defenders in fortress.\nExpected: Defender wins',
+    expectedWinner: 'defender',
+    attackerUnits: [...List.filled(6, UnitType.swordsman), ...List.filled(4, UnitType.archer)],
+    defenderUnits: [...List.filled(3, UnitType.knight), ...List.filled(2, UnitType.crossbowman)],
+    attackerFormation: BattleFormation.shieldWall,
+    defenderFormation: BattleFormation.shieldWall,
+    defenderFortressLevel: 2,
+  ),
+  BattleTestScenario(
+    name: '28. Peasant Uprising',
+    description: 'Militia (15) vs Swords (2) + Archers (2)\nOverwhelming numbers.\nExpected: Peasants win 70%+',
+    expectedWinner: 'attacker',
+    attackerUnits: List.filled(15, UnitType.militia),
+    defenderUnits: [...List.filled(2, UnitType.swordsman), ...List.filled(2, UnitType.archer)],
+    attackerFormation: BattleFormation.shieldWall,
+    defenderFormation: BattleFormation.shieldWall,
+  ),
+  BattleTestScenario(
+    name: '29. Defender Advantage (Mirror)',
+    description: 'Spears+Cav vs Spears+Cav\nEqual forces, defender bonus.\nExpected: Close, defender edge',
+    expectedWinner: 'close',
+    attackerUnits: [...List.filled(3, UnitType.spearman), ...List.filled(3, UnitType.lightCavalry)],
+    defenderUnits: [...List.filled(3, UnitType.spearman), ...List.filled(3, UnitType.lightCavalry)],
+    attackerFormation: BattleFormation.shieldWall,
+    defenderFormation: BattleFormation.shieldWall,
+  ),
+  BattleTestScenario(
+    name: '30. Full Combined Arms',
+    description: 'All unit types vs all unit types\nEqual armies, defender +10%.\nExpected: Close fight',
+    expectedWinner: 'close',
+    attackerUnits: [...List.filled(3, UnitType.swordsman), ...List.filled(2, UnitType.spearman), ...List.filled(3, UnitType.archer), ...List.filled(2, UnitType.knight)],
+    defenderUnits: [...List.filled(3, UnitType.swordsman), ...List.filled(2, UnitType.spearman), ...List.filled(3, UnitType.crossbowman), ...List.filled(2, UnitType.knight)],
+    attackerFormation: BattleFormation.shieldWall,
+    defenderFormation: BattleFormation.shieldWall,
   ),
 ];
 

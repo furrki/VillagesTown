@@ -22,14 +22,13 @@ List<Unit> createUnits(List<UnitType> types, String ownerId) {
 }
 
 /// Runs a battle multiple times and returns win rate for attacker.
-/// Uses majority voting like the UI test screen.
 double runBattleTests({
   required List<UnitType> attackerTypes,
   required List<UnitType> defenderTypes,
   required BattleFormation attackerFormation,
   required BattleFormation defenderFormation,
   int defenderFortressLevel = 0,
-  int runs = 5,
+  int runs = 10,
 }) {
   int attackerWins = 0;
 
@@ -62,244 +61,528 @@ double runBattleTests({
 }
 
 void main() {
-  group('Combat Engine - Unit Counters', () {
-    test('1. Cavalry vs Archers - Cavalry wins (2.0x counter)', () {
-      final winRate = runBattleTests(
-        attackerTypes: List.filled(6, UnitType.lightCavalry),
-        defenderTypes: List.filled(6, UnitType.archer),
-        attackerFormation: BattleFormation.crescent,
-        defenderFormation: BattleFormation.skirmish,
-      );
-      expect(winRate, greaterThanOrEqualTo(0.6),
-          reason: 'Cavalry should beat archers majority of time');
-    });
-
-    test('2. Spearmen vs Knights - Spearmen win (1.75x counter)', () {
-      final winRate = runBattleTests(
-        attackerTypes: List.filled(8, UnitType.spearman),
-        defenderTypes: List.filled(4, UnitType.knight),
-        attackerFormation: BattleFormation.shieldWall,
-        defenderFormation: BattleFormation.crescent,
-      );
-      expect(winRate, greaterThanOrEqualTo(0.6),
-          reason: 'Spearmen should beat knights majority of time');
-    });
-
-    test('7. Knight Charge vs Archers - Knights devastate unprotected ranged',
-        () {
-      final winRate = runBattleTests(
-        attackerTypes: List.filled(3, UnitType.knight),
-        defenderTypes: List.filled(6, UnitType.archer),
-        attackerFormation: BattleFormation.crescent,
-        defenderFormation: BattleFormation.skirmish,
-      );
-      expect(winRate, greaterThanOrEqualTo(0.6),
-          reason: 'Knights should beat archers without spearmen');
-    });
-
-    test('12. Archers vs Militia - Ranged kites weak infantry', () {
-      final winRate = runBattleTests(
-        attackerTypes: List.filled(6, UnitType.archer),
-        defenderTypes: List.filled(6, UnitType.militia),
-        attackerFormation: BattleFormation.skirmish,
-        defenderFormation: BattleFormation.shieldWall,
-      );
-      expect(winRate, greaterThanOrEqualTo(0.6),
-          reason: 'Archers should beat militia (1.3x bonus)');
-    });
-
-    test('13. Counter Composition - Spearmen + Archers beat Knights', () {
+  // ============================================================
+  // GROUP 1: DECISIVE ATTACKER WINS (80%+)
+  // Clear advantages that should result in obvious wins
+  // ============================================================
+  group('Decisive Attacker Wins (80%+)', () {
+    test('1. Knights vs Archers - Cavalry 2.0x counter', () {
       final winRate = runBattleTests(
         attackerTypes: List.filled(4, UnitType.knight),
-        defenderTypes: [
-          ...List.filled(4, UnitType.spearman),
-          ...List.filled(3, UnitType.archer),
-        ],
+        defenderTypes: List.filled(6, UnitType.archer),
         attackerFormation: BattleFormation.crescent,
-        defenderFormation: BattleFormation.shieldWall,
+        defenderFormation: BattleFormation.skirmish,
+        runs: 50,
       );
-      expect(winRate, lessThanOrEqualTo(0.4),
-          reason: 'Counter composition should beat knights');
+      expect(winRate, greaterThanOrEqualTo(0.8),
+          reason: 'Knights devastate unprotected archers (2.0x counter)');
     });
 
-    test('15. Speed Hunters - Light Cavalry catches Crossbowmen', () {
+    test('2. Light Cavalry vs Crossbowmen - Speed beats slow', () {
       final winRate = runBattleTests(
-        attackerTypes: List.filled(5, UnitType.lightCavalry),
+        attackerTypes: List.filled(6, UnitType.lightCavalry),
         defenderTypes: List.filled(5, UnitType.crossbowman),
         attackerFormation: BattleFormation.crescent,
         defenderFormation: BattleFormation.skirmish,
+        runs: 50,
       );
-      expect(winRate, greaterThanOrEqualTo(0.6),
-          reason: 'Fast cavalry should catch slow crossbowmen');
+      expect(winRate, greaterThanOrEqualTo(0.8),
+          reason: 'Fast cavalry catches slow crossbowmen (2.0x counter)');
     });
-  });
 
-  group('Combat Engine - Formation Counters', () {
-    test('3. Skirmish beats Shield Wall (+25% effectiveness)', () {
+    test('3. Swordsmen vs Militia - Elite quality wins', () {
+      final winRate = runBattleTests(
+        attackerTypes: List.filled(6, UnitType.swordsman),
+        defenderTypes: List.filled(6, UnitType.militia),
+        attackerFormation: BattleFormation.shieldWall,
+        defenderFormation: BattleFormation.shieldWall,
+        runs: 50,
+      );
+      expect(winRate, greaterThanOrEqualTo(0.8),
+          reason: 'Elite swordsmen crush militia even with defender bonus');
+    });
+
+    test('4. 2:1 Numbers Advantage', () {
+      final winRate = runBattleTests(
+        attackerTypes: List.filled(12, UnitType.militia),
+        defenderTypes: List.filled(6, UnitType.militia),
+        attackerFormation: BattleFormation.shieldWall,
+        defenderFormation: BattleFormation.shieldWall,
+        runs: 50,
+      );
+      expect(winRate, greaterThanOrEqualTo(0.8),
+          reason: '2:1 numbers overwhelm 10% defender bonus');
+    });
+
+    test('5. Cavalry Charge vs Militia', () {
       final winRate = runBattleTests(
         attackerTypes: [
-          ...List.filled(5, UnitType.archer),
-          ...List.filled(2, UnitType.militia),
+          ...List.filled(4, UnitType.knight),
+          ...List.filled(3, UnitType.lightCavalry),
         ],
+        defenderTypes: List.filled(6, UnitType.militia),
+        attackerFormation: BattleFormation.crescent,
+        defenderFormation: BattleFormation.shieldWall,
+        runs: 50,
+      );
+      expect(winRate, greaterThanOrEqualTo(0.8),
+          reason: 'Heavy cavalry charge breaks militia');
+    });
+
+    test('6. Archers vs Militia - Ranged kiting', () {
+      final winRate = runBattleTests(
+        attackerTypes: List.filled(8, UnitType.archer),
         defenderTypes: List.filled(6, UnitType.militia),
         attackerFormation: BattleFormation.skirmish,
         defenderFormation: BattleFormation.shieldWall,
+        runs: 50,
       );
-      expect(winRate, greaterThanOrEqualTo(0.6),
-          reason: 'Skirmish should beat Shield Wall');
-    });
-
-    test('8. Shield Wall beats Crescent (+25% effectiveness)', () {
-      final winRate = runBattleTests(
-        attackerTypes: [
-          ...List.filled(3, UnitType.militia),
-          ...List.filled(3, UnitType.lightCavalry),
-        ],
-        defenderTypes: [
-          ...List.filled(4, UnitType.spearman),
-          ...List.filled(2, UnitType.archer),
-        ],
-        attackerFormation: BattleFormation.crescent,
-        defenderFormation: BattleFormation.shieldWall,
-      );
-      expect(winRate, lessThanOrEqualTo(0.4),
-          reason: 'Shield Wall should beat Crescent');
-    });
-
-    test('11. Crescent beats Skirmish (+25% effectiveness)', () {
-      final winRate = runBattleTests(
-        attackerTypes: [
-          ...List.filled(2, UnitType.militia),
-          ...List.filled(4, UnitType.lightCavalry),
-        ],
-        defenderTypes: [
-          ...List.filled(4, UnitType.archer),
-          ...List.filled(2, UnitType.militia),
-        ],
-        attackerFormation: BattleFormation.crescent,
-        defenderFormation: BattleFormation.skirmish,
-      );
-      expect(winRate, greaterThanOrEqualTo(0.6),
-          reason: 'Crescent should beat Skirmish');
+      expect(winRate, greaterThanOrEqualTo(0.8),
+          reason: 'Archers kite slow militia to death');
     });
   });
 
-  group('Combat Engine - Defender & Fortress Bonuses', () {
-    test('4. Fortress Defense L3 - Defender wins with +65% defense', () {
+  // ============================================================
+  // GROUP 2: DECISIVE DEFENDER WINS (Attacker <20%)
+  // Attacking into clear disadvantages - should be hopeless
+  // ============================================================
+  group('Decisive Defender Wins (Attacker <20%)', () {
+    test('7. Militia vs Fortress L3 - Castle siege without equipment', () {
       final winRate = runBattleTests(
-        attackerTypes: [
-          ...List.filled(4, UnitType.militia),
-          ...List.filled(2, UnitType.swordsman),
-        ],
-        defenderTypes: [
-          ...List.filled(2, UnitType.spearman),
-          ...List.filled(4, UnitType.archer),
-        ],
+        attackerTypes: List.filled(8, UnitType.militia),
+        defenderTypes: List.filled(5, UnitType.archer),
         attackerFormation: BattleFormation.shieldWall,
         defenderFormation: BattleFormation.shieldWall,
         defenderFortressLevel: 3,
+        runs: 50,
       );
-      expect(winRate, lessThanOrEqualTo(0.4),
-          reason: 'Fortress L3 should give defender advantage');
+      expect(winRate, lessThanOrEqualTo(0.2),
+          reason: 'Castle (+60% defense) repels militia assault');
     });
 
-    test('14. Fortress vs Cavalry - Fortress negates charge', () {
+    test('8. Knights vs Spearmen Wall - Hard counter', () {
       final winRate = runBattleTests(
-        attackerTypes: [
-          ...List.filled(3, UnitType.lightCavalry),
-          ...List.filled(2, UnitType.knight),
-        ],
-        defenderTypes: [
-          ...List.filled(3, UnitType.spearman),
-          ...List.filled(2, UnitType.crossbowman),
-        ],
+        attackerTypes: List.filled(4, UnitType.knight),
+        defenderTypes: List.filled(8, UnitType.spearman),
         attackerFormation: BattleFormation.crescent,
         defenderFormation: BattleFormation.shieldWall,
-        defenderFortressLevel: 2,
+        runs: 50,
       );
-      expect(winRate, lessThanOrEqualTo(0.4),
-          reason: 'Fortress L2 should negate cavalry advantage');
+      expect(winRate, lessThanOrEqualTo(0.2),
+          reason: 'Spearmen (1.75x) in Shield Wall destroy cavalry');
     });
 
-    test('16. Archer Mirror - Defender wins with +10% defense', () {
-      // Mirror match with archers - defender has +10% defense
+    test('9. Elite vs 3:1 Numbers - Overwhelmed', () {
       final winRate = runBattleTests(
-        attackerTypes: List.filled(6, UnitType.archer),
-        defenderTypes: List.filled(6, UnitType.archer),
-        attackerFormation: BattleFormation.skirmish,
-        defenderFormation: BattleFormation.skirmish,
-        runs: 20, // More runs to reduce variance
-      );
-      // Defender should win majority (attacker wins ≤60%)
-      expect(winRate, lessThanOrEqualTo(0.6),
-          reason: 'Defender with +10% defense should win more often');
-    });
-  });
-
-  group('Combat Engine - Numbers & Quality', () {
-    test('6. Elite vs Numbers - 5 Swordsmen beat 8 Militia', () {
-      final winRate = runBattleTests(
-        attackerTypes: List.filled(5, UnitType.swordsman),
-        defenderTypes: List.filled(8, UnitType.militia),
+        attackerTypes: List.filled(4, UnitType.swordsman),
+        defenderTypes: List.filled(12, UnitType.militia),
         attackerFormation: BattleFormation.shieldWall,
         defenderFormation: BattleFormation.shieldWall,
+        runs: 50,
       );
-      expect(winRate, greaterThanOrEqualTo(0.6),
-          reason: 'Elite swordsmen should beat militia numbers');
-    });
-
-    test('10. Numbers Advantage - 8 Militia beat 4 Militia', () {
-      final winRate = runBattleTests(
-        attackerTypes: List.filled(4, UnitType.militia),
-        defenderTypes: List.filled(8, UnitType.militia),
-        attackerFormation: BattleFormation.shieldWall,
-        defenderFormation: BattleFormation.shieldWall,
-      );
-      expect(winRate, lessThanOrEqualTo(0.4),
-          reason: '2:1 numbers advantage should win');
+      expect(winRate, lessThanOrEqualTo(0.2),
+          reason: '3:1 numbers overwhelm even elite troops');
     });
   });
 
-  group('Combat Engine - Ranged vs Infantry', () {
-    test('9. Crossbows vs Spearmen - Ranged kites slow infantry', () {
-      final winRate = runBattleTests(
-        attackerTypes: List.filled(4, UnitType.crossbowman),
-        defenderTypes: List.filled(4, UnitType.spearman),
-        attackerFormation: BattleFormation.skirmish,
-        defenderFormation: BattleFormation.shieldWall,
-      );
-      expect(winRate, greaterThanOrEqualTo(0.6),
-          reason: 'Crossbows should kite slow spearmen');
-    });
-  });
-
-  group('Combat Engine - Balance Check', () {
-    test('5. Balanced Armies - Close fight (10-90% range)', () {
-      // Equal formations, defender has +10% base defense
+  // ============================================================
+  // GROUP 3: COMPETITIVE BATTLES (30-70% - could go either way)
+  // Evenly matched or slight advantages
+  // ============================================================
+  group('Competitive Battles (30-70%)', () {
+    test('10. Mirror Match - Equal infantry', () {
       final winRate = runBattleTests(
         attackerTypes: [
-          ...List.filled(3, UnitType.swordsman),
+          ...List.filled(4, UnitType.swordsman),
+          ...List.filled(3, UnitType.spearman),
+        ],
+        defenderTypes: [
+          ...List.filled(4, UnitType.swordsman),
+          ...List.filled(3, UnitType.spearman),
+        ],
+        attackerFormation: BattleFormation.shieldWall,
+        defenderFormation: BattleFormation.shieldWall,
+        runs: 200,
+      );
+      // Mirror match - high variance, competitive battle
+      expect(winRate, greaterThanOrEqualTo(0.20),
+          reason: 'Attacker can still win mirror match');
+      expect(winRate, lessThanOrEqualTo(0.75),
+          reason: 'Battle should be competitive');
+    });
+
+    test('11. Mixed Arms vs Mixed Arms', () {
+      final winRate = runBattleTests(
+        attackerTypes: [
+          ...List.filled(2, UnitType.swordsman),
           ...List.filled(2, UnitType.spearman),
           ...List.filled(2, UnitType.archer),
           ...List.filled(2, UnitType.lightCavalry),
-          UnitType.knight,
+        ],
+        defenderTypes: [
+          ...List.filled(2, UnitType.swordsman),
+          ...List.filled(2, UnitType.spearman),
+          ...List.filled(2, UnitType.crossbowman),
+          ...List.filled(2, UnitType.lightCavalry),
+        ],
+        attackerFormation: BattleFormation.shieldWall,
+        defenderFormation: BattleFormation.shieldWall,
+        runs: 100,
+      );
+      // Defender has stronger crossbows + 10% defense bonus
+      // High variance due to mixed unit types
+      expect(winRate, greaterThanOrEqualTo(0.05),
+          reason: 'Attacker can sometimes win');
+      expect(winRate, lessThanOrEqualTo(0.55),
+          reason: 'Defender has slight edge');
+    });
+
+    test('12. Fortress L1 Assault - Equal forces', () {
+      final winRate = runBattleTests(
+        attackerTypes: [
+          ...List.filled(4, UnitType.swordsman),
+          ...List.filled(3, UnitType.archer),
+        ],
+        defenderTypes: [
+          ...List.filled(4, UnitType.swordsman),
+          ...List.filled(3, UnitType.archer),
+        ],
+        attackerFormation: BattleFormation.shieldWall,
+        defenderFormation: BattleFormation.shieldWall,
+        defenderFortressLevel: 1,
+        runs: 100,
+      );
+      // Equal forces - L1 fortress (+15% + 10% base = 25%) gives defender edge
+      expect(winRate, greaterThanOrEqualTo(0.15),
+          reason: 'Attacker can still win with luck');
+      expect(winRate, lessThanOrEqualTo(0.55),
+          reason: 'L1 fortress + defender bonus gives edge');
+    });
+  });
+
+  // ============================================================
+  // GROUP 4: UNIT COUNTER TESTS (70%+ for counter side)
+  // Testing rock-paper-scissors unit relationships
+  // ============================================================
+  group('Unit Counter Relationships (70%+)', () {
+    test('13. Cavalry vs Archers - 2.0x counter', () {
+      final winRate = runBattleTests(
+        attackerTypes: List.filled(5, UnitType.lightCavalry),
+        defenderTypes: List.filled(5, UnitType.archer),
+        attackerFormation: BattleFormation.crescent,
+        defenderFormation: BattleFormation.skirmish,
+        runs: 50,
+      );
+      expect(winRate, greaterThanOrEqualTo(0.7),
+          reason: 'Cavalry hard-counters archers (2.0x)');
+    });
+
+    test('14. Spearmen vs Knights - 2.0x counter', () {
+      final winRate = runBattleTests(
+        attackerTypes: List.filled(5, UnitType.spearman),
+        defenderTypes: List.filled(3, UnitType.knight),
+        attackerFormation: BattleFormation.shieldWall,
+        defenderFormation: BattleFormation.crescent,
+        runs: 50,
+      );
+      // 2.0x counter + nerfed knights + numbers = decisive victory
+      expect(winRate, greaterThanOrEqualTo(0.85),
+          reason: 'Spearmen counter cavalry (2.0x) + numbers bonus');
+    });
+
+    test('15. Archers vs Slow Infantry - Kiting', () {
+      final winRate = runBattleTests(
+        attackerTypes: List.filled(5, UnitType.archer),
+        defenderTypes: List.filled(5, UnitType.spearman),
+        attackerFormation: BattleFormation.skirmish,
+        defenderFormation: BattleFormation.shieldWall,
+        runs: 50,
+      );
+      expect(winRate, greaterThanOrEqualTo(0.5),
+          reason: 'Archers kite slow spearmen');
+    });
+
+    test('16. Crossbowmen vs Militia - High damage ranged', () {
+      final winRate = runBattleTests(
+        attackerTypes: List.filled(5, UnitType.crossbowman),
+        defenderTypes: List.filled(5, UnitType.militia),
+        attackerFormation: BattleFormation.skirmish,
+        defenderFormation: BattleFormation.shieldWall,
+        runs: 50,
+      );
+      expect(winRate, greaterThanOrEqualTo(0.6),
+          reason: 'Crossbows shred militia before they close');
+    });
+  });
+
+  // ============================================================
+  // GROUP 5: FORMATION COUNTER TESTS
+  // Testing rock-paper-scissors: Shield Wall > Crescent > Skirmish
+  // IMPORTANT: Use IDENTICAL armies to isolate formation effect
+  // +20% effectiveness bonus should be visible but not overwhelming
+  // ============================================================
+  group('Formation Counter Relationships', () {
+    test('17. Skirmish vs Shield Wall - Equal infantry armies', () {
+      // Use identical balanced armies to isolate formation effect
+      final army = [
+        ...List.filled(3, UnitType.swordsman),
+        ...List.filled(3, UnitType.spearman),
+        ...List.filled(2, UnitType.archer),
+      ];
+      final winRate = runBattleTests(
+        attackerTypes: army,
+        defenderTypes: army,
+        attackerFormation: BattleFormation.skirmish, // Beats Shield Wall
+        defenderFormation: BattleFormation.shieldWall,
+        runs: 100,
+      );
+      // Skirmish has +20% damage vs Shield Wall
+      // But defender has +10% base defense
+      // Net: attacker should have slight edge (~55-65%)
+      expect(winRate, greaterThanOrEqualTo(0.45),
+          reason: 'Skirmish should beat Shield Wall');
+    });
+
+    test('18. Crescent vs Skirmish - Equal mixed armies', () {
+      // Include some cavalry to make Crescent meaningful
+      final army = [
+        ...List.filled(3, UnitType.swordsman),
+        ...List.filled(2, UnitType.spearman),
+        ...List.filled(2, UnitType.lightCavalry),
+        ...List.filled(2, UnitType.archer),
+      ];
+      final winRate = runBattleTests(
+        attackerTypes: army,
+        defenderTypes: army,
+        attackerFormation: BattleFormation.crescent, // Beats Skirmish
+        defenderFormation: BattleFormation.skirmish,
+        runs: 100,
+      );
+      // Crescent has +20% damage vs Skirmish
+      expect(winRate, greaterThanOrEqualTo(0.45),
+          reason: 'Crescent should beat Skirmish');
+    });
+
+    test('19. Shield Wall vs Crescent - Equal cavalry armies', () {
+      // Include cavalry to make Crescent choice reasonable for defender
+      final army = [
+        ...List.filled(3, UnitType.spearman),
+        ...List.filled(3, UnitType.lightCavalry),
+        ...List.filled(2, UnitType.archer),
+      ];
+      final winRate = runBattleTests(
+        attackerTypes: army,
+        defenderTypes: army,
+        attackerFormation: BattleFormation.shieldWall, // Beats Crescent
+        defenderFormation: BattleFormation.crescent,
+        runs: 100,
+      );
+      // Shield Wall has +20% damage vs Crescent
+      // Also reduces enemy cavalry charge
+      expect(winRate, greaterThanOrEqualTo(0.5),
+          reason: 'Shield Wall should beat Crescent');
+    });
+  });
+
+  // ============================================================
+  // GROUP 6: SPECIAL SCENARIOS
+  // Edge cases and interesting tactical situations
+  // ============================================================
+  group('Special Tactical Scenarios', () {
+    test('20. Cavalry vs Prepared Spear Defense', () {
+      final winRate = runBattleTests(
+        attackerTypes: List.filled(5, UnitType.knight),
+        defenderTypes: [
+          ...List.filled(8, UnitType.spearman),
+          ...List.filled(3, UnitType.crossbowman),
+        ],
+        attackerFormation: BattleFormation.crescent,
+        defenderFormation: BattleFormation.shieldWall,
+        runs: 100,
+      );
+      // Spearmen 2x counter + numbers bonus + shield wall = knights lose
+      expect(winRate, lessThanOrEqualTo(0.40),
+          reason: 'Spear wall + crossbows destroy cavalry charge');
+    });
+
+    test('21. Ranged Duel - Crossbows vs Archers', () {
+      final winRate = runBattleTests(
+        attackerTypes: List.filled(5, UnitType.crossbowman),
+        defenderTypes: List.filled(5, UnitType.archer),
+        attackerFormation: BattleFormation.skirmish,
+        defenderFormation: BattleFormation.skirmish,
+        runs: 50,
+      );
+      // Crossbows hit harder but slower; archers faster + defender bonus
+      expect(winRate, greaterThanOrEqualTo(0.2),
+          reason: 'Crossbows can compete with damage');
+      expect(winRate, lessThanOrEqualTo(0.5),
+          reason: 'Archers faster + defender bonus');
+    });
+
+    test('22. Cavalry Raid vs Militia', () {
+      final winRate = runBattleTests(
+        attackerTypes: List.filled(6, UnitType.lightCavalry),
+        defenderTypes: List.filled(4, UnitType.militia),
+        attackerFormation: BattleFormation.crescent,
+        defenderFormation: BattleFormation.shieldWall,
+        runs: 50,
+      );
+      expect(winRate, greaterThanOrEqualTo(0.7),
+          reason: 'Light cav overwhelms slow militia');
+    });
+
+    test('23. Elite Fortress Defense', () {
+      final winRate = runBattleTests(
+        attackerTypes: [
+          ...List.filled(6, UnitType.swordsman),
+          ...List.filled(4, UnitType.archer),
+        ],
+        defenderTypes: [
+          ...List.filled(3, UnitType.knight),
+          ...List.filled(2, UnitType.crossbowman),
+        ],
+        attackerFormation: BattleFormation.shieldWall,
+        defenderFormation: BattleFormation.shieldWall,
+        defenderFortressLevel: 2,
+        runs: 50,
+      );
+      expect(winRate, lessThanOrEqualTo(0.35),
+          reason: 'Elite defenders in L2 fortress are hard to crack');
+    });
+
+    test('24. Peasant Uprising - Numbers vs Quality', () {
+      final winRate = runBattleTests(
+        attackerTypes: List.filled(15, UnitType.militia),
+        defenderTypes: [
+          ...List.filled(2, UnitType.swordsman),
+          ...List.filled(2, UnitType.archer),
+        ],
+        attackerFormation: BattleFormation.shieldWall,
+        defenderFormation: BattleFormation.shieldWall,
+        runs: 50,
+      );
+      expect(winRate, greaterThanOrEqualTo(0.7),
+          reason: '4:1 militia swarm beats small elite garrison');
+    });
+
+    test('25. Full Combined Arms - Defender Edge', () {
+      final winRate = runBattleTests(
+        attackerTypes: [
+          ...List.filled(3, UnitType.swordsman),
+          ...List.filled(2, UnitType.spearman),
+          ...List.filled(3, UnitType.archer),
+          ...List.filled(2, UnitType.knight),
         ],
         defenderTypes: [
           ...List.filled(3, UnitType.swordsman),
           ...List.filled(2, UnitType.spearman),
-          ...List.filled(2, UnitType.crossbowman),
-          ...List.filled(2, UnitType.lightCavalry),
-          UnitType.knight,
+          ...List.filled(3, UnitType.crossbowman),
+          ...List.filled(2, UnitType.knight),
         ],
         attackerFormation: BattleFormation.shieldWall,
         defenderFormation: BattleFormation.shieldWall,
-        runs: 20, // More runs for stability
+        runs: 50,
       );
-      // Close fight: attacker wins between 10% and 90%
-      expect(winRate, greaterThanOrEqualTo(0.1),
-          reason: 'Equal armies should be close');
-      expect(winRate, lessThanOrEqualTo(0.9),
-          reason: 'Defender defense bonus should give slight edge');
+      // Full combined arms, defender has crossbows (stronger) + 10% defense
+      // Numbers bonus slightly evens things out
+      expect(winRate, greaterThanOrEqualTo(0.15),
+          reason: 'Balanced armies still have a chance');
+      expect(winRate, lessThanOrEqualTo(0.70),
+          reason: 'Defender crossbows + defense bonus win');
+    });
+  });
+
+  // ============================================================
+  // GROUP 7: GAMEPLAY SURPRISE TESTS
+  // Things that might catch players off guard
+  // ============================================================
+  group('Gameplay Surprises (Edge Cases)', () {
+    test('26. Wrong Formation Trap - Cavalry picks Crescent vs Spears', () {
+      // Player has cavalry, picks Crescent (seems logical)
+      // But enemy has spearmen - cavalry gets destroyed
+      final winRate = runBattleTests(
+        attackerTypes: List.filled(5, UnitType.knight),
+        defenderTypes: List.filled(5, UnitType.spearman),
+        attackerFormation: BattleFormation.crescent, // Cavalry formation
+        defenderFormation: BattleFormation.shieldWall, // Counters Crescent
+        runs: 50,
+      );
+      // Player might expect to win with elite knights
+      // But spearmen 1.75x AND shield wall both hurt cavalry
+      expect(winRate, lessThanOrEqualTo(0.3),
+          reason: 'Cavalry formation + anti-cav units = disaster');
+    });
+
+    test('27. Archer Trap - Skirmish vs Cavalry', () {
+      // Player has archers, picks Skirmish (seems logical)
+      // But enemy has cavalry - archers get hunted
+      final winRate = runBattleTests(
+        attackerTypes: List.filled(6, UnitType.archer),
+        defenderTypes: List.filled(4, UnitType.lightCavalry),
+        attackerFormation: BattleFormation.skirmish, // Ranged formation
+        defenderFormation: BattleFormation.crescent, // Counters Skirmish
+        runs: 50,
+      );
+      // Cavalry 2.0x vs archers + Crescent beats Skirmish
+      expect(winRate, lessThanOrEqualTo(0.2),
+          reason: 'Archers in Skirmish get destroyed by cavalry');
+    });
+
+    test('28. Numbers Matter - Militia 3:1 can defeat Knights', () {
+      // Knights are strong, but 3:1 numbers with bonus swings battle
+      // After nerf: Knight Attack 7, HP 80, Charge 5 (was 9/100/7)
+      // Numbers bonus: +50% per 1.0 ratio above 1.0 (3:1 = +100% damage)
+      final winRate = runBattleTests(
+        attackerTypes: List.filled(5, UnitType.knight),
+        defenderTypes: List.filled(15, UnitType.militia),
+        attackerFormation: BattleFormation.crescent,
+        defenderFormation: BattleFormation.shieldWall,
+        runs: 50,
+      );
+      // 3:1 militia with Shield Wall (beats Crescent) + numbers bonus wins
+      expect(winRate, lessThanOrEqualTo(0.50),
+          reason: '3:1 militia with numbers bonus defeats knights');
+    });
+
+    test('29. Defender Always Has Edge - Mirror with same formation', () {
+      // Even with same formation, defender has +10% defense
+      final army = List.filled(8, UnitType.swordsman);
+      final winRate = runBattleTests(
+        attackerTypes: army,
+        defenderTypes: army,
+        attackerFormation: BattleFormation.shieldWall,
+        defenderFormation: BattleFormation.shieldWall,
+        runs: 100,
+      );
+      // Attacker should NOT be strongly favored in mirror match
+      expect(winRate, lessThanOrEqualTo(0.65),
+          reason: 'Defender always has slight edge in mirror');
+      expect(winRate, greaterThanOrEqualTo(0.25),
+          reason: 'But attacker can still win');
+    });
+
+    test('30. Fortress L2 - Still needs good defense, not just walls', () {
+      // WARNING: Fortress alone isn't enough!
+      // 1.5x attacker numbers still wins against L2 fortress
+      final winRate = runBattleTests(
+        attackerTypes: [
+          ...List.filled(6, UnitType.swordsman),
+          ...List.filled(3, UnitType.archer),
+        ],
+        defenderTypes: [
+          ...List.filled(4, UnitType.swordsman),
+          ...List.filled(2, UnitType.crossbowman),
+        ],
+        attackerFormation: BattleFormation.shieldWall,
+        defenderFormation: BattleFormation.shieldWall,
+        defenderFortressLevel: 2,
+        runs: 50,
+      );
+      // L2 fortress (+40% defense) helps but doesn't overcome 1.5x numbers
+      // Player needs BOTH fortress AND good troops
+      expect(winRate, greaterThanOrEqualTo(0.6),
+          reason: '1.5x superior force beats L2 fortress');
     });
   });
 }

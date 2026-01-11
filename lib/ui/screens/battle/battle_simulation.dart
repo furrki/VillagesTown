@@ -484,19 +484,8 @@ class BattleSimulation {
       }
     }
 
-    // Check routing at low morale
-    if (attackerMorale < 0.2 && _random.nextDouble() < dt * 0.5) {
-      final target = _pickRandomAlive(attackerCircles);
-      if (target != null && !target.isRouting) {
-        target.route();
-      }
-    }
-    if (defenderMorale < 0.2 && _random.nextDouble() < dt * 0.5) {
-      final target = _pickRandomAlive(defenderCircles);
-      if (target != null && !target.isRouting) {
-        target.route();
-      }
-    }
+    // No automatic routing - units fight to the death
+    // Routing/surrender is only available via manual player action
   }
 
   BattleCircle? _pickRandomAlive(List<BattleCircle> circles) {
@@ -545,14 +534,10 @@ class BattleSimulation {
   }
 
   void _checkBattleEnd() {
-    final attackersLeft = combatEffectiveAttackers;
-    final defendersLeft = combatEffectiveDefenders;
-
-    // All casualties applied and one side eliminated
+    // Only end when all casualties have been applied and shown
     final allKillsApplied = _attackerKillsApplied >= _totalAttackerKills && _defenderKillsApplied >= _totalDefenderKills;
-    final oneEliminated = attackersLeft <= 0 || defendersLeft <= 0;
 
-    if (allKillsApplied || oneEliminated || combatTime > 20) {
+    if (allKillsApplied || combatTime > 20) {
       // Use record's predetermined outcome
       if (record.attackerWon) {
         for (final c in defenderCircles.where((c) => c.isAlive && !c.isDying)) {

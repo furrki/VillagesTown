@@ -252,15 +252,15 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
   BattleFormation? _selectedFormation;
 
   Widget _buildFormationSelection() {
+    // Count units by category
+    final attackerCounts = _countByCategory(_attackerUnits);
+    final defenderCounts = _countByCategory(_defenderUnits);
+
     // Calculate power balance
     final attackerPower = _calculateArmyPower(_attackerUnits);
     final defenderPower = _calculateArmyPower(_defenderUnits);
     final totalPower = attackerPower + defenderPower;
     final attackerPercent = totalPower > 0 ? attackerPower / totalPower : 0.5;
-
-    // Count units by category
-    final attackerCounts = _countByCategory(_attackerUnits);
-    final defenderCounts = _countByCategory(_defenderUnits);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -291,7 +291,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
           _buildPowerBalanceBar(attackerPercent, attackerPower, defenderPower),
           const SizedBox(height: 16),
 
-          // Army Overview (compact)
+          // Army Overview (compact) - enemy composition hidden
           _buildArmyOverviewRow(attackerCounts, defenderCounts),
           const SizedBox(height: 20),
 
@@ -328,7 +328,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
                 ),
                 SizedBox(height: 4),
                 Text(
-                  '+20% damage bonus against countered formation',
+                  'Counter formations gain damage bonus',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white38, fontSize: 11),
                 ),
@@ -406,6 +406,8 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
   }
 
   Widget _buildArmyOverviewRow(Map<String, int> attackerCounts, Map<String, int> defenderCounts) {
+    final inBattle = simulation.phase != BattlePhase.formationSelect;
+
     return Row(
       children: [
         Expanded(
@@ -413,7 +415,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
             widget.record.attackerName,
             _isPlayerAttacker ? 'YOUR ARMY' : 'ENEMY',
             _attackerNationality?.color ?? Colors.red,
-            attackerCounts,
+            _isPlayerAttacker || inBattle ? attackerCounts : {},
             _attackerUnits.length,
           ),
         ),
@@ -428,7 +430,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
             widget.record.defenderName,
             _isPlayerAttacker ? 'ENEMY' : 'DEFENDING',
             _defenderNationality?.color ?? Colors.blue,
-            defenderCounts,
+            !_isPlayerAttacker || inBattle ? defenderCounts : {},
             _defenderUnits.length,
           ),
         ),
@@ -436,7 +438,9 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
     );
   }
 
-  Widget _buildArmySummary(String name, String subtitle, Color color, Map<String, int> counts, int total) {
+  Widget _buildArmySummary(String name, String subtitle, Color color, Map<String, int> counts, int? total) {
+    final showComposition = counts.isNotEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -449,19 +453,24 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
           overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 2),
-        Text('$total Units', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
-        const SizedBox(height: 4),
-        Wrap(
-          spacing: 4,
-          children: [
-            if ((counts['Infantry'] ?? 0) > 0)
-              _buildCategoryBadge('⚔️${counts['Infantry']}', Colors.grey),
-            if ((counts['Ranged'] ?? 0) > 0)
-              _buildCategoryBadge('🏹${counts['Ranged']}', Colors.green),
-            if ((counts['Cavalry'] ?? 0) > 0)
-              _buildCategoryBadge('🐴${counts['Cavalry']}', Colors.orange),
-          ],
+        Text(
+          '$total Units',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11),
         ),
+        if (showComposition) ...[
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 4,
+            children: [
+              if ((counts['Infantry'] ?? 0) > 0)
+                _buildCategoryBadge('⚔️${counts['Infantry']}', Colors.grey),
+              if ((counts['Ranged'] ?? 0) > 0)
+                _buildCategoryBadge('🏹${counts['Ranged']}', Colors.green),
+              if ((counts['Cavalry'] ?? 0) > 0)
+                _buildCategoryBadge('🐴${counts['Cavalry']}', Colors.orange),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -479,16 +488,6 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
 
   Widget _buildFormationCardWithPreview(BattleFormation formation) {
     final isSelected = _selectedFormation == formation;
-
-    // Simulate what enemy might pick based on their army composition
-    final enemyFormation = _predictEnemyFormation();
-    final bonus = formation.bonusAgainst(enemyFormation);
-    final bonusText = bonus > 1.0
-        ? '+${((bonus - 1) * 100).round()}%'
-        : bonus < 1.0
-            ? '-${((1 - bonus) * 100).round()}%'
-            : '0%';
-    final bonusColor = bonus > 1.0 ? Colors.green : bonus < 1.0 ? Colors.red : Colors.grey;
 
     return GestureDetector(
       onTap: () {
@@ -533,18 +532,6 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
                         formation.displayName,
                         style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: bonusColor.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          bonusText,
-                          style: TextStyle(color: bonusColor, fontSize: 10, fontWeight: FontWeight.bold),
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -563,28 +550,6 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
         ),
       ),
     );
-  }
-
-  BattleFormation _predictEnemyFormation() {
-    // AI picks formation based on army composition
-    int ranged = 0, cavalry = 0, infantry = 0;
-    for (final u in _defenderUnits) {
-      switch (u.category) {
-        case 'Ranged':
-          ranged++;
-        case 'Cavalry':
-          cavalry++;
-        default:
-          infantry++;
-      }
-    }
-    if (cavalry >= ranged && cavalry >= infantry) {
-      return BattleFormation.crescent;
-    } else if (ranged >= infantry) {
-      return BattleFormation.skirmish;
-    } else {
-      return BattleFormation.shieldWall;
-    }
   }
 
   Widget _buildHeader() {
@@ -785,9 +750,9 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
       case BattlePhase.formationSelect:
         return 'SELECT FORMATION';
       case BattlePhase.setup:
-        return '${simulation.playerFormation?.emoji ?? ''} vs ${simulation.enemyFormation?.emoji ?? ''}';
+        return '${simulation.playerFormation?.emoji ?? ''} vs ???';
       case BattlePhase.combat:
-        return '⚔️ BATTLE';
+        return '${simulation.playerFormation?.emoji ?? ''} vs ${simulation.enemyFormation?.emoji ?? ''}';
       case BattlePhase.victory:
       case BattlePhase.defeat:
         return _playerWon ? '🏆 VICTORY!' : '💀 DEFEAT';

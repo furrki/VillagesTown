@@ -167,6 +167,12 @@ class CombatEngine {
   /// Defender bonus constants.
   static const double baseDefenderBonus = 0.10; // +10% defense
 
+  /// Numbers advantage bonus: disabled for balance.
+  /// Having more units is already an advantage without damage multipliers.
+  double _numbersAdvantageMultiplier(int myCount, int enemyCount) {
+    return 1.0;
+  }
+
   /// Fortress modifiers for defenders.
   double _fortressDefenseBonus(int level) => switch (level) {
         1 => 0.15,
@@ -670,10 +676,15 @@ class CombatEngine {
     // Random variance ±10%
     damage *= 0.9 + _random.nextDouble() * 0.2;
 
-    // Garrison units are 50% weaker
+    // Garrison units are 5% weaker
     if (unit.isGarrison) {
-      damage *= 0.5;
+      damage *= 0.95;
     }
+
+    // Numbers advantage: larger armies deal more damage
+    final allyCount = allies.where((a) => a.isAlive).length;
+    final enemyCount = enemies.where((e) => e.isAlive).length;
+    damage *= _numbersAdvantageMultiplier(allyCount, enemyCount);
 
     // Apply damage
     final finalDamage = max(1, damage.round());

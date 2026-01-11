@@ -77,10 +77,10 @@ enum BattleFormation {
       };
 
   /// Calculate overall effectiveness modifier against enemy formation.
-  /// Returns 1.20 if winning, 0.80 if losing, 1.0 if mirror.
+  /// Returns 1.02 if winning, 0.98 if losing, 1.0 if mirror.
   double bonusAgainst(BattleFormation enemy) {
-    if (beats == enemy) return 1.20;
-    if (enemy.beats == this) return 0.80;
+    if (beats == enemy) return 1.02;
+    if (enemy.beats == this) return 0.98;
     return 1.0;
   }
 
