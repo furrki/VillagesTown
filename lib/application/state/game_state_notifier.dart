@@ -134,7 +134,8 @@ class GameStateNotifier extends StateNotifier<GameState> {
 
     if (armiesHere.length <= 1) return;
 
-    // Merge all into first army
+    // Sort by unit count descending - largest army keeps its name
+    armiesHere.sort((a, b) => b.units.length.compareTo(a.units.length));
     final primary = armiesHere.first;
     final allUnits = armiesHere.expand((a) => a.units).toList();
 
@@ -143,7 +144,7 @@ class GameStateNotifier extends StateNotifier<GameState> {
       state = state.removeArmy(armiesHere[i].id);
     }
 
-    // Update primary with all units
+    // Update primary with all units (preserves its name)
     state = state.updateArmy(primary.copyWith(units: allUnits));
   }
 

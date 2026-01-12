@@ -519,10 +519,15 @@ class GameManager extends ChangeNotifier {
       (v) => v?.id == villageId,
       orElse: () => null,
     );
+    // Use OWNER's nationality for the army name, not village's
+    final ownerPlayer = players.cast<Player?>().firstWhere(
+      (p) => p?.id == owner,
+      orElse: () => null,
+    );
     final army = Army(
       name: Army.generateName(
         village?.name ?? 'Unknown',
-        village?.nationality.id ?? 'crusader',
+        ownerPlayer?.nationality.id ?? 'crusader',
       ),
       units: units,
       owner: owner,
@@ -548,12 +553,20 @@ class GameManager extends ChangeNotifier {
     final armiesHere = armies.where((a) => a.stationedAt == villageId && a.owner == owner).toList();
     if (armiesHere.length <= 1) return;
 
-    final allUnits = <Unit>[];
-    for (final army in armiesHere) {
-      allUnits.addAll(army.units);
-      removeArmy(army.id);
+    // Sort by unit count descending - largest army keeps its name
+    armiesHere.sort((a, b) => b.units.length.compareTo(a.units.length));
+    final primary = armiesHere.first;
+
+    // Collect all units from other armies
+    final unitsToAdd = <Unit>[];
+    for (var i = 1; i < armiesHere.length; i++) {
+      unitsToAdd.addAll(armiesHere[i].units);
+      removeArmy(armiesHere[i].id);
     }
-    createArmy(allUnits, villageId, owner);
+
+    // Add units to primary army (preserves its name and ID)
+    primary.units.addAll(unitsToAdd);
+    updateArmy(primary);
   }
 
   /// Defender sallies out to fight besiegers in the field (no fortress bonus)

@@ -166,9 +166,9 @@ class Unit {
 
   void levelUp() {
     level++;
-    attack = (attack * 1.1).toInt();
-    defense = (defense * 1.1).toInt();
-    maxHP = (maxHP * 1.1).toInt();
+    attack = (attack * 1.01).toInt();
+    defense = (defense * 1.01).toInt();
+    maxHP = (maxHP * 1.01).toInt();
     currentHP = maxHP;
   }
 

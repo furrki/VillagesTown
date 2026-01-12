@@ -81,7 +81,17 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
     // Use stored owner IDs from battle creation time (not current ownership!)
     _isPlayerAttacker = widget.record.attackerOwnerId == 'player';
     _attackerNationality = game.getNationality(widget.record.attackerOwnerId) ?? Nationality.ottomans;
-    _defenderNationality = game.getNationality(widget.record.defenderOwnerId) ?? Nationality.byzantines;
+
+    // For neutral defenders, use the village's original nationality
+    if (widget.record.defenderOwnerId == 'neutral') {
+      final village = game.map.villages.cast<Village?>().firstWhere(
+        (v) => v?.id == widget.record.defenderId,
+        orElse: () => null,
+      );
+      _defenderNationality = village?.nationality ?? Nationality.byzantines;
+    } else {
+      _defenderNationality = game.getNationality(widget.record.defenderOwnerId) ?? Nationality.byzantines;
+    }
 
     // Load faction images
     _loadFactionImages();
