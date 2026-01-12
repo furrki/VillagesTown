@@ -95,11 +95,11 @@ enum BuildingType {
   fortress(
     category: BuildingCategory.military,
     displayName: 'Fortress',
-    description: 'Provides strong defensive bonus',
+    description: 'Provides defensive bonus',
     baseCost: ResourceBundle(gold: 300, wood: 100, iron: 50),
     production: ResourceBundle.empty,
     consumption: ResourceBundle.empty,
-    defenseBonus: 0.5,
+    defenseBonus: 0.05, // +5% per level
     canRecruitUnits: false,
     isUnique: true,
   );

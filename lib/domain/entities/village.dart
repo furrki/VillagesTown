@@ -34,14 +34,14 @@ enum VillageLevel {
   castle(
     maxBuildings: 20,
     productionBonus: 0.4,
-    defenseBonus: 0.25,
+    defenseBonus: 0.05, // +5%
     populationCap: 2000,
     garrisonBonus: 20,
   ),
   city(
     maxBuildings: 30,
     productionBonus: 0.5,
-    defenseBonus: 0.5,
+    defenseBonus: 0.10, // +10%
     populationCap: 5000,
     garrisonBonus: 30,
   );

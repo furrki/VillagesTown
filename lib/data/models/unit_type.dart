@@ -88,18 +88,18 @@ enum UnitType {
   /// Damage multiplier against target unit type.
   double damageMultiplier(UnitType target) {
     return switch (this) {
-      // Spearmen are STRONG vs Cavalry (2.0x) - buffed from 1.75x
-      spearman when target.category == 'Cavalry' => 2.0,
-      // Cavalry STRONG vs Ranged (2.0x), WEAK vs Spearmen (0.5x)
-      lightCavalry || knight when target.category == 'Ranged' => 2.0,
-      lightCavalry || knight when target == spearman => 0.5,
-      // Archers WEAK vs Cavalry (0.6x) - hard to hit fast moving targets
-      archer || crossbowman when target.category == 'Cavalry' => 0.6,
-      // Archers strong vs light infantry
-      archer || crossbowman when target == militia => 1.3,
-      archer || crossbowman when target == swordsman => 1.2,
+      // Spearmen are STRONG vs Cavalry (+25%)
+      spearman when target.category == 'Cavalry' => 1.25,
+      // Cavalry STRONG vs Ranged (+25%), WEAK vs Spearmen (-20%)
+      lightCavalry || knight when target.category == 'Ranged' => 1.25,
+      lightCavalry || knight when target == spearman => 0.8,
+      // Archers WEAK vs Cavalry (-15%) - hard to hit fast moving targets
+      archer || crossbowman when target.category == 'Cavalry' => 0.85,
+      // Archers slight bonus vs light infantry
+      archer || crossbowman when target == militia => 1.1,
+      archer || crossbowman when target == swordsman => 1.05,
       // Swordsmen slight bonus vs militia
-      swordsman when target == militia => 1.2,
+      swordsman when target == militia => 1.1,
       _ => 1.0,
     };
   }

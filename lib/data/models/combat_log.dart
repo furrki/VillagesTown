@@ -84,26 +84,25 @@ enum BattleFormation {
     return 1.0;
   }
 
-  /// Formation-specific stat modifiers (per Phase 2 doc).
+  /// Formation-specific stat modifiers (balanced values).
   FormationModifiers get modifiers => switch (this) {
         BattleFormation.shieldWall => const FormationModifiers(
-            infantryDefenseBonus: 0.30, // +30% defense (tight formation)
-            rangedRangeBonus: 1, // +1 range (elevated position)
-            cavalryChargeMultiplier: 0.50, // Own cavalry charge reduced by 50%
-            speedMultiplier: 0.70, // -30% speed (must stay tight)
+            infantryDefenseBonus: 0.03, // +3% defense
+            rangedRangeBonus: 1,
+            cavalryChargeMultiplier: 0.95, // -5% own cavalry charge
+            speedMultiplier: 0.97, // -3% speed
           ),
         BattleFormation.crescent => const FormationModifiers(
-            cavalryChargeMultiplier: 1.40, // +40% charge bonus
-            infantryDefenseBonus: -0.20, // Infantry exposed
-            rangedDefenseBonus: -0.20, // Ranged exposed
-            // Note: flankDamageBonus (+25%) not yet implemented in combat engine
+            cavalryChargeMultiplier: 1.05, // +5% charge bonus
+            infantryDefenseBonus: -0.02, // Infantry slightly exposed
+            rangedDefenseBonus: -0.02,
           ),
         BattleFormation.skirmish => const FormationModifiers(
-            speedMultiplier: 1.30, // +30% speed
-            rangedRangeBonus: 2, // +2 range
-            rangedDamageTakenMultiplier: 0.70, // -30% damage from enemy ranged
-            meleeAttackMultiplier: 0.80, // -20% melee attack (isolated fights)
-            enemyChargeMultiplier: 0.70, // -30% enemy charge effectiveness
+            speedMultiplier: 1.03, // +3% speed
+            rangedRangeBonus: 1,
+            rangedDamageTakenMultiplier: 0.97, // -3% damage from enemy ranged
+            meleeAttackMultiplier: 0.98, // -2% melee attack
+            enemyChargeMultiplier: 0.97, // -3% enemy charge effectiveness
           ),
       };
 }

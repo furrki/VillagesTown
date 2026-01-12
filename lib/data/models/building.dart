@@ -122,8 +122,8 @@ class Building {
         type: BuildingType.military,
         name: 'Fortress',
         baseCost: const {Resource.gold: 300, Resource.wood: 100, Resource.iron: 50},
-        description: 'Provides strong defensive bonus',
-        defenseBonus: 0.5,
+        description: 'Provides defensive bonus',
+        defenseBonus: 0.05, // +5% per level
       );
 
 

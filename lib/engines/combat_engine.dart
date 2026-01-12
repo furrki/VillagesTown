@@ -173,25 +173,25 @@ class CombatEngine {
     return 1.0;
   }
 
-  /// Fortress modifiers for defenders.
+  /// Fortress modifiers for defenders (balanced values).
   double _fortressDefenseBonus(int level) => switch (level) {
-        1 => 0.15,
-        2 => 0.30,
-        >= 3 => 0.50,
+        1 => 0.05,  // +5%
+        2 => 0.10,  // +10%
+        >= 3 => 0.15, // +15%
         _ => 0.0,
       };
 
   int _fortressRangeBonus(int level) => switch (level) {
         1 => 1,
         2 => 1,
-        >= 3 => 2,
+        >= 3 => 1,
         _ => 0,
       };
 
   double _fortressCavalryPenalty(int level) => switch (level) {
-        1 => 0.80, // -20%
-        2 => 0.60, // -40%
-        >= 3 => 0.40, // -60%
+        1 => 0.95, // -5%
+        2 => 0.90, // -10%
+        >= 3 => 0.85, // -15%
         _ => 1.0,
       };
 

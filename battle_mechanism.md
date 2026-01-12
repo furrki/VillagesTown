@@ -57,14 +57,14 @@ The strategic depth comes from building the right army composition and predictin
 - Cavalry units charge with kill potential
 - Kill potential: `(base + stablesBonus) × luck × formationMod × counterMod`
 - Light Cavalry: 1.5 base, Knight: 2.5 base
-- **Spearmen counter cavalry:** 0.5× modifier
+- **Spearmen counter cavalry:** 0.8× modifier (cavalry deal 20% less to spearmen)
 - Targets: ranged first (soft targets), then infantry
 
 ### Phase 3: Melee Clash
 - Only **Infantry** and **Cavalry** engage in melee
 - Kill rate: `(base + infantryBonus) × luck × formationMod × counterMod`
 - Militia: 0.25, Spearman: 0.35, Swordsman: 0.50
-- **Spearmen bonus vs cavalry:** up to 50% based on enemy cavalry ratio
+- **Spearmen bonus vs cavalry:** +25% damage to cavalry
 - **Archers do NOT participate** - they hold position in rear
 
 ### Archer Behavior (Proposed Change)
@@ -91,9 +91,9 @@ This requires **unit individuality** - tracking each soldier's state rather than
 
 | Formation | Beats | Loses To | Best For |
 |-----------|-------|----------|----------|
-| **Guerilla** | Roman (+30%) | Crescent (-30%) | Archer-heavy armies |
-| **Roman** | Crescent (+30%) | Guerilla (-30%) | Infantry protecting archers |
-| **Crescent** | Guerilla (+30%) | Roman (-30%) | Cavalry-dominant armies |
+| **Shield Wall** | Crescent (+2%) | Skirmish (-2%) | Infantry protecting archers |
+| **Crescent** | Skirmish (+2%) | Shield Wall (-2%) | Cavalry-dominant armies |
+| **Skirmish** | Shield Wall (+2%) | Crescent (-2%) | Archer-heavy armies |
 
 ### Formation Selection Logic
 
@@ -282,7 +282,7 @@ Attack: 4 (+levels)
 Defense: 7 (+levels)
 HP: 70
 Speed: 1 (+levels)
-Anti-Cavalry: 1.75x damage vs cavalry
+Anti-Cavalry: 1.25x damage vs cavalry
 
 **Swordsman** -> Elite infantry. High damage output, decent survivability. Best for aggressive pushes.
 
@@ -355,13 +355,13 @@ Infantry forms a tight defensive line in front, ranged behind, cavalry on flanks
 ```
 
 **Mechanics:**
-- Infantry gets +30% Defense (tight formation, overlapping shields)
-- Ranged gets +20% effective range (elevated/protected firing position)
-- Cavalry Charge bonus reduced by 50% (no room to build momentum)
-- Movement speed -30% (formation must stay tight)
+- Infantry gets +3% Defense (tight formation)
+- Ranged gets +1 Range (elevated firing position)
+- Own Cavalry Charge reduced by 5%
+- Movement speed -3%
 
-**Strong vs:** Crescent - cavalry charge gets negated by the wall, infantry grinds them down
-**Weak vs:** Skirmish - spread-out enemies minimize arrow damage, flankers pick apart the slow formation
+**Strong vs:** Crescent - cavalry charge gets negated by the wall
+**Weak vs:** Skirmish - spread-out enemies minimize effectiveness
 
 ---
 
@@ -377,13 +377,12 @@ Cavalry-forward formation. Wings wrap around to encircle.
 ```
 
 **Mechanics:**
-- Cavalry gets +40% Charge bonus (momentum from flanks)
-- +25% damage to rear/flanks when encirclement succeeds
-- Infantry and Ranged get -20% Defense (exposed, formation gaps)
+- Cavalry gets +5% Charge bonus
+- Infantry and Ranged get -2% Defense (slightly exposed)
 - If cavalry dies early, remaining units are vulnerable
 
-**Strong vs:** Skirmish - fast cavalry catches spread-out skirmishers, encircles and destroys
-**Weak vs:** Shield Wall - charge bounces off the wall, cavalry gets ground down
+**Strong vs:** Skirmish - cavalry catches spread-out skirmishers
+**Weak vs:** Shield Wall - charge is less effective against the wall
 
 ---
 
@@ -398,14 +397,14 @@ Loose, spread formation. Mobile harassment, avoid direct engagement.
 ```
 
 **Mechanics:**
-- All units get +30% Speed (loose formation, no need to maintain line)
-- Ranged gets +2 Range (freedom to position optimally)
-- -30% damage taken from enemy ranged (spread targets)
-- Melee units get -20% Attack (no unified push, isolated fights)
-- Charge bonus against this formation reduced by 30% (hard to hit dispersed targets)
+- All units get +3% Speed (loose formation)
+- Ranged gets +1 Range
+- -3% damage taken from enemy ranged (spread targets)
+- Melee units get -2% Attack (isolated fights)
+- Enemy Charge reduced by 3%
 
-**Strong vs:** Shield Wall - kites the slow formation, picks them apart with arrows
-**Weak vs:** Crescent - fast cavalry catches and encircles isolated units
+**Strong vs:** Shield Wall - more mobile, can outmaneuver
+**Weak vs:** Crescent - cavalry catches isolated units
 
 ---
 
@@ -413,31 +412,30 @@ Loose, spread formation. Mobile harassment, avoid direct engagement.
 
 | Formation | Beats | Loses To | Ideal Army |
 |-----------|-------|----------|------------|
-| **Shield Wall** | Crescent (+20% effectiveness) | Skirmish (-20%) | Infantry-heavy with ranged support |
-| **Crescent** | Skirmish (+20% effectiveness) | Shield Wall (-20%) | Cavalry-dominant |
-| **Skirmish** | Shield Wall (+20% effectiveness) | Crescent (-20%) | Ranged-heavy, mobile |
+| **Shield Wall** | Crescent (+2%) | Skirmish (-2%) | Infantry-heavy with ranged support |
+| **Crescent** | Skirmish (+2%) | Shield Wall (-2%) | Cavalry-dominant |
+| **Skirmish** | Shield Wall (+2%) | Crescent (-2%) | Ranged-heavy, mobile |
 
-The +20%/-20% represents overall combat effectiveness modifier applied to damage calculations.
+The +2%/-2% represents overall combat effectiveness modifier applied to damage calculations.
 
 ### Formation Modifiers (Detailed)
 
 **Shield Wall:**
-- Infantry gets +30% Defense (tight formation, overlapping shields)
-- Ranged gets +1 Range (elevated/protected firing position)
-- Own Cavalry Charge reduced by 50% (no room to build momentum)
-- Movement speed -30% (formation must stay tight)
+- Infantry gets +3% Defense
+- Ranged gets +1 Range
+- Own Cavalry Charge reduced by 5%
+- Movement speed -3%
 
 **Crescent:**
-- Cavalry gets +40% Charge bonus (momentum from flanks)
-- +25% damage on successful encirclement *(not yet implemented)*
-- Infantry and Ranged get -20% Defense (exposed, formation gaps)
+- Cavalry gets +5% Charge bonus
+- Infantry and Ranged get -2% Defense
 
 **Skirmish:**
-- All units get +30% Speed (loose formation)
-- Ranged gets +2 Range (freedom to position optimally)
-- -30% damage taken from enemy ranged (spread targets)
-- Melee units get -20% Attack (isolated fights)
-- Enemy Charge reduced by 30% (hard to hit dispersed targets)
+- All units get +3% Speed
+- Ranged gets +1 Range
+- -3% damage taken from enemy ranged
+- Melee units get -2% Attack
+- Enemy Charge reduced by 3%
 
 ---
 
@@ -449,26 +447,23 @@ Defending armies fight on home turf with significant advantages.
 - All defending units: +10% Defense (familiar terrain, prepared positions)
 
 ### Fortress Bonus (per level)
-| Fortress Level | Defense Bonus | Ranged Bonus | Notes |
-|----------------|---------------|--------------|-------|
-| 0 (none) | +0% | +0 Range | No fortifications |
-| 1 (Palisade) | +15% Defense | +1 Range | Wooden walls |
-| 2 (Stone Walls) | +30% Defense | +1 Range | Solid fortifications |
-| 3 (Castle) | +50% Defense | +2 Range | Major stronghold |
+| Fortress Level | Defense Bonus | Ranged Bonus | Cavalry Penalty | Notes |
+|----------------|---------------|--------------|-----------------|-------|
+| 0 (none) | +0% | +0 Range | 0% | No fortifications |
+| 1 (Palisade) | +5% Defense | +1 Range | -5% | Wooden walls |
+| 2 (Stone Walls) | +10% Defense | +1 Range | -10% | Solid fortifications |
+| 3 (Castle) | +15% Defense | +1 Range | -15% | Major stronghold |
 
 ### Fortress Effects
 - **Defense bonus:** Applies to all defending units (walls provide cover)
 - **Range bonus:** Ranged units shoot from elevated positions
-- **Cavalry penalty:** Attacking cavalry Charge reduced by 20% per fortress level (no room to charge)
-- **Siege requirement:** Fortress level 2+ requires siege equipment or prolonged assault (future feature)
+- **Cavalry penalty:** Attacking cavalry Charge reduced (no room to charge)
 
 ### Combined Example
 Defender at Level 2 Fortress:
-- Base: +10% Defense
-- Fortress: +30% Defense
+- Fortress: +10% Defense
 - Ranged: +1 Range
-- Enemy cavalry: -40% Charge bonus
-- **Total: +40% Defense for all units**
+- Enemy cavalry: -10% Charge bonus
 
 ---
 
@@ -480,8 +475,8 @@ baseDamage = Attack * (100 / (100 + Defense))
 finalDamage = baseDamage * typeMultiplier * formationMod * randomVariance
 ```
 
-- **typeMultiplier:** Unit counter bonuses (e.g., Spearman 1.5x vs Cavalry)
-- **formationMod:** Formation advantage/disadvantage (0.7 to 1.3)
+- **typeMultiplier:** Unit counter bonuses (e.g., Spearman 1.25x vs Cavalry)
+- **formationMod:** Formation advantage/disadvantage (0.98 to 1.02)
 - **randomVariance:** 0.9 to 1.1 (±10% per hit)
 
 ### Melee Combat
@@ -587,7 +582,7 @@ if (both == 0) → Mutual destruction (defender keeps village)
 | Unit | Move Toward | Attack Priority | Special |
 |------|-------------|-----------------|---------|
 | Militia | Nearest enemy | Infantry > Archers > Cav | Cheap, weak |
-| Spearman | Nearest enemy | Cavalry > Infantry > Archers | 1.5x vs Cavalry |
+| Spearman | Nearest enemy | Cavalry > Infantry > Archers | 1.25x vs Cavalry |
 | Swordsman | Nearest enemy | Infantry > Archers > Cav | High damage |
 | Archer | Stay at range | Infantry > Cav > Archers | Retreat if approached |
 | Crossbowman | Stay at range | Infantry > Cav > Archers | Slow, high damage |
