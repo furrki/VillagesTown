@@ -353,8 +353,8 @@ class Village with ResourceHolder, TreasuryHolder {
     this.money = 1000.0,
     this.population = 100,
     this.happiness = 75,
-    this.garrisonStrength = 5,
-    this.garrisonMaxStrength = 10,
+    this.garrisonStrength = 15,
+    this.garrisonMaxStrength = 20,
     this.underSiege = false,
     this.recruitsThisTurn = 0,
     this.garrisonRegenAccumulator = 0.0,
@@ -423,10 +423,10 @@ class Village with ResourceHolder, TreasuryHolder {
   }
 
   int get computedGarrisonMax {
-    var maxGarrison = 10;
+    var maxGarrison = 20; // Base garrison capacity
     final barracks = buildings.firstWhereOrNull((b) => b.name == 'Barracks');
-    if (barracks != null) maxGarrison += 5 * barracks.level;
-    maxGarrison += 15 * fortressLevel;
+    if (barracks != null) maxGarrison += 10 * barracks.level;
+    maxGarrison += 20 * fortressLevel;
     maxGarrison += level.garrisonBonus;
     return maxGarrison;
   }
@@ -497,10 +497,12 @@ class Village with ResourceHolder, TreasuryHolder {
       underSiege = false;
       return;
     }
-    // Base regen is 0.5 (slower recovery), buildings add their normal bonuses
-    var recovery = 0.5;
-    if (buildings.any((b) => b.name == 'Barracks')) recovery += 1.0;
-    if (buildings.any((b) => b.name == 'Fortress')) recovery += 2.0;
+    // Base regen + building bonuses
+    var recovery = 1.0; // Base recovery
+    final barracks = buildings.firstWhereOrNull((b) => b.name == 'Barracks');
+    if (barracks != null) recovery += 0.5 * barracks.level;
+    final fortress = buildings.firstWhereOrNull((b) => b.name == 'Fortress');
+    if (fortress != null) recovery += 1.0 * fortress.level;
 
     garrisonRegenAccumulator += recovery;
     final wholeUnits = garrisonRegenAccumulator.floor();

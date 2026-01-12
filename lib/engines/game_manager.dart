@@ -760,7 +760,8 @@ class GameManager extends ChangeNotifier {
   void _captureUndefendedVillage(Army army, Village village, String originId) {
     village.owner = army.owner;
     village.happiness = max(40, village.happiness - 10);
-    village.garrisonStrength = 3;
+    village.garrisonStrength = 0; // Reset garrison on conquest
+    village.garrisonRegenAccumulator = 0.0;
     updateVillage(village);
 
     army.station(village.id); // Use station() to properly set state
@@ -1011,7 +1012,8 @@ class GameManager extends ChangeNotifier {
       village.owner = attacker.owner;
       village.population = (village.population * 0.8).toInt();
       village.happiness = max(30, village.happiness - 20);
-      village.garrisonStrength = 5;
+      village.garrisonStrength = 0; // Reset garrison on conquest
+      village.garrisonRegenAccumulator = 0.0;
       village.underSiege = false;
       updateVillage(village);
 

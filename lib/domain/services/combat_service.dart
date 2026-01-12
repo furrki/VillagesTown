@@ -199,7 +199,7 @@ class CombatService {
 
   /// Calculate total defender strength including garrison.
   int calculateDefenseStrength(List<Army> defenderArmies, int garrison) {
-    var strength = garrison * 5; // Garrison has base strength
+    var strength = garrison * 15; // Garrison is strong defensive force
     for (final army in defenderArmies) {
       strength += calculateStrength(army);
     }

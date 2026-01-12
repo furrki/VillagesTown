@@ -162,7 +162,7 @@ class CombatEngine {
   static const double tickRate = 0.1;
 
   /// Maximum battle duration (seconds) - extended for larger battles.
-  static const double maxBattleDuration = 120.0;
+  static const double maxBattleDuration = 999999.0; // Fight to the death
 
   /// Defender bonus constants.
   static const double baseDefenderBonus = 0.10; // +10% defense
@@ -371,11 +371,10 @@ class CombatEngine {
       _updateChargeState(aliveDefenders, aliveAttackers, tickRate);
     }
 
-    // Determine final outcome if battle timed out
+    // Should never reach here - battles fight to elimination
+    // But if somehow we do, defender holds the position
     if (!battleEnded) {
-      final remainingAttackers = attackerUnits.where((u) => u.isAlive).length;
-      final remainingDefenders = defenderUnits.where((u) => u.isAlive).length;
-      attackerWon = remainingAttackers > remainingDefenders;
+      attackerWon = false;
     }
 
     // Create legacy phases for compatibility with existing UI
