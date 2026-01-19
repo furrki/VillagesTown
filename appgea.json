@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "displayName": "VillagesTown",
+  "appType": "flutter",
+  "platforms": [
+    "iOS",
+    "android",
+    "web"
+  ],
+  "iosBundleId": "com.appgea.villagesTown",
+  "androidPackageName": "com.appgea.villages_town",
+  "appStoreId": "6504364356",
+  "_lastDetection": "2026-01-19T17:15:04.577508",
+  "techStack": {
+    "projectType": "flutter",
+    "languages": [
+      "Dart",
+      "Swift/ObjC",
+      "Kotlin/Java"
+    ],
+    "frameworks": [
+      "Flutter"
+    ],
+    "dependencies": [
+      "cupertino_icons",
+      "provider",
+      "flutter_riverpod",
+      "uuid",
+      "collection",
+      "flutter_map",
+      "latlong2",
+      "freezed_annotation",
+      "json_annotation",
+      "shared_preferences",
+      "file_picker"
+    ],
+    "devDependencies": [
+      "freezed",
+      "build_runner",
+      "json_serializable",
+      "flutter_lints",
+      "flutter_launcher_icons"
+    ],
+    "buildTools": {
+      "ios": "Xcode",
+      "android": "Gradle"
+    },
+    "stateManagement": "Riverpod",
+    "architecture": "Clean Architecture with Freezed"
+  },
+  "appStoreUrl": "https://apps.apple.com/app/id6504364356",
+  "playStoreId": "com.appgea.villages_town",
+  "playStoreUrl": "https://play.google.com/store/apps/details?id=com.appgea.villages_town",
+  "description": "I can't access the VillagesTown project from this session—I'm restricted to the AppgeaPanel directory. You'd need to either open a new Claude Code session for VillagesTown or provide the app's code files here.\n\nBased solely on what you've given me (the tech stack with flutter_map and latlong2), I can only infer it involves location/mapping features, but I can't write an accurate app store description without seeing the actual app functionality."
+}
