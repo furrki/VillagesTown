@@ -1,34 +1,34 @@
 enum VillageLevel {
   village(
-    maxBuildings: 8,
+    maxBuildings: 6,
     productionBonus: 0.1,
     defenseBonus: 0.0,
     populationCap: 200,
     garrisonBonus: 0,
   ),
   town(
-    maxBuildings: 12,
+    maxBuildings: 8,
     productionBonus: 0.2,
     defenseBonus: 0.0,
     populationCap: 500,
     garrisonBonus: 5,
   ),
   district(
-    maxBuildings: 16,
+    maxBuildings: 10,
     productionBonus: 0.3,
     defenseBonus: 0.0,
     populationCap: 1000,
     garrisonBonus: 10,
   ),
   castle(
-    maxBuildings: 20,
+    maxBuildings: 14,
     productionBonus: 0.4,
     defenseBonus: 0.05, // +5%
     populationCap: 2000,
     garrisonBonus: 20,
   ),
   city(
-    maxBuildings: 30,
+    maxBuildings: 18,
     productionBonus: 0.5,
     defenseBonus: 0.10, // +10%
     populationCap: 5000,

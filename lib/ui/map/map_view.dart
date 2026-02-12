@@ -80,7 +80,8 @@ class _MapViewState extends State<MapView> {
     return Consumer<GameProvider>(
       builder: (context, provider, _) {
         final game = provider.gameManager;
-        final visibleVillages = game.map.villages; // Show all cities
+        // Filter villages by visibility (fog of war)
+        final visibleVillages = game.map.villages.where((v) => game.isVillageVisible(v, 'player')).toList();
         final visibleArmies = game.getVisibleArmies('player');
 
         return FlutterMap(

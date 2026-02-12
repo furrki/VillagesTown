@@ -16,6 +16,7 @@ import '../data/models/unit_type.dart';
 import '../data/models/village.dart';
 import '../data/models/building.dart';
 import '../data/models/combat_log.dart';
+import '../data/models/village_trait.dart';
 import 'combat_engine.dart';
 import 'turn_engine.dart';
 
@@ -50,6 +51,10 @@ class GameManager extends ChangeNotifier {
   List<BattleRecord> pendingBattles = [];
   Set<String> discoveredVillageIDs = {};
   double visionRangeKm = 400.0; // Vision range in kilometers
+
+  /// Cache of last-known info for discovered villages (stale data for fog of war).
+  /// Key: village ID, Value: (owner, garrison estimate, turn last seen)
+  Map<String, DiscoveredVillageInfo> discoveredVillageCache = {};
 
   bool tutorialEnabled = true;
   int tutorialStep = 0;
@@ -287,7 +292,56 @@ class GameManager extends ChangeNotifier {
     // Caucasus
     villages.add(Village(name: 'Kars', nationality: Nationality.armenia, coordinates: const GeoCoordinate(40.6013, 43.0975), owner: 'neutral'));
 
+    // Assign village traits based on geography
+    _assignVillageTraits(villages);
+
     return villages;
+  }
+
+  void _assignVillageTraits(List<Village> villages) {
+    const traitMap = <String, VillageTrait>{
+      // Fertile: river valleys and plains
+      'Cairo': VillageTrait.fertile,
+      'Damascus': VillageTrait.fertile,
+      'Alexandria': VillageTrait.fertile,
+      'Thessaloniki': VillageTrait.fertile,
+      'Gaza': VillageTrait.fertile,
+      // Forested: wooded regions
+      'Sofia': VillageTrait.forested,
+      'Tarnovo': VillageTrait.forested,
+      'Belgrade': VillageTrait.forested,
+      'Nis': VillageTrait.forested,
+      // Mountainous: highland/mountain regions
+      'Van': VillageTrait.mountainous,
+      'Kars': VillageTrait.mountainous,
+      'Ani': VillageTrait.mountainous,
+      'Erzurum': VillageTrait.mountainous,
+      'Konya': VillageTrait.mountainous,
+      // Trade crossroads: major trade hubs
+      'Constantinople': VillageTrait.tradeCrossroads,
+      'Antioch': VillageTrait.tradeCrossroads,
+      'Aleppo': VillageTrait.tradeCrossroads,
+      'Bursa': VillageTrait.tradeCrossroads,
+      // Coastal: port cities
+      'Acre': VillageTrait.coastal,
+      'Smyrna': VillageTrait.coastal,
+      'Trebizond': VillageTrait.coastal,
+      'Sinope': VillageTrait.coastal,
+      'Tripoli': VillageTrait.coastal,
+      'Rhodes': VillageTrait.coastal,
+      'Crete': VillageTrait.coastal,
+      'Cyprus': VillageTrait.coastal,
+      // Strategic: defensible positions
+      'Jerusalem': VillageTrait.strategic,
+      'Nicaea': VillageTrait.strategic,
+      'Ankara': VillageTrait.strategic,
+      'Edirne': VillageTrait.strategic,
+      // Remaining get none by default
+    };
+
+    for (final village in villages) {
+      village.trait = traitMap[village.name] ?? VillageTrait.none;
+    }
   }
 
   /// Build K-nearest neighbor connections for all cities
@@ -371,6 +425,7 @@ class GameManager extends ChangeNotifier {
     turnEvents.clear();
     globalResources.clear();
     discoveredVillageIDs.clear();
+    discoveredVillageCache.clear();
     pendingBattles.clear();
     cityConnections.clear();
     tutorialEnabled = true;
@@ -782,17 +837,30 @@ class GameManager extends ChangeNotifier {
   }
 
   // Fog of War
-  bool isVillageVisible(Village village, String playerId) {
+
+  /// Get effective vision range for a village (base + light cavalry scouting bonus).
+  double _getEffectiveVisionRange(Village village) {
+    var range = visionRangeKm;
+    // Light Cavalry scouting: +200km vision (doesn't stack)
+    final stationedArmies = getArmiesAt(village.id).where((a) => a.owner == village.owner);
+    for (final army in stationedArmies) {
+      if (army.units.any((u) => u.unitType == UnitType.lightCavalry)) {
+        range += 200.0;
+        break; // Doesn't stack
+      }
+    }
+    return range;
+  }
+
+  /// Check if a village is currently in vision range (not just discovered).
+  bool isVillageInVisionRange(Village village, String playerId) {
     if (village.owner == playerId) return true;
-    if (discoveredVillageIDs.contains(village.id)) return true;
 
     final playerVillages = getPlayerVillages(playerId);
     for (final pv in playerVillages) {
+      final effectiveRange = _getEffectiveVisionRange(pv);
       final distKm = GeoCoordinate.distanceKm(pv.coordinates, village.coordinates);
-      if (distKm <= visionRangeKm) {
-        discoveredVillageIDs.add(village.id);
-        return true;
-      }
+      if (distKm <= effectiveRange) return true;
     }
 
     final playerArmies = getArmiesFor(playerId);
@@ -803,14 +871,32 @@ class GameManager extends ChangeNotifier {
               orElse: () => null,
             );
         if (stationedVillage != null) {
+          final effectiveRange = _getEffectiveVisionRange(stationedVillage);
           final distKm = GeoCoordinate.distanceKm(stationedVillage.coordinates, village.coordinates);
-          if (distKm <= visionRangeKm) {
-            discoveredVillageIDs.add(village.id);
-            return true;
-          }
+          if (distKm <= effectiveRange) return true;
         }
       }
     }
+    return false;
+  }
+
+  bool isVillageVisible(Village village, String playerId) {
+    if (village.owner == playerId) return true;
+
+    if (isVillageInVisionRange(village, playerId)) {
+      discoveredVillageIDs.add(village.id);
+      // Update cache with current data
+      discoveredVillageCache[village.id] = DiscoveredVillageInfo(
+        owner: village.owner,
+        garrisonEstimate: _roundToNearest(getTotalDefenders(village), 5),
+        turnSeen: currentTurn,
+      );
+      return true;
+    }
+
+    // Previously discovered but out of range = still visible (stale data)
+    if (discoveredVillageIDs.contains(village.id)) return true;
+
     return false;
   }
 
@@ -828,7 +914,8 @@ class GameManager extends ChangeNotifier {
 
     final playerVillages = getPlayerVillages(playerId);
     for (final pv in playerVillages) {
-      if (GeoCoordinate.distanceKm(pv.coordinates, locationVillage.coordinates) <= visionRangeKm) {
+      final effectiveRange = _getEffectiveVisionRange(pv);
+      if (GeoCoordinate.distanceKm(pv.coordinates, locationVillage.coordinates) <= effectiveRange) {
         return true;
       }
     }
@@ -840,12 +927,34 @@ class GameManager extends ChangeNotifier {
               (v) => v!.id == pa.stationedAt,
               orElse: () => null,
             );
-        if (paVillage != null && GeoCoordinate.distanceKm(paVillage.coordinates, locationVillage.coordinates) <= visionRangeKm) {
-          return true;
+        if (paVillage != null) {
+          final effectiveRange = _getEffectiveVisionRange(paVillage);
+          if (GeoCoordinate.distanceKm(paVillage.coordinates, locationVillage.coordinates) <= effectiveRange) {
+            return true;
+          }
         }
       }
     }
     return false;
+  }
+
+  /// Update vision cache for all villages in range at start of turn.
+  void updateVisionCache(String playerId) {
+    for (final village in map.villages) {
+      if (village.owner == playerId) continue;
+      if (isVillageInVisionRange(village, playerId)) {
+        discoveredVillageIDs.add(village.id);
+        discoveredVillageCache[village.id] = DiscoveredVillageInfo(
+          owner: village.owner,
+          garrisonEstimate: _roundToNearest(getTotalDefenders(village), 5),
+          turnSeen: currentTurn,
+        );
+      }
+    }
+  }
+
+  int _roundToNearest(int value, int nearest) {
+    return ((value + nearest ~/ 2) ~/ nearest) * nearest;
   }
 
   List<Village> getVisibleVillages(String playerId) {
@@ -1091,4 +1200,17 @@ class GameManager extends ChangeNotifier {
       finalizeBattle(battle, battle.rounds.length, false);
     }
   }
+}
+
+/// Cached info about a discovered village (for fog of war stale data).
+class DiscoveredVillageInfo {
+  final String owner;
+  final int garrisonEstimate;
+  final int turnSeen;
+
+  const DiscoveredVillageInfo({
+    required this.owner,
+    required this.garrisonEstimate,
+    required this.turnSeen,
+  });
 }

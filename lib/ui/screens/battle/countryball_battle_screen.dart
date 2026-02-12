@@ -3,6 +3,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../data/models/army.dart';
+import '../../../data/models/battle_tactics.dart';
+import '../../../data/models/battle_terrain.dart';
 import '../../../data/models/combat_log.dart';
 import '../../../data/models/nationality.dart';
 import '../../../data/models/unit_type.dart';
@@ -260,6 +262,8 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
   List<UnitType> _attackerUnits = [];
   List<UnitType> _defenderUnits = [];
   BattleFormation? _selectedFormation;
+  BattleTerrain _selectedTerrain = BattleTerrain.openField;
+  EngagementOrder _selectedEngagement = EngagementOrder.aggressivePush;
 
   Widget _buildFormationSelection() {
     // Count units by category
@@ -305,6 +309,31 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
           _buildArmyOverviewRow(attackerCounts, defenderCounts),
           const SizedBox(height: 20),
 
+          // Terrain Selection (defender chooses, attacker sees it)
+          if (!_isPlayerAttacker) ...[
+            const Text('CHOOSE TERRAIN', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 2)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: BattleTerrain.values.map((t) => _buildTerrainChip(t)).toList(),
+            ),
+            const SizedBox(height: 16),
+          ] else if (widget.record.terrain != null) ...[
+            Text('Terrain: ${widget.record.terrain!.emoji} ${widget.record.terrain!.displayName}', style: TextStyle(color: Colors.amber.shade200, fontSize: 14)),
+            const SizedBox(height: 16),
+          ],
+
+          // Engagement Order
+          const Text('BATTLE STRATEGY', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 2)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: EngagementOrder.values.map((e) => _buildEngagementChip(e)).toList(),
+          ),
+          const SizedBox(height: 16),
+
           // Formation Selection Title
           const Text(
             'CHOOSE YOUR FORMATION',
@@ -321,6 +350,36 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
           ...BattleFormation.values.map((formation) => _buildFormationCardWithPreview(formation)),
 
           const SizedBox(height: 16),
+
+          // Active synergies
+          if (_selectedFormation != null) ...[
+            Builder(builder: (_) {
+              final tactics = BattleTactics(
+                terrain: !_isPlayerAttacker ? _selectedTerrain : null,
+                formation: _selectedFormation!,
+                engagementOrder: _selectedEngagement,
+              );
+              final synergies = tactics.getSynergies(null);
+              if (synergies.isEmpty) return const SizedBox.shrink();
+              return Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('ACTIVE SYNERGIES', style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    ...synergies.map((s) => Text('• $s', style: const TextStyle(color: Colors.white70, fontSize: 12))),
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: 12),
+          ],
 
           // Rock-paper-scissors hint
           Container(
@@ -346,6 +405,53 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTerrainChip(BattleTerrain t) {
+    final selected = _selectedTerrain == t;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedTerrain = t),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? Colors.amber.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: selected ? Colors.amber : Colors.white24),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(t.emoji, style: const TextStyle(fontSize: 20)),
+            const SizedBox(height: 2),
+            Text(t.displayName, style: TextStyle(color: selected ? Colors.amber : Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEngagementChip(EngagementOrder e) {
+    final selected = _selectedEngagement == e;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedEngagement = e),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? Colors.blue.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: selected ? Colors.blue : Colors.white24),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(e.emoji, style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 2),
+            Text(e.displayName, style: TextStyle(color: selected ? Colors.blue.shade200 : Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+            Text(e.description, style: const TextStyle(color: Colors.white38, fontSize: 9)),
+          ],
+        ),
       ),
     );
   }
@@ -583,15 +689,24 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
               Icon(Icons.flash_on, color: Colors.amber.shade700, size: 20),
               const SizedBox(width: 8),
               Flexible(
-                child: Text(
-                  widget.record.locationName.toUpperCase(),
-                  style: TextStyle(
-                    color: Colors.amber.shade100,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 2,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  children: [
+                    Text(
+                      widget.record.locationName.toUpperCase(),
+                      style: TextStyle(
+                        color: Colors.amber.shade100,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (widget.record.terrain != null)
+                      Text(
+                        '${widget.record.terrain!.emoji} ${widget.record.terrain!.displayName}',
+                        style: TextStyle(color: Colors.amber.shade300, fontSize: 11),
+                      ),
+                  ],
                 ),
               ),
             ],

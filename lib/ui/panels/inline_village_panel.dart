@@ -7,6 +7,7 @@ import '../../data/models/building.dart';
 import '../../data/models/unit_type.dart';
 import '../../data/models/resource.dart';
 import '../../data/models/unit.dart';
+import '../../data/models/village_trait.dart';
 import '../../providers/game_provider.dart';
 import '../components/owner_flag_view.dart';
 import '../components/tutorial_highlighter.dart';
@@ -148,6 +149,44 @@ class InlineVillagePanel extends StatelessWidget {
                     '👥 ${village.population}   🏠 ${village.buildings.length}/${village.maxBuildings}',
                     style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6)),
                   ),
+                  if (village.trait != VillageTrait.none) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.brown.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.brown.withValues(alpha: 0.5), width: 0.5),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(village.trait.emoji, style: const TextStyle(fontSize: 9)),
+                          const SizedBox(width: 2),
+                          Text(village.trait.displayName, style: const TextStyle(fontSize: 9, color: Colors.white70)),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (village.specialization != VillageSpecialization.none) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.purple.withValues(alpha: 0.5), width: 0.5),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(village.specialization.emoji, style: const TextStyle(fontSize: 9)),
+                          const SizedBox(width: 2),
+                          Text(village.specialization.displayName, style: const TextStyle(fontSize: 9, color: Colors.white70)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 4),

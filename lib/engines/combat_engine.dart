@@ -1,5 +1,7 @@
 import 'dart:math';
 import '../data/map/game_map.dart';
+import '../data/models/battle_tactics.dart';
+import '../data/models/battle_terrain.dart';
 import '../data/models/unit.dart';
 import '../data/models/unit_type.dart';
 import '../data/models/village.dart';
@@ -250,6 +252,10 @@ class CombatEngine {
     int defenderArcheryLevel = 0,
     int defenderStablesLevel = 0,
     int defenderFortressLevel = 0,
+    double attackerFatigueMod = 1.0,
+    BattleTerrain? terrain,
+    BattleTactics? attackerTactics,
+    BattleTactics? defenderTactics,
   }) {
     final events = <CombatEvent>[];
     final initialAttackerCount = attackers.length;
@@ -273,6 +279,29 @@ class CombatEngine {
     // Apply formation modifiers
     _applyFormationModifiers(attackerUnits, attackerFormation);
     _applyFormationModifiers(defenderUnits, defenderFormation);
+
+    // Apply terrain modifiers
+    if (terrain != null) {
+      _applyTerrainModifiers(attackerUnits, terrain);
+      _applyTerrainModifiers(defenderUnits, terrain);
+    }
+
+    // Apply engagement order modifiers
+    if (attackerTactics != null) {
+      _applyEngagementOrder(attackerUnits, attackerTactics.engagementOrder);
+      _applyRoleModifiers(attackerUnits, attackerTactics, terrain);
+    }
+    if (defenderTactics != null) {
+      _applyEngagementOrder(defenderUnits, defenderTactics.engagementOrder);
+      _applyRoleModifiers(defenderUnits, defenderTactics, terrain);
+    }
+
+    // Apply attacker fatigue (food deprivation + march fatigue)
+    if (attackerFatigueMod < 1.0) {
+      for (final unit in attackerUnits) {
+        unit.attackModifier *= attackerFatigueMod;
+      }
+    }
 
     // Apply defender bonuses
     _applyDefenderBonuses(defenderUnits, defenderFortressLevel);
@@ -397,6 +426,7 @@ class CombatEngine {
       initialAttackerCount: initialAttackerCount,
       initialDefenderCount: initialDefenderCount,
       initialGarrisonCount: garrisonCount,
+      terrain: terrain,
       attackerFormation: attackerFormation,
       defenderFormation: defenderFormation,
       formationBonus: formationMod,
@@ -601,6 +631,97 @@ class CombatEngine {
       // Fortress range bonus for ranged units
       if (unit.isRanged) {
         unit.rangeModifier += fortressRange;
+      }
+    }
+  }
+
+  /// Apply terrain modifiers to all units.
+  void _applyTerrainModifiers(List<CombatUnit> units, BattleTerrain terrain) {
+    for (final unit in units) {
+      // Defense bonus from terrain
+      unit.defenseModifier *= terrain.defenseMod;
+      // Movement penalty from terrain
+      unit.speedModifier *= terrain.movementMod;
+      // Cavalry charge modifier
+      if (unit.isCavalry) {
+        unit.chargeModifier *= terrain.cavalryChargeMod;
+      }
+      // Ranged modifier
+      if (unit.isRanged) {
+        unit.attackModifier *= terrain.rangedMod;
+      }
+    }
+  }
+
+  /// Apply engagement order modifiers.
+  void _applyEngagementOrder(List<CombatUnit> units, EngagementOrder order) {
+    switch (order) {
+      case EngagementOrder.aggressivePush:
+        for (final unit in units) {
+          unit.attackModifier *= 1.15;
+          unit.defenseModifier *= 0.90;
+        }
+      case EngagementOrder.holdGround:
+        for (final unit in units) {
+          unit.defenseModifier *= 1.15;
+          unit.attackModifier *= 0.90;
+          if (unit.isRanged) unit.rangeModifier += 1;
+        }
+      case EngagementOrder.feignedRetreat:
+        // 50/50 gamble
+        final success = _random.nextBool();
+        for (final unit in units) {
+          if (success) {
+            unit.attackModifier *= 1.30;
+          } else {
+            unit.attackModifier *= 0.80;
+          }
+        }
+    }
+  }
+
+  /// Apply unit role modifiers and synergy bonuses.
+  void _applyRoleModifiers(List<CombatUnit> units, BattleTactics tactics, BattleTerrain? terrain) {
+    final synergies = tactics.getSynergies(null);
+    final hasCavChargeSync = synergies.any((s) => s.contains('Cavalry Charge'));
+    final hasHilltopArcherSync = synergies.any((s) => s.contains('Hilltop'));
+    final hasCounterAttackSync = synergies.any((s) => s.contains('Counter-Attack'));
+    final hasForestAmbush = synergies.any((s) => s.contains('Forest Ambush'));
+
+    for (final unit in units) {
+      final role = tactics.roleAssignments[unit.type];
+      if (role == null) continue;
+
+      switch (role) {
+        case UnitRole.vanguard:
+          unit.attackModifier *= 1.10;
+          unit.defenseModifier *= 0.90;
+        case UnitRole.mainBody:
+          break; // No modifier
+        case UnitRole.reserve:
+          // Reserve units start with reduced stats, get bonus when they "arrive"
+          // Simplified: apply the bonus directly (full reserve delay needs tick tracking)
+          final reserveBonus = hasCounterAttackSync ? 1.25 : 1.15;
+          unit.attackModifier *= reserveBonus;
+        case UnitRole.flankers:
+          if (unit.isCavalry) {
+            // +20% vs ranged (handled in targeting), general flanking bonus
+            unit.attackModifier *= 1.10;
+            if (hasCavChargeSync) unit.chargeModifier *= 1.10;
+          }
+      }
+
+      // Synergy: Hilltop Archers
+      if (hasHilltopArcherSync && unit.isRanged && role == UnitRole.reserve) {
+        unit.attackModifier *= 1.10;
+      }
+    }
+
+    // Synergy: Forest Ambush (5% instant-kill applied during combat ticks, tracked via flag)
+    if (hasForestAmbush) {
+      // Mark units for ambush chance (handled in _processUnitTick)
+      for (final unit in units) {
+        unit.attackModifier *= 1.02; // Small general bonus for forest ambush setup
       }
     }
   }

@@ -185,17 +185,38 @@ class EnemyApproachingEvent extends TurnEvent {
   final String enemyName;
   final String target;
   final int turns;
+  final int? estimatedSize;
 
-  EnemyApproachingEvent({required this.enemyName, required this.target, required this.turns});
+  EnemyApproachingEvent({required this.enemyName, required this.target, required this.turns, this.estimatedSize});
 
   @override
   String get emoji => '⚠️';
 
   @override
-  String get message => '⚠️ $enemyName approaching $target! $turns turns away';
+  String get message {
+    final sizeStr = estimatedSize != null ? ' (~$estimatedSize units)' : '';
+    return '⚠️ $enemyName approaching $target!$sizeStr $turns turns away';
+  }
 
   @override
   bool get isImportant => true;
+}
+
+class EnemyArmySpottedEvent extends TurnEvent {
+  final String armyName;
+  final String destination;
+  final int estimatedSize;
+
+  EnemyArmySpottedEvent({required this.armyName, required this.destination, required this.estimatedSize});
+
+  @override
+  String get emoji => '👁️';
+
+  @override
+  String get message => 'Enemy $armyName spotted marching to $destination (~$estimatedSize units)';
+
+  @override
+  bool get isImportant => false;
 }
 
 class GeneralEvent extends TurnEvent {

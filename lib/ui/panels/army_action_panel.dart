@@ -60,27 +60,76 @@ class ArmyActionPanel extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(16),
           color: Colors.white.withOpacity(0.05),
-          child: Row(
+          child: Column(
             children: [
-              Text(army.emoji, style: const TextStyle(fontSize: 28)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      army.name,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              Row(
+                children: [
+                  Text(army.emoji, style: const TextStyle(fontSize: 28)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          army.name,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          army.isMarching ? 'Marching • ${army.turnsUntilArrival} turns' : '${army.unitCount} units',
+                          style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.6)),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      army.isMarching ? 'Marching • ${army.turnsUntilArrival} turns' : '${army.unitCount} units',
-                      style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.6)),
-                    ),
-                  ],
-                ),
+                  ),
+                  _buildEndTurnButton(),
+                ],
               ),
-              _buildEndTurnButton(),
+              if (army.isMarching && army.turnsUntilArrival > 0) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.blue.shade800, Colors.blue.shade900],
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.access_time, color: Colors.white, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${army.turnsUntilArrival} turn${army.turnsUntilArrival > 1 ? "s" : ""} to arrive',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (army.totalMarchTurns > 1) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.orange.withOpacity(0.5)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, size: 14, color: Colors.orange),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Long march • ${((1.0 - army.marchFatigueModifier) * 100).toStringAsFixed(0)}% fatigue penalty',
+                        style: const TextStyle(fontSize: 11, color: Colors.orange),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),

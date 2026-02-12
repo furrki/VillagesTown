@@ -56,17 +56,25 @@ class RecruitmentEngine {
     final archeryRangeLevel = archeryRange.isNotEmpty ? archeryRange.first.level : 0;
     final stablesLevel = stables.isNotEmpty ? stables.first.level : 0;
 
+    // Military hub bonus: +15% attack and defense on recruited units
+    final isMilitaryHub = village.specialization == VillageSpecialization.militaryHub;
+
     // Create units with building bonuses
     final units = <Unit>[];
     for (var i = 0; i < quantity; i++) {
-      units.add(Unit.create(
+      final unit = Unit.create(
         unitType,
         village.owner,
         coordinates,
         barracksLevel: barracksLevel,
         archeryRangeLevel: archeryRangeLevel,
         stablesLevel: stablesLevel,
-      ));
+      );
+      if (isMilitaryHub) {
+        unit.bonusAttack += (unitType.stats.attack * 0.15).round();
+        unit.bonusDefense += (unitType.stats.defense * 0.15).round();
+      }
+      units.add(unit);
     }
 
     // Add to army at village (owned by same player!)

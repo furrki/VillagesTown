@@ -1,4 +1,5 @@
 import '../../domain/entities/unit.dart';
+import 'battle_terrain.dart';
 
 /// Combat phase types for the three-phase battle system.
 enum CombatPhase {
@@ -153,6 +154,7 @@ class BattleRecord {
   bool isPending;
 
   // New combat data
+  final BattleTerrain? terrain;
   final BattleFormation? attackerFormation;
   final BattleFormation? defenderFormation;
   final double formationBonus; // Attacker's formation modifier
@@ -181,6 +183,7 @@ class BattleRecord {
     this.initialGarrisonCount = 0,
     DateTime? timestamp,
     this.isPending = true,
+    this.terrain,
     this.attackerFormation,
     this.defenderFormation,
     this.formationBonus = 1.0,

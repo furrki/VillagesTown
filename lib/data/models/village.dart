@@ -7,8 +7,20 @@ import '../protocols/treasury_holder.dart';
 import 'building.dart';
 import 'geo_coordinate.dart';
 import 'nationality.dart';
+import 'building_type.dart';
 import 'resource.dart';
 import 'village_level.dart';
+import 'village_trait.dart';
+
+enum VillageSpecialization {
+  militaryHub('Military Hub', '🗡️'),
+  tradeCenter('Trade Center', '💰'),
+  none('', '');
+
+  final String displayName;
+  final String emoji;
+  const VillageSpecialization(this.displayName, this.emoji);
+}
 
 class Village with ResourceHolder, TreasuryHolder {
   // Historical city names by faction: baseName -> {nationalityId -> localizedName}
@@ -339,6 +351,7 @@ class Village with ResourceHolder, TreasuryHolder {
   bool underSiege;
   int recruitsThisTurn;
   double garrisonRegenAccumulator;
+  VillageTrait trait;
   List<LatLng>? customTerritory;
 
   Village({
@@ -358,6 +371,7 @@ class Village with ResourceHolder, TreasuryHolder {
     this.underSiege = false,
     this.recruitsThisTurn = 0,
     this.garrisonRegenAccumulator = 0.0,
+    this.trait = VillageTrait.none,
     this.customTerritory,
   })  : id = id ?? const Uuid().v4(),
         buildings = buildings ?? Building.starter(),
@@ -414,6 +428,19 @@ class Village with ResourceHolder, TreasuryHolder {
 
   bool get canBuildMore => buildings.length < maxBuildings;
 
+  /// Village specialization based on building composition.
+  /// 60%+ military = militaryHub (+15% recruited unit stats).
+  /// 60%+ economic = tradeCenter (+25% production).
+  VillageSpecialization get specialization {
+    if (buildings.isEmpty) return VillageSpecialization.none;
+    final militaryCount = buildings.where((b) => b.type == BuildingType.military).length;
+    final economicCount = buildings.where((b) => b.type == BuildingType.production).length;
+    final total = buildings.length;
+    if (militaryCount / total >= 0.6) return VillageSpecialization.militaryHub;
+    if (economicCount / total >= 0.6) return VillageSpecialization.tradeCenter;
+    return VillageSpecialization.none;
+  }
+
   int get maxRecruitsPerTurn {
     var cap = 3;
     final barracks = buildings.firstWhereOrNull((b) => b.name == 'Barracks');
@@ -431,10 +458,10 @@ class Village with ResourceHolder, TreasuryHolder {
     return maxGarrison;
   }
 
-  /// Get fortress level (0 if no fortress).
+  /// Get fortress level (0 if no fortress). Strategic trait adds +1.
   int get fortressLevel {
     final fortress = buildings.firstWhereOrNull((b) => b.name == 'Fortress');
-    return fortress?.level ?? 0;
+    return (fortress?.level ?? 0) + trait.fortressLevelBonus;
   }
 
   Village copyWith({
@@ -454,6 +481,7 @@ class Village with ResourceHolder, TreasuryHolder {
     bool? underSiege,
     int? recruitsThisTurn,
     double? garrisonRegenAccumulator,
+    VillageTrait? trait,
     List<LatLng>? customTerritory,
   }) {
     return Village(
@@ -474,6 +502,7 @@ class Village with ResourceHolder, TreasuryHolder {
       recruitsThisTurn: recruitsThisTurn ?? this.recruitsThisTurn,
       garrisonRegenAccumulator:
           garrisonRegenAccumulator ?? this.garrisonRegenAccumulator,
+      trait: trait ?? this.trait,
       customTerritory: customTerritory ?? this.customTerritory,
     );
   }
@@ -503,6 +532,9 @@ class Village with ResourceHolder, TreasuryHolder {
     if (barracks != null) recovery += 0.5 * barracks.level;
     final fortress = buildings.firstWhereOrNull((b) => b.name == 'Fortress');
     if (fortress != null) recovery += 1.0 * fortress.level;
+
+    // Strategic trait: +25% garrison regen
+    recovery *= (1.0 + trait.garrisonRegenBonus);
 
     garrisonRegenAccumulator += recovery;
     final wholeUnits = garrisonRegenAccumulator.floor();

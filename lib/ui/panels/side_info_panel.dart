@@ -5,6 +5,7 @@ import '../../data/models/building.dart';
 import '../../data/models/village.dart';
 import '../../data/models/resource.dart';
 import '../../data/models/unit_type.dart';
+import '../../data/models/village_trait.dart';
 import '../../providers/game_provider.dart';
 import '../components/owner_flag_view.dart';
 import '../components/defender_strength_bar.dart';
@@ -242,7 +243,18 @@ class _VillageInfoSection extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(game.getVillageDisplayName(village), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(game.getVillageDisplayName(village), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                            ),
+                            if (village.trait != VillageTrait.none)
+                              Tooltip(
+                                message: '${village.trait.displayName}: ${village.trait.description}',
+                                child: Text(village.trait.emoji, style: const TextStyle(fontSize: 20)),
+                              ),
+                          ],
+                        ),
                         Text(
                           isPlayerVillage ? 'Level ${village.level.index + 1}' : _ownerLabel,
                           style: TextStyle(fontSize: 14, color: isPlayerVillage ? Colors.green : Colors.red),
@@ -789,52 +801,106 @@ class _ArmyCard extends StatelessWidget {
 
   const _ArmyCard({required this.army, required this.onMarch});
 
+  bool get hasLightCavalry => army.units.any((u) => u.unitType == UnitType.lightCavalry);
+
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: army.foodDeprivedTurns > 0
+            ? Colors.orange.withOpacity(0.15)
+            : Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(
+          color: army.foodDeprivedTurns > 0
+              ? Colors.orange.withOpacity(0.5)
+              : Colors.white10,
+        ),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.2),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.blueAccent),
-            ),
-            child: Center(child: Text(army.emoji, style: const TextStyle(fontSize: 18))),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(army.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                Text('${army.unitCount} Units • ${army.strength} Power', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
-              ],
-            ),
-          ),
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: onMarch,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  color: Colors.blue[800],
-                  borderRadius: BorderRadius.circular(6),
+                  color: Colors.blue.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.blueAccent),
                 ),
-                child: const Text('March', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                child: Center(child: Text(army.emoji, style: const TextStyle(fontSize: 18))),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(army.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                    Text('${army.unitCount} Units • ${army.strength} Power', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
+                  ],
+                ),
+              ),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: onMarch,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[800],
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text('March', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (army.foodDeprivedTurns > 0) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.warning_amber_rounded, size: 12, color: Colors.orange),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Starving (${army.foodDeprivedTurns} turns) • -20% Strength',
+                    style: const TextStyle(fontSize: 10, color: Colors.orange),
+                  ),
+                ],
               ),
             ),
-          ),
+          ],
+          if (hasLightCavalry) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.visibility, size: 12, color: Colors.green),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'Scout Range: +200km',
+                    style: TextStyle(fontSize: 10, color: Colors.green),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

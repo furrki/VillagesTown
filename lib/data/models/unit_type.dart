@@ -75,7 +75,8 @@ enum UnitType {
 
   String get counterInfo => switch (this) {
         spearman => 'Strong vs Cavalry',
-        lightCavalry || knight => 'Strong vs Ranged',
+        lightCavalry => 'Strong vs Ranged, +200km scouting',
+        knight => 'Strong vs Ranged',
         archer || crossbowman => 'Strong vs Infantry',
         swordsman => 'Balanced fighter',
         militia => 'Cheap, weak',

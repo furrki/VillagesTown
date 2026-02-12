@@ -101,6 +101,31 @@ class TurnEngine {
       for (final entry in totalUpkeep.entries) {
         game.modifyGlobalResource(player.id, entry.key, -entry.value);
       }
+
+      // Check food starvation for this player's armies
+      final foodAfterUpkeep = game.getGlobalResources(player.id)[Resource.food] ?? 0;
+      final playerArmies = game.getArmiesFor(player.id);
+
+      for (final army in playerArmies) {
+        if (foodAfterUpkeep <= 0) {
+          army.foodDeprivedTurns++;
+          // After 3 turns deprived, lose 10% units (desertion)
+          if (army.foodDeprivedTurns >= 3) {
+            final desertions = (army.units.length * 0.1).ceil();
+            for (var i = 0; i < desertions && army.units.isNotEmpty; i++) {
+              army.units.removeLast();
+            }
+            if (army.units.isEmpty) {
+              game.removeArmy(army.id);
+            }
+            if (player.id == 'player' && desertions > 0) {
+              game.addTurnEvent(GeneralEvent(text: '${army.name}: $desertions units deserted (starvation)'));
+            }
+          }
+        } else {
+          army.foodDeprivedTurns = 0;
+        }
+      }
     }
   }
 
@@ -278,6 +303,8 @@ class TurnEngine {
     final existing = game.pendingBattles.any((b) => b.attackerId == army1Id && b.defenderId == army2Id);
     if (existing) return;
 
+    final fatigueMod = army1.foodDeprivationModifier * army1.marchFatigueModifier;
+
     final result = _combatEngine.resolveCombat(
       attackerName: army1.name,
       defenderName: army2.name,
@@ -290,6 +317,7 @@ class TurnEngine {
       defenders: army2.units,
       map: game.map,
       defendingVillage: null,
+      attackerFatigueMod: fatigueMod,
     );
     
     // Store record for later viewing only if actual combat occurred
@@ -371,6 +399,9 @@ class TurnEngine {
     );
     final allDefenders = [...defenderUnits, ...garrisonUnits];
 
+    // Compute attacker fatigue: food deprivation + march fatigue
+    final fatigueMod = attacker.foodDeprivationModifier * attacker.marchFatigueModifier;
+
     final result = _combatEngine.resolveCombat(
       attackerName: attacker.name,
       defenderName: game.getVillageDisplayName(village),
@@ -385,6 +416,7 @@ class TurnEngine {
       defendingVillage: village,
       garrisonCount: village.garrisonStrength,
       defenderFortressLevel: village.fortressLevel,
+      attackerFatigueMod: fatigueMod,
     );
     
     if (result.rounds.isNotEmpty) {
@@ -410,27 +442,44 @@ class TurnEngine {
 
   void _detectIncomingEnemies() {
     final game = GameManager.shared;
-    final playerVillages = game.getPlayerVillages('player');
+
+    // Update vision cache at intelligence phase
+    game.updateVisionCache('player');
 
     for (final army in game.armies) {
       if (army.owner == 'player') continue;
       if (!army.isMarching) continue;
 
+      // Only detect armies within vision range
+      if (!game.isArmyVisible(army, 'player')) continue;
+
       final destId = army.destination;
       if (destId == null) continue;
 
-      if (playerVillages.any((v) => v.id == destId)) {
-        final destVillage = game.map.villages.cast<Village?>().firstWhere(
-              (v) => v!.id == destId,
-              orElse: () => null,
-            );
-        if (destVillage != null) {
-          game.addTurnEvent(EnemyApproachingEvent(
-            enemyName: army.name,
-            target: destVillage.name,
-            turns: army.turnsUntilArrival,
-          ));
-        }
+      final destVillage = game.map.villages.cast<Village?>().firstWhere(
+            (v) => v!.id == destId,
+            orElse: () => null,
+          );
+      if (destVillage == null) continue;
+
+      // Estimate army size (rounded to nearest 5)
+      final estimatedSize = ((army.unitCount + 2) ~/ 5) * 5;
+
+      // Check if heading to a player village
+      if (destVillage.owner == 'player') {
+        game.addTurnEvent(EnemyApproachingEvent(
+          enemyName: army.name,
+          target: destVillage.name,
+          turns: army.turnsUntilArrival,
+          estimatedSize: estimatedSize,
+        ));
+      } else {
+        // Enemy army spotted marching (not targeting player)
+        game.addTurnEvent(EnemyArmySpottedEvent(
+          armyName: army.name,
+          destination: destVillage.name,
+          estimatedSize: estimatedSize,
+        ));
       }
     }
   }

@@ -18,6 +18,9 @@ class Army {
   ArmyState state;
   int siegeTurns;
 
+  int foodDeprivedTurns;
+  int totalMarchTurns;
+
   Army({
     String? id,
     required this.name,
@@ -29,6 +32,8 @@ class Army {
     this.origin,
     this.state = ArmyState.stationed,
     this.siegeTurns = 0,
+    this.foodDeprivedTurns = 0,
+    this.totalMarchTurns = 0,
   }) : id = id ?? const Uuid().v4();
 
   bool get isMarching => state == ArmyState.marching;
@@ -51,6 +56,15 @@ class Army {
 
   String get emoji => primaryUnitType?.emoji ?? '⚔️';
 
+  /// Food-deprived armies fight at 80% effectiveness.
+  double get foodDeprivationModifier => foodDeprivedTurns > 0 ? 0.8 : 1.0;
+
+  /// March fatigue: -5% per turn beyond 1, floor at 75%.
+  double get marchFatigueModifier {
+    if (totalMarchTurns <= 1) return 1.0;
+    return max(0.75, 1.0 - (totalMarchTurns - 1) * 0.05);
+  }
+
   Army copyWith({
     String? id,
     String? name,
@@ -62,6 +76,8 @@ class Army {
     String? origin,
     ArmyState? state,
     int? siegeTurns,
+    int? foodDeprivedTurns,
+    int? totalMarchTurns,
   }) {
     return Army(
       id: id ?? this.id,
@@ -74,6 +90,8 @@ class Army {
       origin: origin ?? this.origin,
       state: state ?? this.state,
       siegeTurns: siegeTurns ?? this.siegeTurns,
+      foodDeprivedTurns: foodDeprivedTurns ?? this.foodDeprivedTurns,
+      totalMarchTurns: totalMarchTurns ?? this.totalMarchTurns,
     );
   }
 
@@ -90,6 +108,7 @@ class Army {
     stationedAt = null;
     destination = villageId;
     turnsUntilArrival = turns;
+    totalMarchTurns = turns;
     state = ArmyState.marching;
     siegeTurns = 0;
   }
@@ -109,6 +128,7 @@ class Army {
     origin = null;
     state = ArmyState.stationed;
     siegeTurns = 0;
+    totalMarchTurns = 0;
   }
 
   /// Called when army arrives at an enemy village to begin siege.
@@ -136,12 +156,13 @@ class Army {
     origin = null;
     state = ArmyState.stationed;
     siegeTurns = 0;
+    totalMarchTurns = 0;
   }
 
   static int calculateTravelTime(GeoCoordinate from, GeoCoordinate to) {
     final distanceKm = GeoCoordinate.distanceKm(from, to);
-    // ~100km per turn, minimum 1 turn
-    return max(1, (distanceKm / 100.0).ceil());
+    // ~80km per turn, minimum 1 turn (results in 2-5 turn marches)
+    return max(1, (distanceKm / 80.0).ceil());
   }
 
   static String generateName(String villageName, String nationalityId) {

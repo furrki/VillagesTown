@@ -1,5 +1,6 @@
 import '../data/models/building.dart';
 import '../data/models/village.dart';
+import '../data/models/village_trait.dart';
 import '../data/models/resource.dart';
 import '../data/models/player.dart';
 import '../data/models/ai_personality.dart';
@@ -20,30 +21,25 @@ class AIEconomyManager {
     // Track what we built this turn to add diversity
     bool builtSomething = false;
 
-    // 1. Critical Needs Assessment
-    // If food is low, try to build farms (but don't exit early!)
+    // 1. Critical Needs: Emergency farm when food critical
     if ((resources[Resource.food] ?? 0) < 50) {
       if (_tryBuild(village, Building.farm)) {
         builtSomething = true;
-        // Don't return - continue trying other buildings
       }
     }
 
-    // 2. Personality-based prioritization
-    final priorities = _getPriorities(personality);
+    // 2. Trait-aware prioritization: boost buildings matching village trait
+    final priorities = _getTraitAwarePriorities(personality, village.trait);
 
     for (final building in priorities) {
-      // Skip if already built
       if (village.buildings.any((b) => b.name == building.name)) {
         continue;
       }
-
-      // Skip if we already built something this turn (one build per turn)
       if (builtSomething) break;
 
       if (_tryBuild(village, building)) {
         builtSomething = true;
-        break; // One successful build per call
+        break;
       }
     }
   }
@@ -56,6 +52,29 @@ class AIEconomyManager {
       return true;
     }
     return false;
+  }
+
+  /// Get priority list adjusted for village trait.
+  /// Trait-matching buildings get promoted to front of list.
+  List<Building> _getTraitAwarePriorities(AIPersonality personality, VillageTrait trait) {
+    final base = _getPriorities(personality);
+
+    // Promote trait-matching building to front
+    final traitBuilding = switch (trait) {
+      VillageTrait.fertile => 'Farm',
+      VillageTrait.forested => 'Lumber Mill',
+      VillageTrait.mountainous => 'Iron Mine',
+      VillageTrait.tradeCrossroads => 'Market',
+      VillageTrait.coastal => 'Market',
+      VillageTrait.strategic => 'Fortress',
+      VillageTrait.none => null,
+    };
+
+    if (traitBuilding == null) return base;
+
+    final promoted = base.where((b) => b.name == traitBuilding).toList();
+    final rest = base.where((b) => b.name != traitBuilding).toList();
+    return [...promoted, ...rest];
   }
 
   /// Get distinct priority list per personality (no duplicates)

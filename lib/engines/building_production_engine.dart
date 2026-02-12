@@ -2,6 +2,9 @@ import '../data/models/village.dart';
 
 class BuildingProductionEngine {
   static void consumeAndProduceAll(Village village) {
+    final traitBonuses = village.trait.productionBonuses;
+    final specBonus = village.specialization == VillageSpecialization.tradeCenter ? 1.25 : 1.0;
+
     for (final building in village.buildings) {
       // Check if we have enough resources to consume
       bool canProduce = true;
@@ -23,7 +26,8 @@ class BuildingProductionEngine {
         final levelBonus = 1.0 + village.productionBonus;
 
         for (final entry in building.resourcesProduction.entries) {
-          final amount = (entry.value * building.level * levelBonus * happinessModifier).round();
+          final traitMod = 1.0 + (traitBonuses[entry.key] ?? 0.0);
+          final amount = (entry.value * building.level * levelBonus * happinessModifier * traitMod * specBonus).round();
           village.addResource(entry.key, amount);
         }
       }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/models/village.dart';
 import '../theme/app_theme.dart';
 import '../components/owner_flag_view.dart';
+import '../../engines/game_manager.dart';
 
 class VillageMarker extends StatefulWidget {
   final Village village;
@@ -67,6 +68,17 @@ class _VillageMarkerState extends State<VillageMarker>
   Color get ownerColor => AppTheme.ownerColor(widget.village.owner);
   bool get isNeutral => widget.village.owner == 'neutral';
   bool get isPlayerOwned => widget.village.owner == 'player';
+
+  // Fog of war states
+  bool get isInVisionRange {
+    final game = GameManager.shared;
+    return game.isVillageInVisionRange(widget.village, 'player');
+  }
+
+  bool get isDiscoveredButOutOfRange {
+    final game = GameManager.shared;
+    return !isPlayerOwned && !isInVisionRange && game.discoveredVillageIDs.contains(widget.village.id);
+  }
 
   double get markerSize {
     if (widget.zoom >= 7) return 44;
@@ -199,46 +211,74 @@ class _VillageMarkerState extends State<VillageMarker>
             ),
 
           // Main circle
-          Container(
-            width: baseSize,
-            height: baseSize,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: isNeutral
-                    ? [
-                        Colors.grey.shade800,
-                        Colors.grey.shade900,
-                      ]
-                    : [
-                        Colors.grey.shade900,
-                        Colors.black,
-                      ],
-              ),
-              border: Border.all(
-                color: isNeutral
-                    ? Colors.grey.shade600
-                    : ownerColor.withValues(alpha: widget.isSelected ? 1.0 : 0.8),
-                width: widget.isSelected ? 2.5 : 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+          Opacity(
+            opacity: isDiscoveredButOutOfRange ? 0.4 : 1.0,
+            child: Container(
+              width: baseSize,
+              height: baseSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isNeutral
+                      ? [
+                          Colors.grey.shade800,
+                          Colors.grey.shade900,
+                        ]
+                      : [
+                          Colors.grey.shade900,
+                          Colors.black,
+                        ],
                 ),
-                // Inner highlight
-                BoxShadow(
-                  color: Colors.white.withValues(alpha: 0.05),
-                  blurRadius: 2,
-                  offset: const Offset(-1, -1),
+                border: Border.all(
+                  color: isDiscoveredButOutOfRange
+                      ? Colors.grey.shade700
+                      : (isNeutral
+                          ? Colors.grey.shade600
+                          : ownerColor.withValues(alpha: widget.isSelected ? 1.0 : 0.8)),
+                  width: widget.isSelected ? 2.5 : 2,
                 ),
-              ],
-            ),
-            child: Center(
-              child: OwnerFlagView(owner: widget.village.owner, size: flagSize),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                  // Inner highlight
+                  BoxShadow(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    blurRadius: 2,
+                    offset: const Offset(-1, -1),
+                  ),
+                ],
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Center(
+                    child: OwnerFlagView(owner: widget.village.owner, size: flagSize),
+                  ),
+                  // "?" overlay for discovered but out of range
+                  if (isDiscoveredButOutOfRange)
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.black.withValues(alpha: 0.6),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '?',
+                          style: TextStyle(
+                            fontSize: flagSize * 0.8,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade400,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
 
@@ -305,30 +345,37 @@ class _VillageMarkerState extends State<VillageMarker>
   }
 
   Widget _buildLabel() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: ownerColor.withValues(alpha: 0.3),
-          width: 0.5,
+    return Opacity(
+      opacity: isDiscoveredButOutOfRange ? 0.5 : 1.0,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.8),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isDiscoveredButOutOfRange
+                ? Colors.grey.shade700.withValues(alpha: 0.3)
+                : ownerColor.withValues(alpha: 0.3),
+            width: 0.5,
+          ),
         ),
-      ),
-      child: Text(
-        widget.displayName,
-        style: TextStyle(
-          fontSize: widget.zoom >= 7 ? 10 : 8,
-          fontWeight: FontWeight.w600,
-          color: isNeutral ? Colors.grey.shade400 : Colors.white,
-          letterSpacing: 0.3,
-          shadows: const [
-            Shadow(color: Colors.black, blurRadius: 2),
-          ],
+        child: Text(
+          isDiscoveredButOutOfRange ? '${widget.displayName} (?)' : widget.displayName,
+          style: TextStyle(
+            fontSize: widget.zoom >= 7 ? 10 : 8,
+            fontWeight: FontWeight.w600,
+            color: isDiscoveredButOutOfRange
+                ? Colors.grey.shade500
+                : (isNeutral ? Colors.grey.shade400 : Colors.white),
+            letterSpacing: 0.3,
+            shadows: const [
+              Shadow(color: Colors.black, blurRadius: 2),
+            ],
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.visible,
+          softWrap: false,
         ),
-        maxLines: 1,
-        overflow: TextOverflow.visible,
-        softWrap: false,
       ),
     );
   }
