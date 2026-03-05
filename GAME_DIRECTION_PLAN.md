@@ -448,96 +448,39 @@ class GameRecord {
 
 # IMPLEMENTATION ROADMAP
 
-## Phase 1: Victory Conditions + Score (Foundation)
-**Estimated scope: ~8 new/modified files**
+## Phase 1: Victory Conditions + Score (Foundation) -- DONE
+4 victory types (Domination, Economic, Military, Imperial) with progress tracking, score calculation, victory type picker on nationality selection screen, and victory progress bars in both side panel and inline village panel.
+
+Files created: `victory_condition.dart`, `victory_engine.dart`
+Files modified: `turn_engine.dart`, `game_manager.dart`, `victory_screen.dart`, `nationality_selection_screen.dart`, `side_info_panel.dart`, `inline_village_panel.dart`
+
+## Phase 2: Event System (Variety) -- DONE
+11 world event types (drought, harshWinter, bountifulHarvest, goldRush, royalMarriage, crusadeCalled, earthquake, tradeCaravan, rebellion, civilWar, mercenaryCompany) with probability-based triggers, duration tracking, production modifiers, and AI awareness (non-aggression pacts, movement penalties).
+
+Files created: `game_event.dart`, `event_engine.dart`
+Files modified: `turn_engine.dart`, `game_manager.dart`, `building_production_engine.dart`, `ai_strategy_manager.dart`, `turn_event.dart`, `side_info_panel.dart`, `inline_village_panel.dart`
+
+## Phase 3: Persistent Progression (Retention) -- DONE
+17 achievements, game record persistence via SharedPreferences, 4 difficulty levels (Easy/Normal/Hard/Legendary) with AI resource mods and score multipliers, stats screen with achievement tracking and game history, difficulty picker and stats button on nationality selection screen.
+
+Files created: `achievement.dart`, `game_record.dart`, `difficulty.dart`, `progression_engine.dart`, `stats_screen.dart`
+Files modified: `game_manager.dart`, `turn_engine.dart`, `victory_engine.dart`, `victory_condition.dart`, `building_production_engine.dart`, `victory_screen.dart`, `nationality_selection_screen.dart`
+
+## Phase 4: Game Modifiers + AI Victory Pursuit (Polish) -- IN PROGRESS
 
 What to build:
-1. `VictoryCondition` model + `VictoryType` enum
-2. Victory checking logic in `turn_engine.dart` (replace single elimination check)
-3. `battlesWon` tracking in `game_manager.dart`
-4. Victory progress UI in side panel (progress bars for each condition)
-5. Updated victory screen showing victory type, score breakdown
-6. Score calculation engine
-7. Pre-game victory selection (add to nationality selection screen)
-
-Why first: Gives immediate replayability. "Can I win economically?" is a new game right there.
-
-Key files to modify:
-- `lib/engines/turn_engine.dart` - victory check expansion
-- `lib/engines/game_manager.dart` - new state fields (battlesWon, selectedVictory)
-- `lib/ui/screens/victory_screen.dart` - score display, victory type
-- `lib/ui/screens/nationality_selection_screen.dart` - victory type picker
-- `lib/ui/panels/side_info_panel.dart` - victory progress
-- `lib/ui/panels/inline_village_panel.dart` - victory progress (mobile)
-
-New files:
-- `lib/data/models/victory_condition.dart`
-- `lib/engines/victory_engine.dart`
-
-## Phase 2: Event System (Variety)
-**Estimated scope: ~6 new/modified files**
-
-What to build:
-1. `GameEvent` model
-2. `EventEngine` with trigger/probability/effect system
-3. Event processing phase in turn engine
-4. Event notification UI (popup + active events panel)
-5. AI event awareness (modify all 3 AI managers)
-6. Mongol invasion as special army entity
-
-Why second: Maximum gameplay variety per line of code. Events make every game feel different.
-
-Key files to modify:
-- `lib/engines/turn_engine.dart` - new event phase
-- `lib/engines/game_manager.dart` - activeEvents state
-- `lib/engines/ai_strategy_manager.dart` - event-aware targeting
-- `lib/engines/ai_economy_manager.dart` - event-reactive building
-- `lib/data/models/turn_event.dart` - new event display types
-- `lib/ui/panels/side_info_panel.dart` - active events display
-
-New files:
-- `lib/data/models/game_event.dart`
-- `lib/engines/event_engine.dart`
-
-## Phase 3: Persistent Progression (Retention)
-**Estimated scope: ~5 new/modified files**
-
-What to build:
-1. `Achievement` model + definitions
-2. `GameRecord` model for game history
-3. `FactionStats` tracking
-4. Local persistence via shared_preferences
-5. Achievement notification UI
-6. Stats/history screen accessible from main menu
-7. Difficulty selection
-
-Why third: Needs victory conditions and events to exist first (many achievements reference them).
-
-New files:
-- `lib/data/models/achievement.dart`
-- `lib/data/models/game_record.dart`
-- `lib/engines/progression_engine.dart`
-- `lib/ui/screens/stats_screen.dart`
-
-Key files to modify:
-- `lib/ui/screens/nationality_selection_screen.dart` - difficulty picker, modifier toggles
-- `lib/engines/game_manager.dart` - difficulty modifiers
-- `lib/ui/screens/victory_screen.dart` - achievement popups, save game record
-
-## Phase 4: Game Modifiers + AI Victory Pursuit (Polish)
-**Estimated scope: ~4 modified files**
-
-What to build:
-1. Modifier system (pre-game toggles)
-2. AI victory condition pursuit (AI picks and chases a victory type)
-3. AI counter-strategy (recognize player's victory path, counter it)
-4. Difficulty-based AI bonuses
+1. Game modifier system (pre-game toggles for resource/military/map/pacing modifiers)
+2. AI victory condition pursuit (AI picks and chases a victory type based on personality)
+3. AI counter-strategy (recognize when player is close to winning and counter)
+4. Modifier integration across engines
 
 Key files to modify:
 - `lib/engines/ai_strategy_manager.dart` - victory pursuit + counter-strategy
-- `lib/engines/ai_economy_manager.dart` - difficulty bonuses
-- `lib/engines/ai_military_manager.dart` - difficulty bonuses
-- `lib/ui/screens/nationality_selection_screen.dart` - modifier UI
+- `lib/engines/ai_economy_manager.dart` - modifier-aware building
+- `lib/engines/ai_military_manager.dart` - modifier-aware recruitment
+- `lib/ui/screens/nationality_selection_screen.dart` - modifier toggle UI
+- `lib/engines/game_manager.dart` - modifier state
+- `lib/engines/building_production_engine.dart` - modifier effects on production
 
 ---
 

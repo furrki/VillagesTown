@@ -13,6 +13,11 @@ class BuildingProductionEngine {
     final foodEventMod = EventEngine.foodProductionModifier(game);
     final goldEventMod = EventEngine.goldProductionModifier(game, village.id);
 
+    // Difficulty modifier (AI villages produce more/less)
+    final difficultyMod = (village.owner != 'player' && village.owner != 'neutral')
+        ? (game.difficulty?.aiResourceMod ?? 1.0)
+        : 1.0;
+
     for (final building in village.buildings) {
       // Check if we have enough resources to consume
       bool canProduce = true;
@@ -41,7 +46,7 @@ class BuildingProductionEngine {
           if (entry.key == Resource.food) eventMod = foodEventMod;
           if (entry.key == Resource.gold) eventMod = goldEventMod;
 
-          final amount = (entry.value * building.level * levelBonus * happinessModifier * traitMod * specBonus * eventMod).round();
+          final amount = (entry.value * building.level * levelBonus * happinessModifier * traitMod * specBonus * eventMod * difficultyMod).round();
           village.addResource(entry.key, amount);
         }
       }

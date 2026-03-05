@@ -67,7 +67,10 @@ class TurnEngine {
     // 11. Auto-finalize AI vs AI battles
     game.finalizeAIBattles();
 
-    // 12. Victory Check
+    // 12. Track peak stats for achievements
+    _trackPeakStats();
+
+    // 13. Victory Check
     _checkVictory();
 
     // Notify is called by GameManager methods
@@ -487,6 +490,14 @@ class TurnEngine {
         ));
       }
     }
+  }
+
+  void _trackPeakStats() {
+    final game = GameManager.shared;
+    final gold = game.getGlobalResources('player')[Resource.gold] ?? 0;
+    if (gold > game.peakGold) game.peakGold = gold;
+    final villages = game.getPlayerVillages('player').length;
+    if (villages > game.peakVillageCount) game.peakVillageCount = villages;
   }
 
   void _checkVictory() {

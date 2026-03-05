@@ -161,6 +161,7 @@ class VictoryEngine {
       goldScore: (gold * 0.05).round(),
       speedBonus: max(0, (60 - game.currentTurn) * 10),
       victoryTypeBonus: victoryBonus,
+      difficultyMultiplier: game.difficulty?.scoreMultiplier ?? 1.0,
     );
   }
 }

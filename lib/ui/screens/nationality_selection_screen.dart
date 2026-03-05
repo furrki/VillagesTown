@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../data/models/difficulty.dart';
 import '../../data/models/nationality.dart';
 import '../../data/models/victory_condition.dart';
 import '../../core/constants/layout_constants.dart';
 import '../../engines/game_manager.dart';
+import 'stats_screen.dart';
 
 class NationalitySelectionScreen extends StatefulWidget {
   final void Function(Nationality) onSelect;
@@ -16,6 +18,7 @@ class NationalitySelectionScreen extends StatefulWidget {
 class _NationalitySelectionScreenState extends State<NationalitySelectionScreen> {
   Nationality? _selectedNationality;
   VictoryType _selectedVictory = VictoryType.domination;
+  Difficulty _selectedDifficulty = Difficulty.normal;
 
   void _selectNationality(Nationality nationality) {
     setState(() => _selectedNationality = nationality);
@@ -36,13 +39,45 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
           child: Column(
             children: [
               // Header
-              Text(
-                'CHOOSE YOUR EMPIRE',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 4.0,
-                  color: Colors.white.withOpacity(0.9),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Text(
+                      'CHOOSE YOUR EMPIRE',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 4.0,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                    Positioned(
+                      right: 0,
+                      child: GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const StatsScreen()),
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.06),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.emoji_events, size: 14, color: Colors.amber),
+                              SizedBox(width: 4),
+                              Text('STATS', style: TextStyle(fontSize: 10, color: Colors.amber, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 24),
@@ -195,6 +230,70 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
 
               const SizedBox(height: 24),
 
+              // Difficulty Section
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    Text(
+                      'DIFFICULTY',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.0,
+                        color: Colors.white.withOpacity(0.6),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: Difficulty.values.map((d) {
+                        final isSelected = _selectedDifficulty == d;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() => _selectedDifficulty = d);
+                              LayoutConstants.selectionFeedback();
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? d.color.withOpacity(0.2)
+                                    : Colors.white.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSelected ? d.color : Colors.white.withOpacity(0.1),
+                                  width: isSelected ? 1.5 : 1,
+                                ),
+                              ),
+                              child: Text(
+                                d.displayName,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: isSelected ? d.color : Colors.white38,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _selectedDifficulty.description,
+                      style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.35)),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
               // Start Button
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
@@ -204,6 +303,7 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                         onPressed: () {
                           LayoutConstants.impactFeedback(style: HapticStyle.heavy);
                           GameManager.shared.selectedVictoryType = _selectedVictory;
+                          GameManager.shared.difficulty = _selectedDifficulty;
                           widget.onSelect(_selectedNationality!);
                         },
                         style: ElevatedButton.styleFrom(
@@ -236,7 +336,6 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
   }
 
   Widget _buildFactionCard(Nationality n, bool isSelected, {required bool isMajor}) {
-    final size = isMajor ? 100.0 : 70.0;
     final iconSize = isMajor ? 60.0 : 45.0;
     final fontSize = isMajor ? 11.0 : 9.0;
 

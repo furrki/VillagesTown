@@ -1,18 +1,45 @@
 import 'package:flutter/material.dart';
+import '../../data/models/achievement.dart';
 import '../../data/models/player.dart';
 import '../../data/models/victory_condition.dart';
 import '../../engines/game_manager.dart';
+import '../../engines/progression_engine.dart';
 import '../../engines/victory_engine.dart';
 
-class VictoryScreen extends StatelessWidget {
+class VictoryScreen extends StatefulWidget {
   final Player winner;
 
   const VictoryScreen({super.key, required this.winner});
 
   @override
+  State<VictoryScreen> createState() => _VictoryScreenState();
+}
+
+class _VictoryScreenState extends State<VictoryScreen> {
+  List<Achievement> _newAchievements = [];
+  bool _saved = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _saveAndCheckAchievements();
+  }
+
+  Future<void> _saveAndCheckAchievements() async {
+    if (_saved) return;
+    _saved = true;
+    final game = GameManager.shared;
+    final isVictory = widget.winner.isHuman;
+    final achievements = await ProgressionEngine.onGameEnd(game, isVictory);
+    if (mounted) {
+      setState(() => _newAchievements = achievements);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final game = GameManager.shared;
-    final isHuman = winner.isHuman;
+    final isHuman = widget.winner.isHuman;
     final victoryType = game.achievedVictoryType;
     final score = isHuman ? VictoryEngine.calculateScore(game) : null;
 
@@ -60,7 +87,7 @@ class VictoryScreen extends StatelessWidget {
               Text(
                 isHuman
                     ? _victoryFlavor(victoryType)
-                    : '${winner.name} has won the game.',
+                    : '${widget.winner.name} has won the game.',
                 style: const TextStyle(fontSize: 16, color: Colors.white54),
                 textAlign: TextAlign.center,
               ),
@@ -69,9 +96,14 @@ class VictoryScreen extends StatelessWidget {
                 'Turn ${game.currentTurn}',
                 style: const TextStyle(fontSize: 14, color: Colors.white38),
               ),
+              // Newly unlocked achievements
+              if (_newAchievements.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                _buildAchievements(),
+              ],
               // Score breakdown
               if (score != null) ...[
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
                 _buildScoreCard(score),
               ],
               const SizedBox(height: 48),
@@ -92,6 +124,61 @@ class VictoryScreen extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAchievements() {
+    return Container(
+      width: 280,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.amber.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'ACHIEVEMENTS UNLOCKED',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2,
+              color: Colors.amber,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ..._newAchievements.map((a) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Text(a.emoji, style: const TextStyle(fontSize: 18)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            a.displayName,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            a.description,
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.white54),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+        ],
       ),
     );
   }
@@ -124,6 +211,10 @@ class VictoryScreen extends StatelessWidget {
           if (score.speedBonus > 0) _scoreLine('Speed Bonus', score.speedBonus),
           if (score.victoryTypeBonus > 0)
             _scoreLine('Victory Bonus', score.victoryTypeBonus),
+          if (score.difficultyMultiplier != 1.0) ...[
+            const Divider(color: Colors.white12, height: 16),
+            _scoreLine('Difficulty', 0, suffix: 'x${score.difficultyMultiplier}'),
+          ],
           const Divider(color: Colors.white24, height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -151,7 +242,7 @@ class VictoryScreen extends StatelessWidget {
     );
   }
 
-  Widget _scoreLine(String label, int value) {
+  Widget _scoreLine(String label, int value, {String? suffix}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -160,7 +251,7 @@ class VictoryScreen extends StatelessWidget {
           Text(label,
               style:
                   const TextStyle(fontSize: 13, color: Colors.white54)),
-          Text('+$value',
+          Text(suffix ?? '+$value',
               style: const TextStyle(
                   fontSize: 13,
                   color: Colors.white70,

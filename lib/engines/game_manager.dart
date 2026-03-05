@@ -16,6 +16,7 @@ import '../data/models/unit_type.dart';
 import '../data/models/village.dart';
 import '../data/models/building.dart';
 import '../data/models/combat_log.dart';
+import '../data/models/difficulty.dart';
 import '../data/models/game_event.dart';
 import '../data/models/victory_condition.dart';
 import '../data/models/village_trait.dart';
@@ -67,6 +68,18 @@ class GameManager extends ChangeNotifier {
   // World events
   List<GameEvent> activeEvents = [];
   List<GameEvent> eventHistory = [];
+
+  // Difficulty
+  Difficulty? difficulty;
+
+  // Achievement tracking (per-game stats)
+  int battlesLost = 0;
+  int peakGold = 0;
+  int peakVillageCount = 0;
+  bool lostCapital = false;
+  bool hadCavalryOnlyBattleWin = false;
+  bool conqueredDuringWinter = false;
+  List<int> conquestTurns = []; // turns when villages were conquered
 
   bool tutorialEnabled = true;
   int tutorialStep = 0;
@@ -425,6 +438,13 @@ class GameManager extends ChangeNotifier {
     currentTurn = 1;
     syncGlobalResources();
     _createStartingArmies();
+
+    // Apply difficulty starting gold bonus
+    final goldBonus = difficulty?.playerStartGoldBonus ?? 0;
+    if (goldBonus != 0) {
+      modifyGlobalResource('player', Resource.gold, goldBonus);
+    }
+
     notifyListeners();
   }
 
@@ -448,6 +468,14 @@ class GameManager extends ChangeNotifier {
     achievedVictoryType = null;
     activeEvents.clear();
     eventHistory.clear();
+    difficulty = null;
+    battlesLost = 0;
+    peakGold = 0;
+    peakVillageCount = 0;
+    lostCapital = false;
+    hadCavalryOnlyBattleWin = false;
+    conqueredDuringWinter = false;
+    conquestTurns.clear();
 
     map = VirtualMap(villages: []);
     players = Player.createPlayers();
@@ -983,6 +1011,22 @@ class GameManager extends ChangeNotifier {
     return armies.where((a) => isArmyVisible(a, playerId)).toList();
   }
 
+  /// Max conquests within any 5-turn window (for blitzkrieg achievement).
+  int get conquestsInWindow {
+    if (conquestTurns.length < 3) return 0;
+    int maxInWindow = 0;
+    for (var i = 0; i < conquestTurns.length; i++) {
+      int count = 0;
+      for (var j = i; j < conquestTurns.length; j++) {
+        if (conquestTurns[j] - conquestTurns[i] <= 5) {
+          count++;
+        }
+      }
+      if (count > maxInWindow) maxInWindow = count;
+    }
+    return maxInWindow;
+  }
+
   // Victory/Defeat
   Player? getWinner() {
     // Check if player achieved a victory condition
@@ -1097,6 +1141,7 @@ class GameManager extends ChangeNotifier {
     if (defenderWins) {
       // Attacker lost - defender gets battle win credit
       battlesWon[record.defenderOwnerId] = (battlesWon[record.defenderOwnerId] ?? 0) + 1;
+      if (playerWasAttacker) battlesLost++;
       removeArmy(attacker.id);
       if (defenderVillage != null) {
         defenderVillage.underSiege = false;
@@ -1111,6 +1156,11 @@ class GameManager extends ChangeNotifier {
     } else {
       // Attacker won - attacker gets battle win credit
       battlesWon[record.attackerOwnerId] = (battlesWon[record.attackerOwnerId] ?? 0) + 1;
+
+      // Track cavalry-only win for achievement
+      if (playerWasAttacker && attacker.units.every((u) => u.unitType.category == 'Cavalry')) {
+        hadCavalryOnlyBattleWin = true;
+      }
       if (defenderVillage != null) {
         // Siege victory - conquer (this also updates the army and adds event)
         _conquerVillage(attacker, defenderVillage);
@@ -1168,8 +1218,16 @@ class GameManager extends ChangeNotifier {
       pendingBattles.removeWhere((b) => b.defenderId == village.id && b.attackerId != attacker.id);
 
       if (attacker.owner == 'player') {
+        conquestTurns.add(currentTurn);
+        if (activeEvents.any((e) => e.type == GameEventType.harshWinter && e.isActive)) {
+          conqueredDuringWinter = true;
+        }
         addTurnEvent(VillageConqueredEvent(villageName: getVillageDisplayName(village)));
       } else if (oldOwner == 'player') {
+        // Check if player lost their capital (first village of their nationality)
+        if (village.nationality == playerNationality) {
+          lostCapital = true;
+        }
         addTurnEvent(VillageLostEvent(villageName: getVillageDisplayName(village)));
       }
   }
