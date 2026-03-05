@@ -1,11 +1,22 @@
+import '../data/models/game_modifier.dart';
 import '../data/models/geo_coordinate.dart';
+import '../data/models/resource.dart';
 import '../data/models/unit.dart';
 import '../data/models/unit_type.dart';
 import '../data/models/village.dart';
 import 'game_manager.dart';
 
 class RecruitmentEngine {
+  static const _peasantUnits = {UnitType.militia, UnitType.spearman};
+
   (bool can, String reason) canRecruit(UnitType unitType, int quantity, Village village) {
+    final game = GameManager.shared;
+
+    // Peasant War: only militia and spearmen
+    if (game.activeModifiers.contains(GameModifier.peasantWar) && !_peasantUnits.contains(unitType)) {
+      return (false, 'Only militia and spearmen (Peasant War)');
+    }
+
     // Check mobilization cap
     if (village.recruitsThisTurn + quantity > village.maxRecruitsPerTurn) {
       return (false, 'Mobilization cap reached');
@@ -22,10 +33,15 @@ class RecruitmentEngine {
       return (false, 'Insufficient population');
     }
 
-    // Check cost
+    // Check cost (with Gold Standard modifier)
     final stats = unitType.stats;
-    final totalCost = stats.cost.map((k, v) => MapEntry(k, v * quantity));
-    final game = GameManager.shared;
+    var totalCost = stats.cost.map((k, v) => MapEntry(k, v * quantity));
+    if (game.activeModifiers.contains(GameModifier.goldStandard)) {
+      totalCost = Map.from(totalCost);
+      if (totalCost.containsKey(Resource.gold)) {
+        totalCost[Resource.gold] = totalCost[Resource.gold]! * 2;
+      }
+    }
     if (!game.canAfford(village.owner, totalCost)) {
       return (false, 'Insufficient resources');
     }
@@ -39,7 +55,13 @@ class RecruitmentEngine {
 
     final game = GameManager.shared;
     final stats = unitType.stats;
-    final totalCost = stats.cost.map((k, v) => MapEntry(k, v * quantity));
+    var totalCost = stats.cost.map((k, v) => MapEntry(k, v * quantity));
+    if (game.activeModifiers.contains(GameModifier.goldStandard)) {
+      totalCost = Map.from(totalCost);
+      if (totalCost.containsKey(Resource.gold)) {
+        totalCost[Resource.gold] = totalCost[Resource.gold]! * 2;
+      }
+    }
 
     if (!game.spendResources(village.owner, totalCost)) return [];
 
@@ -102,6 +124,7 @@ class RecruitmentEngine {
   }
 
   List<UnitType> getAvailableUnits(Village village) {
+    final game = GameManager.shared;
     final units = <UnitType>[];
     final hasBarracks = village.buildings.any((b) => b.name == 'Barracks');
     final hasArchery = village.buildings.any((b) => b.name == 'Archery Range');
@@ -115,6 +138,11 @@ class RecruitmentEngine {
     }
     if (hasStables) {
       units.addAll([UnitType.lightCavalry, UnitType.knight]);
+    }
+
+    // Peasant War: filter to only militia and spearmen
+    if (game.activeModifiers.contains(GameModifier.peasantWar)) {
+      units.removeWhere((u) => !_peasantUnits.contains(u));
     }
 
     return units;

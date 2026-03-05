@@ -1,4 +1,5 @@
 import '../data/models/building.dart';
+import '../data/models/game_modifier.dart';
 import '../data/models/resource.dart';
 import '../data/models/village.dart';
 import 'game_manager.dart';
@@ -14,7 +15,22 @@ class BuildingConstructionEngine {
     }
 
     final game = GameManager.shared;
-    if (!game.canAfford(village.owner, building.baseCost)) {
+
+    // No Fortress modifier
+    if (building.name == 'Fortress' && game.activeModifiers.contains(GameModifier.noFortress)) {
+      return (false, 'Fortresses disabled');
+    }
+
+    // Gold Standard modifier: double gold costs
+    var cost = building.baseCost;
+    if (game.activeModifiers.contains(GameModifier.goldStandard)) {
+      cost = Map.from(cost);
+      if (cost.containsKey(Resource.gold)) {
+        cost[Resource.gold] = (cost[Resource.gold]! * 2);
+      }
+    }
+
+    if (!game.canAfford(village.owner, cost)) {
       return (false, 'Insufficient resources');
     }
 
@@ -26,7 +42,14 @@ class BuildingConstructionEngine {
     if (!can) return false;
 
     final game = GameManager.shared;
-    game.spendResources(village.owner, building.baseCost);
+    var cost = building.baseCost;
+    if (game.activeModifiers.contains(GameModifier.goldStandard)) {
+      cost = Map.from(cost);
+      if (cost.containsKey(Resource.gold)) {
+        cost[Resource.gold] = (cost[Resource.gold]! * 2);
+      }
+    }
+    game.spendResources(village.owner, cost);
     village.addBuilding(building.copyWith());
     game.updateVillage(village);
     return true;

@@ -1,11 +1,13 @@
 import '../data/models/building.dart';
 import '../data/models/village.dart';
 import '../data/models/village_trait.dart';
+import '../data/models/victory_condition.dart';
 import '../data/models/resource.dart';
 import '../data/models/player.dart';
 import '../data/models/ai_personality.dart';
 import 'building_construction_engine.dart';
 import 'game_manager.dart';
+import 'victory_engine.dart';
 
 class AIEconomyManager {
   final BuildingConstructionEngine _buildingEngine;
@@ -15,8 +17,12 @@ class AIEconomyManager {
   void manageEconomy(Player player, Village village) {
     if (!village.canBuildMore) return;
 
+    final game = GameManager.shared;
     final personality = player.aiPersonality ?? AIPersonality.balanced;
-    final resources = GameManager.shared.getGlobalResources(player.id);
+    final resources = game.getGlobalResources(player.id);
+
+    // Determine AI's victory goal for economy-aware building
+    final victoryGoal = _getBestVictoryGoal(game, player);
 
     // Track what we built this turn to add diversity
     bool builtSomething = false;
@@ -28,8 +34,8 @@ class AIEconomyManager {
       }
     }
 
-    // 2. Trait-aware prioritization: boost buildings matching village trait
-    final priorities = _getTraitAwarePriorities(personality, village.trait);
+    // 2. Victory-aware + trait-aware prioritization
+    final priorities = _getVictoryAwarePriorities(personality, village.trait, victoryGoal);
 
     for (final building in priorities) {
       if (village.buildings.any((b) => b.name == building.name)) {
@@ -44,6 +50,27 @@ class AIEconomyManager {
     }
   }
 
+  VictoryType? _getBestVictoryGoal(GameManager game, Player player) {
+    final progresses = VictoryEngine.getAllProgress(game, player.id);
+    VictoryType? best;
+    double bestScore = -1;
+    final personality = player.aiPersonality ?? AIPersonality.balanced;
+    for (final p in progresses) {
+      double weight = p.progress;
+      weight *= switch (p.type) {
+        VictoryType.domination => personality.expansionBias,
+        VictoryType.economic => personality.economicBias,
+        VictoryType.military => personality.aggressionBias,
+        VictoryType.imperial => personality.economicBias * 0.8,
+      };
+      if (weight > bestScore) {
+        bestScore = weight;
+        best = p.type;
+      }
+    }
+    return best;
+  }
+
   bool _tryBuild(Village village, Building template) {
     final (can, _) = _buildingEngine.canBuild(template, village);
     if (can) {
@@ -54,12 +81,32 @@ class AIEconomyManager {
     return false;
   }
 
-  /// Get priority list adjusted for village trait.
-  /// Trait-matching buildings get promoted to front of list.
-  List<Building> _getTraitAwarePriorities(AIPersonality personality, VillageTrait trait) {
-    final base = _getPriorities(personality);
+  /// Get priority list adjusted for village trait and AI victory goal.
+  List<Building> _getVictoryAwarePriorities(AIPersonality personality, VillageTrait trait, VictoryType? goal) {
+    // Start with personality-based priorities
+    var base = _getPriorities(personality);
 
-    // Promote trait-matching building to front
+    // Victory goal adjustments: promote buildings that help the goal
+    if (goal != null) {
+      final goalPromotions = switch (goal) {
+        // Economic: markets first
+        VictoryType.economic => ['Market', 'Farm'],
+        // Military: barracks and military buildings
+        VictoryType.military => ['Barracks', 'Iron Mine'],
+        // Imperial: economic base for city upgrades
+        VictoryType.imperial => ['Farm', 'Market', 'Lumber Mill'],
+        // Domination: balanced military + economy
+        VictoryType.domination => <String>[],
+      };
+
+      if (goalPromotions.isNotEmpty) {
+        final promoted = base.where((b) => goalPromotions.contains(b.name)).toList();
+        final rest = base.where((b) => !goalPromotions.contains(b.name)).toList();
+        base = [...promoted, ...rest];
+      }
+    }
+
+    // Trait-matching buildings get promoted to front
     final traitBuilding = switch (trait) {
       VillageTrait.fertile => 'Farm',
       VillageTrait.forested => 'Lumber Mill',

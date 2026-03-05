@@ -1,8 +1,10 @@
 import '../data/models/army.dart';
+import '../data/models/game_modifier.dart';
 import '../data/models/resource.dart';
 import '../data/models/turn_event.dart';
 import '../data/models/unit.dart';
 import '../data/models/unit_type.dart';
+import '../data/models/victory_condition.dart';
 import '../data/models/village.dart';
 import 'ai_engine.dart';
 import 'building_production_engine.dart';
@@ -502,6 +504,25 @@ class TurnEngine {
 
   void _checkVictory() {
     final game = GameManager.shared;
+    final mods = game.activeModifiers;
+
+    // Sudden Death: any player who lost a village this turn gets eliminated
+    if (mods.contains(GameModifier.suddenDeath)) {
+      for (var i = 0; i < game.players.length; i++) {
+        if (game.players[i].isEliminated) continue;
+        final playerId = game.players[i].id;
+        final currentCount = game.map.villages.where((v) => v.owner == playerId).length;
+        // Player started with villages but now has fewer (lost at least one)
+        if (game.players[i].villages.length > currentCount && currentCount > 0) {
+          game.players[i] = game.players[i].copyWith(isEliminated: true);
+          game.armies.removeWhere((a) => a.owner == playerId);
+          // Transfer remaining villages to neutral
+          for (final v in game.map.villages) {
+            if (v.owner == playerId) v.owner = 'neutral';
+          }
+        }
+      }
+    }
 
     // Eliminate players with no villages
     for (var i = 0; i < game.players.length; i++) {
@@ -514,6 +535,15 @@ class TurnEngine {
         // Remove all armies of eliminated player (they have no home to return to)
         game.armies.removeWhere((a) => a.owner == playerId);
       }
+    }
+
+    // Blitz: game ends at turn 30, highest score wins
+    if (mods.contains(GameModifier.blitz) && game.currentTurn >= 30) {
+      if (game.achievedVictoryType == null) {
+        game.achievedVictoryType = VictoryType.domination;
+        game.addTurnEvent(VictoryAchievedEvent(victoryType: VictoryType.domination));
+      }
+      return;
     }
 
     // Check victory conditions for human player

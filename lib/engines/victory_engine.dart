@@ -1,5 +1,6 @@
 import 'dart:math';
 import '../data/models/army.dart';
+import '../data/models/game_modifier.dart';
 import '../data/models/resource.dart';
 import '../data/models/victory_condition.dart';
 import '../data/models/village_level.dart';
@@ -154,6 +155,12 @@ class VictoryEngine {
       }
     }
 
+    // Compute modifier score multiplier (compound all active modifier bonuses)
+    double modMult = 1.0;
+    for (final mod in game.activeModifiers) {
+      modMult *= mod.scoreBonusMultiplier;
+    }
+
     return GameScore(
       villageScore: villages.length * 100,
       battleScore: battlesWon * 50,
@@ -162,6 +169,7 @@ class VictoryEngine {
       speedBonus: max(0, (60 - game.currentTurn) * 10),
       victoryTypeBonus: victoryBonus,
       difficultyMultiplier: game.difficulty?.scoreMultiplier ?? 1.0,
+      modifierMultiplier: modMult,
     );
   }
 }

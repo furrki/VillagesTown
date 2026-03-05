@@ -18,6 +18,7 @@ import '../data/models/building.dart';
 import '../data/models/combat_log.dart';
 import '../data/models/difficulty.dart';
 import '../data/models/game_event.dart';
+import '../data/models/game_modifier.dart';
 import '../data/models/victory_condition.dart';
 import '../data/models/village_trait.dart';
 import 'combat_engine.dart';
@@ -71,6 +72,9 @@ class GameManager extends ChangeNotifier {
 
   // Difficulty
   Difficulty? difficulty;
+
+  // Game Modifiers
+  Set<GameModifier> activeModifiers = {};
 
   // Achievement tracking (per-game stats)
   int battlesLost = 0;
@@ -445,6 +449,18 @@ class GameManager extends ChangeNotifier {
       modifyGlobalResource('player', Resource.gold, goldBonus);
     }
 
+    // Apply modifier effects
+    if (activeModifiers.contains(GameModifier.fogEternal)) {
+      visionRangeKm = 200.0;
+    }
+    if (activeModifiers.contains(GameModifier.openBook)) {
+      visionRangeKm = 99999.0;
+      // Discover all villages immediately
+      for (final v in map.villages) {
+        discoveredVillageIDs.add(v.id);
+      }
+    }
+
     notifyListeners();
   }
 
@@ -469,6 +485,7 @@ class GameManager extends ChangeNotifier {
     activeEvents.clear();
     eventHistory.clear();
     difficulty = null;
+    activeModifiers.clear();
     battlesLost = 0;
     peakGold = 0;
     peakVillageCount = 0;

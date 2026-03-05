@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/models/difficulty.dart';
+import '../../data/models/game_modifier.dart';
 import '../../data/models/nationality.dart';
 import '../../data/models/victory_condition.dart';
 import '../../core/constants/layout_constants.dart';
@@ -19,6 +20,8 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
   Nationality? _selectedNationality;
   VictoryType _selectedVictory = VictoryType.domination;
   Difficulty _selectedDifficulty = Difficulty.normal;
+  final Set<GameModifier> _activeModifiers = {};
+  bool _showModifiers = false;
 
   void _selectNationality(Nationality nationality) {
     setState(() => _selectedNationality = nationality);
@@ -292,6 +295,123 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                 ),
               ),
 
+              const SizedBox(height: 16),
+
+              // Game Modifiers (collapsible)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    GestureDetector(
+                      onTap: () => setState(() => _showModifiers = !_showModifiers),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'GAME MODIFIERS',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 2.0,
+                              color: Colors.white.withOpacity(0.5),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          if (_activeModifiers.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: Colors.purple.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '${_activeModifiers.length}',
+                                style: const TextStyle(fontSize: 10, color: Colors.purpleAccent, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            _showModifiers ? Icons.expand_less : Icons.expand_more,
+                            size: 16,
+                            color: Colors.white38,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_showModifiers) ...[
+                      const SizedBox(height: 10),
+                      ...ModifierCategory.values.map((cat) {
+                        final mods = GameModifier.values.where((m) => m.category == cat).toList();
+                        return Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Text(
+                                cat.displayName,
+                                style: TextStyle(fontSize: 9, color: Colors.white.withOpacity(0.3), letterSpacing: 1.5, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              alignment: WrapAlignment.center,
+                              children: mods.map((mod) {
+                                final isActive = _activeModifiers.contains(mod);
+                                final hasConflict = mod.conflicts.any((c) => _activeModifiers.contains(c));
+                                return GestureDetector(
+                                  onTap: hasConflict && !isActive ? null : () {
+                                    setState(() {
+                                      if (isActive) {
+                                        _activeModifiers.remove(mod);
+                                      } else {
+                                        _activeModifiers.add(mod);
+                                      }
+                                    });
+                                    LayoutConstants.selectionFeedback();
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: isActive
+                                          ? Colors.purple.withOpacity(0.2)
+                                          : hasConflict
+                                              ? Colors.white.withOpacity(0.02)
+                                              : Colors.white.withOpacity(0.05),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: isActive ? Colors.purpleAccent : Colors.white.withOpacity(hasConflict ? 0.05 : 0.1),
+                                        width: isActive ? 1.5 : 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(mod.emoji, style: TextStyle(fontSize: 12, color: hasConflict && !isActive ? Colors.white24 : null)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          mod.displayName,
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: isActive ? Colors.purpleAccent : hasConflict ? Colors.white24 : Colors.white38,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                        );
+                      }),
+                    ],
+                  ],
+                ),
+              ),
+
               const SizedBox(height: 24),
 
               // Start Button
@@ -304,6 +424,7 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                           LayoutConstants.impactFeedback(style: HapticStyle.heavy);
                           GameManager.shared.selectedVictoryType = _selectedVictory;
                           GameManager.shared.difficulty = _selectedDifficulty;
+                          GameManager.shared.activeModifiers = Set.from(_activeModifiers);
                           widget.onSelect(_selectedNationality!);
                         },
                         style: ElevatedButton.styleFrom(

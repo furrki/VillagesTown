@@ -3,6 +3,7 @@ import '../data/models/battle_tactics.dart';
 import '../data/models/battle_terrain.dart';
 import '../data/models/combat_log.dart';
 import '../data/models/village.dart';
+import '../data/models/village_level.dart';
 import '../data/models/village_trait.dart';
 import '../data/models/player.dart';
 import '../data/models/army.dart';
@@ -10,14 +11,25 @@ import '../data/models/geo_coordinate.dart';
 import '../data/models/resource.dart';
 import '../data/models/unit_type.dart';
 import '../data/models/ai_personality.dart';
+import '../data/models/victory_condition.dart';
 import 'event_engine.dart';
 import 'game_manager.dart';
+import 'victory_engine.dart';
 
 class AIStrategyManager {
+  /// Cached AI victory goals per player (refreshed each turn).
+  final Map<String, VictoryType?> _aiVictoryGoals = {};
 
   void manageStrategy(Player player, GameMap map) {
     final game = GameManager.shared;
     final personality = player.aiPersonality ?? AIPersonality.balanced;
+
+    // Determine AI's victory goal (what it's closest to achieving)
+    final victoryGoal = _determineVictoryGoal(game, player);
+    _aiVictoryGoals[player.id] = victoryGoal;
+
+    // Determine threat level from player's victory progress
+    final playerThreat = _assessPlayerThreat(game);
 
     // 1. Identify Idle Armies
     final armies = game.getStationedArmiesFor(player.id);
@@ -40,7 +52,12 @@ class AIStrategyManager {
     // 3. Command Each Army
     final playerFood = game.getGlobalResources(player.id)[Resource.food] ?? 100;
     for (final army in armies) {
-      final bestTarget = _findBestTarget(army, enemies, personality, game, playerFood: playerFood);
+      final bestTarget = _findBestTarget(
+        army, enemies, personality, game,
+        playerFood: playerFood,
+        victoryGoal: victoryGoal,
+        playerThreat: playerThreat,
+      );
 
       if (bestTarget != null) {
          _issueOrder(game, army, bestTarget);
@@ -48,7 +65,44 @@ class AIStrategyManager {
     }
   }
 
-  Village? _findBestTarget(Army army, List<Village> potentialTargets, AIPersonality personality, GameManager game, {int playerFood = 100}) {
+  /// Determine which victory type the AI is closest to achieving.
+  VictoryType? _determineVictoryGoal(GameManager game, Player player) {
+    final progresses = VictoryEngine.getAllProgress(game, player.id);
+    VictoryType? best;
+    double bestProgress = -1;
+
+    for (final p in progresses) {
+      // Weight by personality
+      double weight = p.progress;
+      final personality = player.aiPersonality ?? AIPersonality.balanced;
+      weight *= switch (p.type) {
+        VictoryType.domination => personality.expansionBias,
+        VictoryType.economic => personality.economicBias,
+        VictoryType.military => personality.aggressionBias,
+        VictoryType.imperial => personality.economicBias * 0.8,
+      };
+
+      if (weight > bestProgress) {
+        bestProgress = weight;
+        best = p.type;
+      }
+    }
+    return best;
+  }
+
+  /// Assess how close the human player is to winning.
+  /// Returns a threat type to counter, or null if no immediate threat.
+  VictoryType? _assessPlayerThreat(GameManager game) {
+    final progresses = VictoryEngine.getAllProgress(game, 'player');
+    for (final p in progresses) {
+      if (p.progress >= 0.7) return p.type;
+    }
+    return null;
+  }
+
+  Village? _findBestTarget(
+    Army army, List<Village> potentialTargets, AIPersonality personality, GameManager game,
+    {int playerFood = 100, VictoryType? victoryGoal, VictoryType? playerThreat}) {
     Village? best;
     double highScore = -double.infinity;
 
@@ -124,6 +178,16 @@ class AIStrategyManager {
         score += 10; // Trade hubs are always valuable
       }
 
+      // 6. Victory goal: prioritize targets that help AI's victory path
+      if (victoryGoal != null) {
+        score += _victoryGoalBonus(victoryGoal, target);
+      }
+
+      // 7. Counter player threat: prioritize attacking player assets
+      if (playerThreat != null && target.owner == 'player') {
+        score += _counterThreatBonus(playerThreat, target);
+      }
+
       if (score > highScore) {
         highScore = score;
         best = target;
@@ -134,6 +198,34 @@ class AIStrategyManager {
     if (highScore < 10) return null;
 
     return best;
+  }
+
+  /// Bonus score for targets that help the AI pursue its victory goal.
+  double _victoryGoalBonus(VictoryType goal, Village target) {
+    return switch (goal) {
+      // Domination: prioritize any enemy village
+      VictoryType.domination => 10.0,
+      // Economic: prioritize trade crossroads
+      VictoryType.economic => target.trait == VillageTrait.tradeCrossroads ? 30.0 : 0.0,
+      // Military: prioritize targets to get battle wins (weaker = easier win)
+      VictoryType.military => 15.0,
+      // Imperial: avoid attacking, but if forced, prefer high-level villages
+      VictoryType.imperial => target.level == VillageLevel.city ? 20.0 : -5.0,
+    };
+  }
+
+  /// Bonus score for targets that counter the human player's victory path.
+  double _counterThreatBonus(VictoryType threat, Village target) {
+    return switch (threat) {
+      // Player close to domination: attack their villages to reduce control
+      VictoryType.domination => 25.0,
+      // Player close to economic: attack their trade crossroads and rich villages
+      VictoryType.economic => target.trait == VillageTrait.tradeCrossroads ? 40.0 : 15.0,
+      // Player close to military: turtle up (negative bonus to discourage attacking)
+      VictoryType.military => -20.0,
+      // Player close to imperial: attack their cities
+      VictoryType.imperial => target.level == VillageLevel.city ? 40.0 : 10.0,
+    };
   }
 
   GeoCoordinate? _getArmyCoordinates(Army army, GameManager game) {

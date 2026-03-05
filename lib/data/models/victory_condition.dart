@@ -56,6 +56,7 @@ class GameScore {
   final int speedBonus;
   final int victoryTypeBonus;
   final double difficultyMultiplier;
+  final double modifierMultiplier;
 
   const GameScore({
     required this.villageScore,
@@ -65,6 +66,7 @@ class GameScore {
     required this.speedBonus,
     required this.victoryTypeBonus,
     this.difficultyMultiplier = 1.0,
+    this.modifierMultiplier = 1.0,
   });
 
   int get subtotal =>
@@ -75,5 +77,5 @@ class GameScore {
       speedBonus +
       victoryTypeBonus;
 
-  int get total => (subtotal * difficultyMultiplier).round();
+  int get total => (subtotal * difficultyMultiplier * modifierMultiplier).round();
 }

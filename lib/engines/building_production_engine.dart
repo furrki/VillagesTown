@@ -1,3 +1,4 @@
+import '../data/models/game_modifier.dart';
 import '../data/models/resource.dart';
 import '../data/models/village.dart';
 import 'event_engine.dart';
@@ -17,6 +18,12 @@ class BuildingProductionEngine {
     final difficultyMod = (village.owner != 'player' && village.owner != 'neutral')
         ? (game.difficulty?.aiResourceMod ?? 1.0)
         : 1.0;
+
+    // Game modifier: scarcity/abundance production multiplier
+    double modifierProdMod = 1.0;
+    for (final mod in game.activeModifiers) {
+      modifierProdMod *= mod.productionMultiplier;
+    }
 
     for (final building in village.buildings) {
       // Check if we have enough resources to consume
@@ -46,7 +53,7 @@ class BuildingProductionEngine {
           if (entry.key == Resource.food) eventMod = foodEventMod;
           if (entry.key == Resource.gold) eventMod = goldEventMod;
 
-          final amount = (entry.value * building.level * levelBonus * happinessModifier * traitMod * specBonus * eventMod * difficultyMod).round();
+          final amount = (entry.value * building.level * levelBonus * happinessModifier * traitMod * specBonus * eventMod * difficultyMod * modifierProdMod).round();
           village.addResource(entry.key, amount);
         }
       }

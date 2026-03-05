@@ -466,21 +466,11 @@ Files modified: `turn_engine.dart`, `game_manager.dart`, `building_production_en
 Files created: `achievement.dart`, `game_record.dart`, `difficulty.dart`, `progression_engine.dart`, `stats_screen.dart`
 Files modified: `game_manager.dart`, `turn_engine.dart`, `victory_engine.dart`, `victory_condition.dart`, `building_production_engine.dart`, `victory_screen.dart`, `nationality_selection_screen.dart`
 
-## Phase 4: Game Modifiers + AI Victory Pursuit (Polish) -- IN PROGRESS
+## Phase 4: Game Modifiers + AI Victory Pursuit (Polish) -- DONE
+9 game modifiers across 4 categories (Resource, Military, Map, Pacing) with conflict detection, score multipliers, and integration across all engines. AI now picks and pursues victory types based on personality, adjusts economy and military recruitment accordingly, and counter-strategies when the player is close to winning (70%+ progress).
 
-What to build:
-1. Game modifier system (pre-game toggles for resource/military/map/pacing modifiers)
-2. AI victory condition pursuit (AI picks and chases a victory type based on personality)
-3. AI counter-strategy (recognize when player is close to winning and counter)
-4. Modifier integration across engines
-
-Key files to modify:
-- `lib/engines/ai_strategy_manager.dart` - victory pursuit + counter-strategy
-- `lib/engines/ai_economy_manager.dart` - modifier-aware building
-- `lib/engines/ai_military_manager.dart` - modifier-aware recruitment
-- `lib/ui/screens/nationality_selection_screen.dart` - modifier toggle UI
-- `lib/engines/game_manager.dart` - modifier state
-- `lib/engines/building_production_engine.dart` - modifier effects on production
+Files created: `game_modifier.dart`
+Files modified: `game_manager.dart`, `building_production_engine.dart`, `building_construction_engine.dart`, `recruitment_engine.dart`, `turn_engine.dart`, `victory_engine.dart`, `victory_condition.dart`, `victory_screen.dart`, `ai_strategy_manager.dart`, `ai_economy_manager.dart`, `ai_military_manager.dart`, `nationality_selection_screen.dart`
 
 ---
 

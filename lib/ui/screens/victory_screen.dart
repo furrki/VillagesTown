@@ -211,9 +211,12 @@ class _VictoryScreenState extends State<VictoryScreen> {
           if (score.speedBonus > 0) _scoreLine('Speed Bonus', score.speedBonus),
           if (score.victoryTypeBonus > 0)
             _scoreLine('Victory Bonus', score.victoryTypeBonus),
-          if (score.difficultyMultiplier != 1.0) ...[
+          if (score.difficultyMultiplier != 1.0 || score.modifierMultiplier != 1.0) ...[
             const Divider(color: Colors.white12, height: 16),
-            _scoreLine('Difficulty', 0, suffix: 'x${score.difficultyMultiplier}'),
+            if (score.difficultyMultiplier != 1.0)
+              _scoreLine('Difficulty', 0, suffix: 'x${score.difficultyMultiplier}'),
+            if (score.modifierMultiplier != 1.0)
+              _scoreLine('Modifiers', 0, suffix: 'x${score.modifierMultiplier.toStringAsFixed(2)}'),
           ],
           const Divider(color: Colors.white24, height: 24),
           Row(
