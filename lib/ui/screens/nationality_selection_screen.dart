@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../data/models/nationality.dart';
+import '../../data/models/victory_condition.dart';
 import '../../core/constants/layout_constants.dart';
+import '../../engines/game_manager.dart';
 
 class NationalitySelectionScreen extends StatefulWidget {
   final void Function(Nationality) onSelect;
@@ -13,6 +15,7 @@ class NationalitySelectionScreen extends StatefulWidget {
 
 class _NationalitySelectionScreenState extends State<NationalitySelectionScreen> {
   Nationality? _selectedNationality;
+  VictoryType _selectedVictory = VictoryType.domination;
 
   void _selectNationality(Nationality nationality) {
     setState(() => _selectedNationality = nationality);
@@ -113,7 +116,84 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                 ),
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
+
+              // Victory Type Section
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    Text(
+                      'VICTORY CONDITION',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.0,
+                        color: Colors.white.withOpacity(0.6),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      alignment: WrapAlignment.center,
+                      children: VictoryType.values.map((vt) {
+                        final isSelected = _selectedVictory == vt;
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() => _selectedVictory = vt);
+                            LayoutConstants.selectionFeedback();
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.amber.withOpacity(0.2)
+                                  : Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected ? Colors.amber : Colors.white.withOpacity(0.1),
+                                width: isSelected ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(vt.emoji, style: const TextStyle(fontSize: 20)),
+                                const SizedBox(height: 4),
+                                Text(
+                                  vt.displayName,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: isSelected ? Colors.amber : Colors.white54,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 8),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: Text(
+                        _selectedVictory.description,
+                        key: ValueKey(_selectedVictory),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white.withOpacity(0.4),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
 
               // Start Button
               AnimatedSwitcher(
@@ -123,6 +203,7 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                         key: ValueKey(_selectedNationality!.id),
                         onPressed: () {
                           LayoutConstants.impactFeedback(style: HapticStyle.heavy);
+                          GameManager.shared.selectedVictoryType = _selectedVictory;
                           widget.onSelect(_selectedNationality!);
                         },
                         style: ElevatedButton.styleFrom(

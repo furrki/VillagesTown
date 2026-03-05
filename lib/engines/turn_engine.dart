@@ -7,8 +7,10 @@ import '../data/models/village.dart';
 import 'ai_engine.dart';
 import 'building_production_engine.dart';
 import 'combat_engine.dart';
+import 'event_engine.dart';
 import 'game_manager.dart';
 import 'population_engine.dart';
+import 'victory_engine.dart';
 
 class TurnEngine {
   final PopulationEngine _populationEngine = PopulationEngine();
@@ -33,6 +35,9 @@ class TurnEngine {
 
     // 2. Tax Collection
     _collectTaxes();
+
+    // 2.5 World Events
+    EventEngine.processEvents(game);
 
     // 3. Army Upkeep
     _processArmyUpkeep();
@@ -487,6 +492,7 @@ class TurnEngine {
   void _checkVictory() {
     final game = GameManager.shared;
 
+    // Eliminate players with no villages
     for (var i = 0; i < game.players.length; i++) {
       final playerId = game.players[i].id;
       final playerVillages = game.map.villages.where((v) => v.owner == playerId);
@@ -496,6 +502,15 @@ class TurnEngine {
 
         // Remove all armies of eliminated player (they have no home to return to)
         game.armies.removeWhere((a) => a.owner == playerId);
+      }
+    }
+
+    // Check victory conditions for human player
+    if (game.achievedVictoryType == null) {
+      final achieved = VictoryEngine.checkVictory(game, 'player');
+      if (achieved != null) {
+        game.achievedVictoryType = achieved;
+        game.addTurnEvent(VictoryAchievedEvent(victoryType: achieved));
       }
     }
   }

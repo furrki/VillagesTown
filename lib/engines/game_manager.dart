@@ -16,8 +16,11 @@ import '../data/models/unit_type.dart';
 import '../data/models/village.dart';
 import '../data/models/building.dart';
 import '../data/models/combat_log.dart';
+import '../data/models/game_event.dart';
+import '../data/models/victory_condition.dart';
 import '../data/models/village_trait.dart';
 import 'combat_engine.dart';
+import 'event_engine.dart';
 import 'turn_engine.dart';
 
 class GameManager extends ChangeNotifier {
@@ -55,6 +58,15 @@ class GameManager extends ChangeNotifier {
   /// Cache of last-known info for discovered villages (stale data for fog of war).
   /// Key: village ID, Value: (owner, garrison estimate, turn last seen)
   Map<String, DiscoveredVillageInfo> discoveredVillageCache = {};
+
+  // Victory tracking
+  VictoryType? selectedVictoryType;
+  Map<String, int> battlesWon = {};
+  VictoryType? achievedVictoryType;
+
+  // World events
+  List<GameEvent> activeEvents = [];
+  List<GameEvent> eventHistory = [];
 
   bool tutorialEnabled = true;
   int tutorialStep = 0;
@@ -431,6 +443,11 @@ class GameManager extends ChangeNotifier {
     tutorialEnabled = true;
     tutorialStep = 0;
     completedTutorialActions.clear();
+    selectedVictoryType = null;
+    battlesWon.clear();
+    achievedVictoryType = null;
+    activeEvents.clear();
+    eventHistory.clear();
 
     map = VirtualMap(villages: []);
     players = Player.createPlayers();
@@ -790,7 +807,8 @@ class GameManager extends ChangeNotifier {
     }
 
     // March to destination (friendly or enemy - siege mechanics handled by turn engine)
-    final turns = Army.calculateTravelTime(originVillage.coordinates, destination.coordinates);
+    var turns = Army.calculateTravelTime(originVillage.coordinates, destination.coordinates);
+    turns += EventEngine.movementPenalty(this);
     army.marchTo(destinationVillageId, turns, origin);
     updateArmy(army);
 
@@ -967,6 +985,13 @@ class GameManager extends ChangeNotifier {
 
   // Victory/Defeat
   Player? getWinner() {
+    // Check if player achieved a victory condition
+    if (achievedVictoryType != null) {
+      final humanPlayer = players.firstWhere((p) => p.isHuman);
+      if (!humanPlayer.isEliminated) return humanPlayer;
+    }
+
+    // Classic elimination: last player standing
     final activePlayers = players.where((p) => !p.isEliminated).toList();
     if (activePlayers.length == 1) return activePlayers.first;
     return null;
@@ -1070,7 +1095,8 @@ class GameManager extends ChangeNotifier {
 
     // 6. Handle outcomes
     if (defenderWins) {
-      // Attacker lost
+      // Attacker lost - defender gets battle win credit
+      battlesWon[record.defenderOwnerId] = (battlesWon[record.defenderOwnerId] ?? 0) + 1;
       removeArmy(attacker.id);
       if (defenderVillage != null) {
         defenderVillage.underSiege = false;
@@ -1083,7 +1109,8 @@ class GameManager extends ChangeNotifier {
         addTurnEvent(BattleWonEvent(location: record.locationName, casualties: defLosses));
       }
     } else {
-      // Attacker won
+      // Attacker won - attacker gets battle win credit
+      battlesWon[record.attackerOwnerId] = (battlesWon[record.attackerOwnerId] ?? 0) + 1;
       if (defenderVillage != null) {
         // Siege victory - conquer (this also updates the army and adds event)
         _conquerVillage(attacker, defenderVillage);

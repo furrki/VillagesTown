@@ -7,6 +7,8 @@ import '../../data/models/building.dart';
 import '../../data/models/unit_type.dart';
 import '../../data/models/resource.dart';
 import '../../data/models/unit.dart';
+import '../../data/models/game_event.dart';
+import '../../data/models/victory_condition.dart';
 import '../../data/models/village_trait.dart';
 import '../../providers/game_provider.dart';
 import '../components/owner_flag_view.dart';
@@ -14,6 +16,7 @@ import '../components/tutorial_highlighter.dart';
 import '../components/defender_strength_bar.dart';
 import '../../engines/tutorial_helper.dart';
 import '../../engines/game_manager.dart';
+import '../../engines/victory_engine.dart';
 
 
 class InlineVillagePanel extends StatelessWidget {
@@ -94,6 +97,12 @@ class InlineVillagePanel extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // Victory Progress + Active Events
+              _buildVictoryProgress(game),
+              if (game.activeEvents.any((e) => e.isActive && e.duration > 0))
+                _buildActiveEvents(game.activeEvents),
+              const SizedBox(height: 8),
+
               // Header
               _buildHeader(game, primaryArmy, shouldEndTurn),
               const SizedBox(height: 12),
@@ -117,6 +126,67 @@ class InlineVillagePanel extends StatelessWidget {
         );
 
       },
+    );
+  }
+
+  Widget _buildActiveEvents(List<GameEvent> events) {
+    final active = events.where((e) => e.isActive && e.duration > 0).toList();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        alignment: WrapAlignment.center,
+        children: active.map((e) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.amber.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            '${e.emoji} ${e.turnsRemaining}',
+            style: const TextStyle(fontSize: 10, color: Colors.amber),
+          ),
+        )).toList(),
+      ),
+    );
+  }
+
+  Widget _buildVictoryProgress(GameManager game) {
+    final progress = VictoryEngine.getAllProgress(game, 'player');
+    final selected = game.selectedVictoryType;
+    return Row(
+      children: progress.map((vp) {
+        final isSelected = vp.type == selected;
+        final color = switch (vp.type) {
+          VictoryType.domination => Colors.redAccent,
+          VictoryType.economic => Colors.amber,
+          VictoryType.military => Colors.blueAccent,
+          VictoryType.imperial => Colors.purpleAccent,
+        };
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Column(
+              children: [
+                Text(vp.type.emoji, style: const TextStyle(fontSize: 10)),
+                const SizedBox(height: 2),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: vp.progress,
+                    minHeight: isSelected ? 4 : 3,
+                    backgroundColor: Colors.white.withOpacity(0.08),
+                    valueColor: AlwaysStoppedAnimation(
+                      vp.achieved ? Colors.greenAccent : color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -145,50 +215,59 @@ class InlineVillagePanel extends StatelessWidget {
                     style: TextStyle(fontSize: 11, color: isPlayerVillage ? Colors.green : Colors.red),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    '👥 ${village.population}   🏠 ${village.buildings.length}/${village.maxBuildings}',
-                    style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6)),
+                  Flexible(
+                    child: Text(
+                      '👥 ${village.population}   🏠 ${village.buildings.length}/${village.maxBuildings}',
+                      style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6)),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  if (village.trait != VillageTrait.none) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: Colors.brown.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.brown.withValues(alpha: 0.5), width: 0.5),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(village.trait.emoji, style: const TextStyle(fontSize: 9)),
-                          const SizedBox(width: 2),
-                          Text(village.trait.displayName, style: const TextStyle(fontSize: 9, color: Colors.white70)),
-                        ],
-                      ),
-                    ),
-                  ],
-                  if (village.specialization != VillageSpecialization.none) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: Colors.purple.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.purple.withValues(alpha: 0.5), width: 0.5),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(village.specialization.emoji, style: const TextStyle(fontSize: 9)),
-                          const SizedBox(width: 2),
-                          Text(village.specialization.displayName, style: const TextStyle(fontSize: 9, color: Colors.white70)),
-                        ],
-                      ),
-                    ),
-                  ],
                 ],
               ),
+              if (village.trait != VillageTrait.none || village.specialization != VillageSpecialization.none)
+                Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      if (village.trait != VillageTrait.none)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: Colors.brown.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.brown.withValues(alpha: 0.5), width: 0.5),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(village.trait.emoji, style: const TextStyle(fontSize: 9)),
+                              const SizedBox(width: 2),
+                              Text(village.trait.displayName, style: const TextStyle(fontSize: 9, color: Colors.white70)),
+                            ],
+                          ),
+                        ),
+                      if (village.specialization != VillageSpecialization.none)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: Colors.purple.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.purple.withValues(alpha: 0.5), width: 0.5),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(village.specialization.emoji, style: const TextStyle(fontSize: 9)),
+                              const SizedBox(width: 2),
+                              Text(village.specialization.displayName, style: const TextStyle(fontSize: 9, color: Colors.white70)),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 4),
               DefenderStrengthBar(
                 garrisonStrength: village.garrisonStrength,

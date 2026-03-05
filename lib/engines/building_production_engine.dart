@@ -1,9 +1,17 @@
+import '../data/models/resource.dart';
 import '../data/models/village.dart';
+import 'event_engine.dart';
+import 'game_manager.dart';
 
 class BuildingProductionEngine {
   static void consumeAndProduceAll(Village village) {
+    final game = GameManager.shared;
     final traitBonuses = village.trait.productionBonuses;
     final specBonus = village.specialization == VillageSpecialization.tradeCenter ? 1.25 : 1.0;
+
+    // Event modifiers
+    final foodEventMod = EventEngine.foodProductionModifier(game);
+    final goldEventMod = EventEngine.goldProductionModifier(game, village.id);
 
     for (final building in village.buildings) {
       // Check if we have enough resources to consume
@@ -27,7 +35,13 @@ class BuildingProductionEngine {
 
         for (final entry in building.resourcesProduction.entries) {
           final traitMod = 1.0 + (traitBonuses[entry.key] ?? 0.0);
-          final amount = (entry.value * building.level * levelBonus * happinessModifier * traitMod * specBonus).round();
+
+          // Apply event modifiers per resource type
+          double eventMod = 1.0;
+          if (entry.key == Resource.food) eventMod = foodEventMod;
+          if (entry.key == Resource.gold) eventMod = goldEventMod;
+
+          final amount = (entry.value * building.level * levelBonus * happinessModifier * traitMod * specBonus * eventMod).round();
           village.addResource(entry.key, amount);
         }
       }

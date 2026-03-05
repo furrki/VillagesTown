@@ -10,6 +10,7 @@ import '../data/models/geo_coordinate.dart';
 import '../data/models/resource.dart';
 import '../data/models/unit_type.dart';
 import '../data/models/ai_personality.dart';
+import 'event_engine.dart';
 import 'game_manager.dart';
 
 class AIStrategyManager {
@@ -57,6 +58,11 @@ class AIStrategyManager {
     for (final target in potentialTargets) {
       final distance = GeoCoordinate.distanceKm(armyCoordinates, target.coordinates);
       final isNeutral = target.owner == 'neutral';
+
+      // Respect non-aggression pacts (Royal Marriage event)
+      if (!isNeutral && EventEngine.hasNonAggressionPact(game, army.owner, target.owner)) {
+        continue;
+      }
 
       // Calculate defender strength (garrison + stationed armies)
       int defenderStr = target.garrisonStrength * 2; // Garrison fights at 2x (defensive bonus)

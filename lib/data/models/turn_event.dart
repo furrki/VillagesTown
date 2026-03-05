@@ -1,4 +1,5 @@
 import 'resource.dart';
+import 'victory_condition.dart';
 
 sealed class TurnEvent {
   String get emoji;
@@ -229,6 +230,57 @@ class GeneralEvent extends TurnEvent {
 
   @override
   String get message => text;
+
+  @override
+  bool get isImportant => true;
+}
+
+class WorldEventStartedEvent extends TurnEvent {
+  final String eventName;
+  @override
+  final String emoji;
+  final String description;
+  final int duration;
+
+  WorldEventStartedEvent({
+    required this.eventName,
+    required this.emoji,
+    required this.description,
+    required this.duration,
+  });
+
+  @override
+  String get message => description;
+
+  @override
+  bool get isImportant => true;
+}
+
+class WorldEventEndedEvent extends TurnEvent {
+  final String eventName;
+
+  WorldEventEndedEvent({required this.eventName});
+
+  @override
+  String get emoji => '📜';
+
+  @override
+  String get message => '$eventName has ended.';
+
+  @override
+  bool get isImportant => false;
+}
+
+class VictoryAchievedEvent extends TurnEvent {
+  final VictoryType victoryType;
+
+  VictoryAchievedEvent({required this.victoryType});
+
+  @override
+  String get emoji => '🏆';
+
+  @override
+  String get message => '${victoryType.displayName} Victory achieved!';
 
   @override
   bool get isImportant => true;

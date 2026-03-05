@@ -5,11 +5,14 @@ import '../../data/models/building.dart';
 import '../../data/models/village.dart';
 import '../../data/models/resource.dart';
 import '../../data/models/unit_type.dart';
+import '../../data/models/game_event.dart';
+import '../../data/models/victory_condition.dart';
 import '../../data/models/village_trait.dart';
 import '../../providers/game_provider.dart';
 import '../components/owner_flag_view.dart';
 import '../components/defender_strength_bar.dart';
 import '../../engines/game_manager.dart';
+import '../../engines/victory_engine.dart';
 
 class SideInfoPanel extends StatelessWidget {
   final Village? selectedVillage;
@@ -67,6 +70,22 @@ class SideInfoPanel extends StatelessWidget {
                     const Icon(Icons.emoji_events, size: 14, color: Colors.yellow),
                   ],
                 ),
+              );
+            },
+          ),
+          const Divider(height: 1, color: Colors.white10),
+          // Victory Progress + Active Events
+          Consumer<GameProvider>(
+            builder: (context, provider, _) {
+              final game = provider.gameManager;
+              final progress = VictoryEngine.getAllProgress(game, 'player');
+              final selected = game.selectedVictoryType;
+              return Column(
+                children: [
+                  _VictoryProgressBar(progress: progress, selectedType: selected),
+                  if (game.activeEvents.isNotEmpty)
+                    _ActiveEventsBar(events: game.activeEvents),
+                ],
               );
             },
           ),
@@ -902,6 +921,112 @@ class _ArmyCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _VictoryProgressBar extends StatelessWidget {
+  final List<VictoryProgress> progress;
+  final VictoryType? selectedType;
+
+  const _VictoryProgressBar({required this.progress, this.selectedType});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: progress.map((vp) {
+          final isSelected = vp.type == selectedType;
+          final color = _victoryColor(vp.type);
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              children: [
+                Text(vp.type.emoji, style: const TextStyle(fontSize: 11)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(
+                          value: vp.progress,
+                          minHeight: isSelected ? 6 : 4,
+                          backgroundColor: Colors.white.withOpacity(0.08),
+                          valueColor: AlwaysStoppedAnimation(
+                            vp.achieved ? Colors.greenAccent : color,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                SizedBox(
+                  width: 48,
+                  child: Text(
+                    '${(vp.progress * 100).round()}%',
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: isSelected ? color : Colors.white38,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Color _victoryColor(VictoryType type) => switch (type) {
+        VictoryType.domination => Colors.redAccent,
+        VictoryType.economic => Colors.amber,
+        VictoryType.military => Colors.blueAccent,
+        VictoryType.imperial => Colors.purpleAccent,
+      };
+}
+
+class _ActiveEventsBar extends StatelessWidget {
+  final List<GameEvent> events;
+
+  const _ActiveEventsBar({required this.events});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 4,
+        children: events.where((e) => e.isActive && e.duration > 0).map((e) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.amber.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.amber.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(e.emoji, style: const TextStyle(fontSize: 11)),
+                const SizedBox(width: 4),
+                Text(
+                  '${e.displayName} (${e.turnsRemaining})',
+                  style: const TextStyle(fontSize: 9, color: Colors.amber),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }
