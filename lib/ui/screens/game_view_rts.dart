@@ -6,8 +6,8 @@ import '../../engines/game_manager.dart';
 import '../../providers/game_provider.dart';
 import '../map/map_view.dart';
 import '../panels/cargo_panel.dart';
-import '../panels/city_panel.dart';
 import '../panels/travel_panel.dart';
+import 'city_screen.dart';
 import '../panels/warband_panel.dart';
 import '../components/rts_hud.dart';
 import '../components/game_over_overlay.dart';
@@ -108,21 +108,53 @@ class _RtsGameViewState extends State<RtsGameView> {
           );
         }
 
+        // If at city, show full city screen
+        if (pc.state == PlayerState.atCity && game.playerCurrentCity != null) {
+          return Scaffold(
+            backgroundColor: Colors.black,
+            body: Stack(
+              children: [
+                CityScreen(
+                  city: game.playerCurrentCity!,
+                  player: pc,
+                  onLeave: _openTravelPicker,
+                  showToast: _showToast,
+                ),
+                // Travel picker overlay (centered on screen)
+                if (_showTravelPicker)
+                  _buildCityTravelPicker(game),
+                // Toast
+                if (_toastMessage != null) _buildToast(),
+                // Game over overlay
+                if (game.isGameOver)
+                  const Positioned.fill(
+                    child: GameOverOverlay(),
+                  ),
+              ],
+            ),
+          );
+        }
+
+        // Traveling view: map + travel panel
         return Scaffold(
           backgroundColor: Colors.black,
           body: Stack(
             children: [
-              // Map (full screen)
+              // Map (full screen) + bottom travel panel
               Column(
                 children: [
                   Expanded(child: _buildMap(game, pc)),
                   Container(height: 1, color: Colors.white.withValues(alpha: 0.15)),
-                  // Bottom panel
                   ConstrainedBox(
                     constraints: BoxConstraints(
                       maxHeight: MediaQuery.of(context).size.height * 0.45,
                     ),
-                    child: _buildBottomPanel(game, pc),
+                    child: TravelPanel(
+                      player: pc,
+                      encounter: game.currentEncounter,
+                      onDismissEncounter: () => game.dismissEncounter(),
+                      showToast: _showToast,
+                    ),
                   ),
                 ],
               ),
@@ -164,9 +196,6 @@ class _RtsGameViewState extends State<RtsGameView> {
                     ),
                   ),
                 ),
-              // Travel picker overlay
-              if (_showTravelPicker && pc.state == PlayerState.atCity)
-                _buildTravelPickerOverlay(game),
               // Toast
               if (_toastMessage != null) _buildToast(),
               // Battle screen overlay
@@ -210,68 +239,45 @@ class _RtsGameViewState extends State<RtsGameView> {
     );
   }
 
-  Widget _buildBottomPanel(GameManager game, PlayerCharacter pc) {
-    if (pc.state == PlayerState.traveling || game.currentEncounter != null) {
-      return TravelPanel(
-        player: pc,
-        encounter: game.currentEncounter,
-        onDismissEncounter: () => game.dismissEncounter(),
-        showToast: _showToast,
-      );
-    }
-
-    final city = game.playerCurrentCity;
-    if (city != null) {
-      return CityPanel(
-        city: city,
-        player: pc,
-        onTravel: _openTravelPicker,
-        showToast: _showToast,
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      color: const Color(0xFF141414),
-      child: const Center(
-        child: Text('No location', style: TextStyle(color: Colors.white38)),
-      ),
-    );
-  }
-
-  Widget _buildTravelPickerOverlay(GameManager game) {
+  Widget _buildCityTravelPicker(GameManager game) {
     final destinations = game.travelDestinations;
-
     return Positioned(
-      bottom: MediaQuery.of(context).size.height * 0.45 + 8,
-      left: 16,
-      right: 16,
+      top: MediaQuery.of(context).size.height * 0.2,
+      left: 24,
+      right: 24,
       child: Material(
         color: Colors.transparent,
         child: Container(
-          constraints: const BoxConstraints(maxHeight: 200),
+          constraints: const BoxConstraints(maxHeight: 350),
           decoration: BoxDecoration(
             color: const Color(0xFF1A1A1A),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.8),
+                blurRadius: 20,
+                spreadRadius: 5,
+              ),
+            ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 child: Row(
                   children: [
-                    const Icon(Icons.map, color: Colors.blue, size: 16),
+                    const Icon(Icons.map, color: Colors.blue, size: 18),
                     const SizedBox(width: 8),
                     const Text(
                       'Travel to...',
-                      style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
                     ),
                     const Spacer(),
                     GestureDetector(
                       onTap: () => setState(() => _showTravelPicker = false),
-                      child: const Icon(Icons.close, color: Colors.white38, size: 18),
+                      child: const Icon(Icons.close, color: Colors.white38, size: 20),
                     ),
                   ],
                 ),
@@ -288,18 +294,11 @@ class _RtsGameViewState extends State<RtsGameView> {
                     final owner = dest.owner == 'neutral'
                         ? 'Neutral'
                         : game.getNationality(dest.owner)?.name ?? dest.owner;
-
                     return ListTile(
                       dense: true,
                       visualDensity: VisualDensity.compact,
-                      title: Text(
-                        name,
-                        style: const TextStyle(color: Colors.white, fontSize: 13),
-                      ),
-                      subtitle: Text(
-                        '$owner | ${dest.trait.name}',
-                        style: const TextStyle(color: Colors.white38, fontSize: 10),
-                      ),
+                      title: Text(name, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                      subtitle: Text('$owner | ${dest.trait.name}', style: const TextStyle(color: Colors.white38, fontSize: 11)),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.white24),
                       onTap: () {
                         game.startTravel(dest.id);

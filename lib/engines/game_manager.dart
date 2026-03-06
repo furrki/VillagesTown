@@ -1460,7 +1460,7 @@ class GameManager extends ChangeNotifier {
     }
 
     pc.checkProgression();
-    gameLoop.setSpeed(GameSpeed.normal);
+    gameLoop.pause();
     notifyListeners();
   }
 

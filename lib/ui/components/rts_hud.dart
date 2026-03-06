@@ -109,12 +109,13 @@ class RtsHud extends StatelessWidget {
     };
 
     final isPaused = loop.speed == GameSpeed.paused;
+    final isTraveling = pc.state == PlayerState.traveling;
 
     return GestureDetector(
       onTap: () {
         if (onSpeedTap != null) {
           onSpeedTap!();
-        } else {
+        } else if (isTraveling) {
           // Cycle through speeds
           final next = switch (loop.speed) {
             GameSpeed.paused => GameSpeed.normal,
