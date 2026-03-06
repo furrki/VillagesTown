@@ -2,13 +2,11 @@ import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../data/models/army.dart';
 import '../../../data/models/battle_tactics.dart';
 import '../../../data/models/battle_terrain.dart';
 import '../../../data/models/combat_log.dart';
 import '../../../data/models/nationality.dart';
 import '../../../data/models/unit_type.dart';
-import '../../../data/models/village.dart';
 import '../../../engines/game_manager.dart';
 import 'battle_painter.dart';
 import 'battle_simulation.dart';
@@ -86,10 +84,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
 
     // For neutral defenders, use the village's original nationality
     if (widget.record.defenderOwnerId == 'neutral') {
-      final village = game.map.villages.cast<Village?>().firstWhere(
-        (v) => v?.id == widget.record.defenderId,
-        orElse: () => null,
-      );
+      final village = game.getVillageById(widget.record.defenderId);
       _defenderNationality = village?.nationality ?? Nationality.byzantines;
     } else {
       _defenderNationality = game.getNationality(widget.record.defenderOwnerId) ?? Nationality.byzantines;
@@ -106,14 +101,8 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
     List<UnitType> attackerSampleTypes = [];
     List<UnitType> defenderSampleTypes = [];
 
-    final attackerArmy = game.armies.cast<Army?>().firstWhere(
-      (a) => a!.id == widget.record.attackerId,
-      orElse: () => null,
-    );
-    final defenderArmy = game.armies.cast<Army?>().firstWhere(
-      (a) => a!.id == widget.record.defenderId,
-      orElse: () => null,
-    );
+    final attackerArmy = game.getArmyById(widget.record.attackerId);
+    final defenderArmy = game.getArmyById(widget.record.defenderId);
 
     if (attackerArmy != null) {
       for (final u in attackerArmy.units) {

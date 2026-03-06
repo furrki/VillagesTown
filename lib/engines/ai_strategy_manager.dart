@@ -190,7 +190,7 @@ class AIStrategyManager {
 
   GeoCoordinate? _getArmyCoordinates(Army army, GameManager game) {
     if (army.stationedAt != null) {
-      return game.map.villages.cast<Village?>().firstWhere((v) => v!.id == army.stationedAt, orElse: () => null)?.coordinates;
+      return game.getVillageById(army.stationedAt)?.coordinates;
     }
     return null;
   }

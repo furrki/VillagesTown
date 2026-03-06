@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../data/models/nationality.dart';
-import '../../data/models/player.dart';
 import '../../engines/game_manager.dart';
 
 class CountryballAvatar extends StatelessWidget {
@@ -43,10 +42,7 @@ class CountryballAvatar extends StatelessWidget {
     if (owner == null || owner == 'neutral') return 'assets/rebels.png';
 
     final game = GameManager.shared;
-    final player = game.players.cast<Player?>().firstWhere(
-      (p) => p?.id == owner,
-      orElse: () => null,
-    );
+    final player = game.getPlayerById(owner);
     return player?.nationality.assetPath ?? 'assets/rebels.png';
   }
 

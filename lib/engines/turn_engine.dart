@@ -177,10 +177,7 @@ class TurnEngine {
       final villageId = army.stationedAt;
       if (villageId == null) continue;
 
-      final village = game.map.villages.cast<Village?>().firstWhere(
-        (v) => v!.id == villageId,
-        orElse: () => null,
-      );
+      final village = game.getVillageById(villageId);
       if (village == null) continue;
 
       // Advance siege and check if ready to assault
@@ -285,10 +282,7 @@ class TurnEngine {
           ));
 
           // Break siege - the besieging army moves to intercept
-          final village = game.map.villages.cast<Village?>().firstWhere(
-            (v) => v!.id == besiegedVillageId,
-            orElse: () => null,
-          );
+          final village = game.getVillageById(besiegedVillageId);
           if (village != null) {
             village.underSiege = false;
           }
@@ -306,8 +300,8 @@ class TurnEngine {
   void _resolveFieldBattle(String army1Id, String army2Id) {
     final game = GameManager.shared;
 
-    final army1 = game.armies.cast<Army?>().firstWhere((a) => a!.id == army1Id, orElse: () => null);
-    final army2 = game.armies.cast<Army?>().firstWhere((a) => a!.id == army2Id, orElse: () => null);
+    final army1 = game.getArmyById(army1Id);
+    final army2 = game.getArmyById(army2Id);
 
     if (army1 == null || army2 == null) return;
 
@@ -360,10 +354,7 @@ class TurnEngine {
         // advanceMarch returns true if army just arrived
         if (game.armies[i].advanceMarch()) {
           if (destId != null) {
-            final destination = game.map.villages.cast<Village?>().firstWhere(
-                  (v) => v!.id == destId,
-                  orElse: () => null,
-                );
+            final destination = game.getVillageById(destId);
             if (destination != null) {
               arrivedArmies.add((game.armies[i], destination, originBeforeAdvance));
             }
@@ -477,10 +468,7 @@ class TurnEngine {
       final destId = army.destination;
       if (destId == null) continue;
 
-      final destVillage = game.map.villages.cast<Village?>().firstWhere(
-            (v) => v!.id == destId,
-            orElse: () => null,
-          );
+      final destVillage = game.getVillageById(destId);
       if (destVillage == null) continue;
 
       // Estimate army size (rounded to nearest 5)

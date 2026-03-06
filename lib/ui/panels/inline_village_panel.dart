@@ -462,10 +462,7 @@ class InlineVillagePanel extends StatelessWidget {
              final dy = center + radius * math.sin(angle) - tileOffset;
 
              final template = allBuildings[index];
-             final existing = village.buildings.cast<Building?>().firstWhere(
-                    (b) => b!.name == template.name,
-                    orElse: () => null,
-                  );
+             final existing = village.buildings.where((b) => b.name == template.name).firstOrNull;
               
               final isBuilt = existing != null;
               final level = existing?.level ?? 0;

@@ -56,10 +56,7 @@ class BuildingConstructionEngine {
   }
 
   bool canUpgradeBuilding(String buildingId, Village village) {
-    final building = village.buildings.cast<Building?>().firstWhere(
-          (b) => b!.id == buildingId,
-          orElse: () => null,
-        );
+    final building = village.buildings.where((b) => b.id == buildingId).firstOrNull;
     if (building == null) return false;
     if (building.level >= 5) return false;
 

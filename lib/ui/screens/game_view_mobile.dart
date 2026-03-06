@@ -49,10 +49,7 @@ class _MobileGameLayoutState extends State<MobileGameLayout> {
 
   Village? get _currentVillage {
     if (_selectedVillage == null) return null;
-    return GameManager.shared.map.villages.cast<Village?>().firstWhere(
-          (v) => v!.id == _selectedVillage!.id,
-          orElse: () => null,
-        );
+    return GameManager.shared.getVillageById(_selectedVillage!.id);
   }
 
   void _showToast(String message) {

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../engines/game_manager.dart';
-import '../../data/models/player.dart';
 import '../theme/app_theme.dart';
 
 class OwnerFlagView extends StatelessWidget {
@@ -17,10 +16,7 @@ class OwnerFlagView extends StatelessWidget {
     if (owner == 'neutral') return 'assets/rebels.png';
 
     final game = GameManager.shared;
-    final player = game.players.cast<Player?>().firstWhere(
-          (p) => p?.id == owner,
-          orElse: () => null,
-        );
+    final player = game.getPlayerById(owner);
 
     return player?.nationality.assetPath ?? 'assets/rebels.png';
   }

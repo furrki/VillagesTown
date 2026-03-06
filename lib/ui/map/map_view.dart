@@ -143,14 +143,8 @@ class _MapViewState extends State<MapView> {
     final lines = <Polyline>[];
 
     for (final army in armies.where((a) => a.isMarching)) {
-      final origin = game.map.villages.cast<Village?>().firstWhere(
-        (v) => v!.id == army.origin,
-        orElse: () => null,
-      );
-      final dest = game.map.villages.cast<Village?>().firstWhere(
-        (v) => v!.id == army.destination,
-        orElse: () => null,
-      );
+      final origin = game.getVillageById(army.origin);
+      final dest = game.getVillageById(army.destination);
 
       if (origin == null || dest == null) continue;
 
@@ -172,14 +166,8 @@ class _MapViewState extends State<MapView> {
     // Player travel path
     final pc = game.playerCharacter;
     if (pc != null && pc.state == PlayerState.traveling) {
-      final pOrigin = game.map.villages.cast<Village?>().firstWhere(
-        (v) => v!.id == pc.travelOriginId,
-        orElse: () => null,
-      );
-      final pDest = game.map.villages.cast<Village?>().firstWhere(
-        (v) => v!.id == pc.travelDestinationId,
-        orElse: () => null,
-      );
+      final pOrigin = game.getVillageById(pc.travelOriginId);
+      final pDest = game.getVillageById(pc.travelDestinationId);
       if (pOrigin != null && pDest != null) {
         lines.add(Polyline(
           points: [
@@ -277,14 +265,8 @@ class _MapViewState extends State<MapView> {
 
     // Marching armies
     for (final army in armies.where((a) => a.isMarching)) {
-      final origin = game.map.villages.cast<Village?>().firstWhere(
-        (v) => v!.id == army.origin,
-        orElse: () => null,
-      );
-      final dest = game.map.villages.cast<Village?>().firstWhere(
-        (v) => v!.id == army.destination,
-        orElse: () => null,
-      );
+      final origin = game.getVillageById(army.origin);
+      final dest = game.getVillageById(army.destination);
 
       if (origin == null || dest == null) continue;
 
@@ -317,10 +299,7 @@ class _MapViewState extends State<MapView> {
 
     // Besieging armies - show near the village they're besieging
     for (final army in armies.where((a) => a.isBesieging)) {
-      final village = game.map.villages.cast<Village?>().firstWhere(
-        (v) => v!.id == army.stationedAt,
-        orElse: () => null,
-      );
+      final village = game.getVillageById(army.stationedAt);
       if (village == null) continue;
 
       final nationality = _getNationality(army.owner, game);
@@ -358,14 +337,8 @@ class _MapViewState extends State<MapView> {
       final destId = pc.travelDestinationId;
       if (originId == null || destId == null) return [];
 
-      final origin = game.map.villages.cast<Village?>().firstWhere(
-        (v) => v!.id == originId,
-        orElse: () => null,
-      );
-      final dest = game.map.villages.cast<Village?>().firstWhere(
-        (v) => v!.id == destId,
-        orElse: () => null,
-      );
+      final origin = game.getVillageById(originId);
+      final dest = game.getVillageById(destId);
       if (origin == null || dest == null) return [];
 
       final progress = pc.travelProgress.clamp(0.0, 1.0);
@@ -384,10 +357,7 @@ class _MapViewState extends State<MapView> {
 
     // Show at current city when stationed
     if (pc.state == PlayerState.atCity && pc.currentCityId != null) {
-      final city = game.map.villages.cast<Village?>().firstWhere(
-        (v) => v!.id == pc.currentCityId,
-        orElse: () => null,
-      );
+      final city = game.getVillageById(pc.currentCityId);
       if (city == null) return [];
 
       // Offset slightly so it doesn't overlap the village marker

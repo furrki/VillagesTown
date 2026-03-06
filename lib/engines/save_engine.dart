@@ -8,7 +8,6 @@ import '../data/models/player_character.dart';
 import '../data/models/resource.dart';
 import '../data/models/unit.dart';
 import '../data/models/unit_type.dart';
-import '../data/models/village.dart';
 import 'game_manager.dart';
 
 class SaveEngine {
@@ -61,10 +60,10 @@ class SaveEngine {
     final natId = data['nationalityId'] as String?;
     if (natId == null) return false;
 
-    final nationality = Nationality.getAll().cast<Nationality?>().firstWhere(
-      (n) => n!.id == natId,
-      orElse: () => null,
-    );
+    Nationality? nationality;
+    for (final n in Nationality.getAll()) {
+      if (n.id == natId) { nationality = n; break; }
+    }
     if (nationality == null) return false;
 
     // Rebuild the map from scratch with the saved nationality
@@ -128,10 +127,7 @@ class SaveEngine {
     for (final vData in villagesData) {
       final map = vData as Map<String, dynamic>;
       final name = map['name'] as String;
-      final village = game.map.villages.cast<Village?>().firstWhere(
-        (v) => v!.name == name,
-        orElse: () => null,
-      );
+      final village = game.getVillage(name);
       if (village == null) continue;
 
       village.owner = map['owner'] as String? ?? village.owner;
@@ -146,10 +142,7 @@ class SaveEngine {
       if (resMap != null) {
         village.resources.clear();
         for (final entry in resMap.entries) {
-          final res = Resource.values.cast<Resource?>().firstWhere(
-            (r) => r!.name == entry.key,
-            orElse: () => null,
-          );
+          final res = Resource.values.where((r) => r.name == entry.key).firstOrNull;
           if (res != null) village.resources[res] = entry.value as int;
         }
       }
@@ -236,10 +229,7 @@ class SaveEngine {
       final units = <Unit>[];
       for (final uData in unitsData) {
         final uMap = uData as Map<String, dynamic>;
-        final unitType = UnitType.values.cast<UnitType?>().firstWhere(
-          (t) => t!.name == uMap['unitType'],
-          orElse: () => null,
-        );
+        final unitType = UnitType.values.where((t) => t.name == uMap['unitType']).firstOrNull;
         if (unitType == null) continue;
 
         units.add(Unit(

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../data/models/battle_plan.dart';
 import '../../data/models/player_character.dart';
 import '../../data/models/encounter.dart';
-import '../../data/models/village.dart';
 import '../../engines/game_manager.dart';
 import '../components/countryball_avatar.dart';
 
@@ -36,16 +35,10 @@ class TravelPanel extends StatelessWidget {
     final originId = player.travelOriginId;
 
     final dest = destId != null
-        ? game.map.villages.cast<Village?>().firstWhere(
-            (v) => v!.id == destId,
-            orElse: () => null,
-          )
+        ? game.getVillageById(destId)
         : null;
     final origin = originId != null
-        ? game.map.villages.cast<Village?>().firstWhere(
-            (v) => v!.id == originId,
-            orElse: () => null,
-          )
+        ? game.getVillageById(originId)
         : null;
 
     final destName = dest != null ? game.getVillageDisplayName(dest) : '???';

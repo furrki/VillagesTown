@@ -573,10 +573,7 @@ class GameManager extends ChangeNotifier {
   // Get nationality for a player/owner ID
   Nationality? getNationality(String ownerId) {
     if (ownerId == 'neutral') return null;
-    final player = players.cast<Player?>().firstWhere(
-      (p) => p?.id == ownerId,
-      orElse: () => null,
-    );
+    final player = getPlayerById(ownerId);
     return player?.nationality;
   }
 
@@ -591,10 +588,34 @@ class GameManager extends ChangeNotifier {
   }
 
   Village? getVillage(String name) {
-    return map.villages.cast<Village?>().firstWhere(
-          (v) => v!.name == name,
-          orElse: () => null,
-        );
+    for (final v in map.villages) {
+      if (v.name == name) return v;
+    }
+    return null;
+  }
+
+  Player? getPlayerById(String? ownerId) {
+    if (ownerId == null) return null;
+    for (final p in players) {
+      if (p.id == ownerId) return p;
+    }
+    return null;
+  }
+
+  Village? getVillageById(String? id) {
+    if (id == null) return null;
+    for (final v in map.villages) {
+      if (v.id == id) return v;
+    }
+    return null;
+  }
+
+  Army? getArmyById(String? id) {
+    if (id == null) return null;
+    for (final a in armies) {
+      if (a.id == id) return a;
+    }
+    return null;
   }
 
   void updateVillage(Village village) {
@@ -653,15 +674,9 @@ class GameManager extends ChangeNotifier {
   }
 
   Army createArmy(List<Unit> units, String villageId, String owner) {
-    final village = map.villages.cast<Village?>().firstWhere(
-      (v) => v?.id == villageId,
-      orElse: () => null,
-    );
+    final village = getVillageById(villageId);
     // Use OWNER's nationality for the army name, not village's
-    final ownerPlayer = players.cast<Player?>().firstWhere(
-      (p) => p?.id == owner,
-      orElse: () => null,
-    );
+    final ownerPlayer = getPlayerById(owner);
     final army = Army(
       name: Army.generateName(
         village?.name ?? 'Unknown',
@@ -711,10 +726,7 @@ class GameManager extends ChangeNotifier {
   /// Defender sallies out to fight besiegers in the field (no fortress bonus)
   /// Returns the battle record if sally was successful
   BattleRecord? sallyOut(String villageId) {
-    final village = map.villages.cast<Village?>().firstWhere(
-      (v) => v!.id == villageId,
-      orElse: () => null,
-    );
+    final village = getVillageById(villageId);
     if (village == null) return null;
 
     final besiegers = getBesiegingArmiesAt(villageId);
@@ -775,20 +787,14 @@ class GameManager extends ChangeNotifier {
   /// Send army to intercept a marching enemy army
   /// Returns true if interception was set up successfully
   bool interceptArmy(String interceptorId, String targetArmyId) {
-    final interceptor = armies.cast<Army?>().firstWhere(
-      (a) => a!.id == interceptorId,
-      orElse: () => null,
-    );
+    final interceptor = getArmyById(interceptorId);
     if (interceptor == null) return false;
 
     // Interceptor must be stationed
     if (interceptor.state != ArmyState.stationed) return false;
     if (interceptor.stationedAt == null) return false;
 
-    final target = armies.cast<Army?>().firstWhere(
-      (a) => a!.id == targetArmyId,
-      orElse: () => null,
-    );
+    final target = getArmyById(targetArmyId);
     if (target == null) return false;
 
     // Target must be marching and enemy
@@ -802,16 +808,10 @@ class GameManager extends ChangeNotifier {
     if (!areNeighbors(interceptor.stationedAt!, targetDest)) return false;
 
     // Send interceptor to target's destination - they'll meet there
-    final destination = map.villages.cast<Village?>().firstWhere(
-      (v) => v!.id == targetDest,
-      orElse: () => null,
-    );
+    final destination = getVillageById(targetDest);
     if (destination == null) return false;
 
-    final originVillage = map.villages.cast<Village?>().firstWhere(
-      (v) => v!.id == interceptor.stationedAt,
-      orElse: () => null,
-    );
+    final originVillage = getVillageById(interceptor.stationedAt);
     if (originVillage == null) return false;
 
     // Calculate turns to intercept (try to arrive same time or earlier)
@@ -840,10 +840,7 @@ class GameManager extends ChangeNotifier {
     final armyIndex = armies.indexWhere((a) => a.id == armyId);
     if (armyIndex == -1) return false;
 
-    final destination = map.villages.cast<Village?>().firstWhere(
-          (v) => v!.id == destinationVillageId,
-          orElse: () => null,
-        );
+    final destination = getVillageById(destinationVillageId);
     if (destination == null) return false;
 
     final origin = armies[armyIndex].stationedAt;
@@ -852,10 +849,7 @@ class GameManager extends ChangeNotifier {
     // Check if destination is a neighbor
     if (!areNeighbors(origin, destinationVillageId)) return false;
 
-    final originVillage = map.villages.cast<Village?>().firstWhere(
-          (v) => v!.id == origin,
-          orElse: () => null,
-        );
+    final originVillage = getVillageById(origin);
     if (originVillage == null) return false;
 
     final army = armies[armyIndex];
@@ -951,10 +945,7 @@ class GameManager extends ChangeNotifier {
     final playerArmies = getArmiesFor(playerId);
     for (final army in playerArmies) {
       if (army.stationedAt != null) {
-        final stationedVillage = map.villages.cast<Village?>().firstWhere(
-              (v) => v!.id == army.stationedAt,
-              orElse: () => null,
-            );
+        final stationedVillage = getVillageById(army.stationedAt);
         if (stationedVillage != null) {
           final effectiveRange = _getEffectiveVisionRange(stationedVillage);
           final distKm = GeoCoordinate.distanceKm(stationedVillage.coordinates, village.coordinates);
@@ -991,10 +982,7 @@ class GameManager extends ChangeNotifier {
     final locationId = army.stationedAt ?? army.destination;
     if (locationId == null) return false;
 
-    final locationVillage = map.villages.cast<Village?>().firstWhere(
-          (v) => v!.id == locationId,
-          orElse: () => null,
-        );
+    final locationVillage = getVillageById(locationId);
     if (locationVillage == null) return false;
 
     final playerVillages = getPlayerVillages(playerId);
@@ -1008,10 +996,7 @@ class GameManager extends ChangeNotifier {
     final playerArmies = getArmiesFor(playerId);
     for (final pa in playerArmies) {
       if (pa.stationedAt != null) {
-        final paVillage = map.villages.cast<Village?>().firstWhere(
-              (v) => v!.id == pa.stationedAt,
-              orElse: () => null,
-            );
+        final paVillage = getVillageById(pa.stationedAt);
         if (paVillage != null) {
           final effectiveRange = _getEffectiveVisionRange(paVillage);
           if (GeoCoordinate.distanceKm(paVillage.coordinates, locationVillage.coordinates) <= effectiveRange) {
@@ -1098,12 +1083,12 @@ class GameManager extends ChangeNotifier {
 
   void finalizeBattle(BattleRecord record, int roundsPlayed, bool retreated) {
     // 1. Get Participants
-    final attacker = armies.cast<Army?>().firstWhere((a) => a!.id == record.attackerId, orElse: () => null);
+    final attacker = getArmyById(record.attackerId);
 
-    Army? defenderArmy = armies.cast<Army?>().firstWhere((a) => a!.id == record.defenderId, orElse: () => null);
+    Army? defenderArmy = getArmyById(record.defenderId);
     Village? defenderVillage;
     if (defenderArmy == null) {
-      defenderVillage = map.villages.cast<Village?>().firstWhere((v) => v!.id == record.defenderId, orElse: () => null);
+      defenderVillage = getVillageById(record.defenderId);
     }
 
     // Verify participants exist - clean up stale battle if not
@@ -1291,23 +1276,14 @@ class GameManager extends ChangeNotifier {
   void cleanupStaleBattles() {
     pendingBattles.removeWhere((battle) {
       // Check if attacker army still exists and has units
-      final attacker = armies.cast<Army?>().firstWhere(
-        (a) => a!.id == battle.attackerId,
-        orElse: () => null,
-      );
+      final attacker = getArmyById(battle.attackerId);
       if (attacker == null || attacker.units.isEmpty) {
         return true; // Remove this battle
       }
 
       // Check if defender still exists (army or village)
-      final defenderArmy = armies.cast<Army?>().firstWhere(
-        (a) => a!.id == battle.defenderId,
-        orElse: () => null,
-      );
-      final defenderVillage = map.villages.cast<Village?>().firstWhere(
-        (v) => v!.id == battle.defenderId,
-        orElse: () => null,
-      );
+      final defenderArmy = getArmyById(battle.defenderId);
+      final defenderVillage = getVillageById(battle.defenderId);
       if (defenderArmy == null && defenderVillage == null) {
         return true; // Remove this battle
       }
@@ -1445,14 +1421,8 @@ class GameManager extends ChangeNotifier {
     if (pc.currentCityId == null) return false;
     if (!areNeighbors(pc.currentCityId!, destinationCityId)) return false;
 
-    final origin = map.villages.cast<Village?>().firstWhere(
-      (v) => v!.id == pc.currentCityId,
-      orElse: () => null,
-    );
-    final dest = map.villages.cast<Village?>().firstWhere(
-      (v) => v!.id == destinationCityId,
-      orElse: () => null,
-    );
+    final origin = getVillageById(pc.currentCityId);
+    final dest = getVillageById(destinationCityId);
     if (origin == null || dest == null) return false;
 
     final baseTicks = Army.calculateTravelTime(origin.coordinates, dest.coordinates);
@@ -1492,10 +1462,7 @@ class GameManager extends ChangeNotifier {
   Village? get playerCurrentCity {
     final id = playerCharacter?.currentCityId;
     if (id == null) return null;
-    return map.villages.cast<Village?>().firstWhere(
-      (v) => v!.id == id,
-      orElse: () => null,
-    );
+    return getVillageById(id);
   }
 
   /// Get connected cities from the player's current location.
@@ -1510,16 +1477,16 @@ class GameManager extends ChangeNotifier {
     if (playerCharacter == null) return null;
     final cityId = playerCharacter!.currentCityId;
     if (cityId != null) {
-      return armies.cast<Army?>().firstWhere(
-        (a) => a!.owner == 'player' && a.stationedAt == cityId,
-        orElse: () => null,
-      );
+      for (final a in armies) {
+        if (a.owner == 'player' && a.stationedAt == cityId) return a;
+      }
+      return null;
     }
     // While traveling, warband is the first player army
-    return armies.cast<Army?>().firstWhere(
-      (a) => a!.owner == 'player',
-      orElse: () => null,
-    );
+    for (final a in armies) {
+      if (a.owner == 'player') return a;
+    }
+    return null;
   }
 
   /// Recruit a unit to the player's warband at the current city.
