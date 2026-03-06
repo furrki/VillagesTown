@@ -15,7 +15,7 @@ class GameLoop {
   void Function()? onWorldEvent;
 
   int get tickCount => _tickCount;
-  set tickCount(int v) => _tickCount = v;
+  set tickCount(int v) { _tickCount = v; }
 
   Duration get _tickDuration => switch (speed) {
     GameSpeed.paused => Duration.zero,

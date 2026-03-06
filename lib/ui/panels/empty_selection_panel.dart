@@ -15,11 +15,11 @@ class EmptySelectionPanel extends StatelessWidget {
     return Column(
       children: [
         const Spacer(),
-        Icon(Icons.touch_app, size: 40, color: Colors.white.withOpacity(0.3)),
+        Icon(Icons.touch_app, size: 40, color: Colors.white.withValues(alpha: 0.3)),
         const SizedBox(height: 16),
         Text(
           'Select a village on the map',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white.withOpacity(0.5)),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.5)),
         ),
         const Spacer(),
         Padding(

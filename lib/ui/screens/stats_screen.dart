@@ -62,7 +62,7 @@ class _StatsScreenState extends State<StatsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -93,7 +93,7 @@ class _StatsScreenState extends State<StatsScreen> {
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: nat.color.withOpacity(0.2),
+                    color: nat.color.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -149,11 +149,11 @@ class _StatsScreenState extends State<StatsScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: isUnlocked
-                  ? Colors.amber.withOpacity(0.08)
-                  : Colors.white.withOpacity(0.03),
+                  ? Colors.amber.withValues(alpha: 0.08)
+                  : Colors.white.withValues(alpha: 0.03),
               borderRadius: BorderRadius.circular(10),
               border: isUnlocked
-                  ? Border.all(color: Colors.amber.withOpacity(0.2))
+                  ? Border.all(color: Colors.amber.withValues(alpha: 0.2))
                   : null,
             ),
             child: Row(
@@ -212,7 +212,7 @@ class _StatsScreenState extends State<StatsScreen> {
             margin: const EdgeInsets.only(bottom: 4),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.03),
+              color: Colors.white.withValues(alpha: 0.03),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(

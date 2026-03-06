@@ -83,8 +83,6 @@ class InlineVillagePanel extends StatelessWidget {
         final tutorialAction = TutorialHelper.getNextAction(village);
         // Check "End Turn" condition: If we are broke
         final gold = resources[Resource.gold] ?? 0;
-        final wood = resources[Resource.wood] ?? 0;
-        final iron = resources[Resource.iron] ?? 0;
         // Simple heuristic for "out of resources": cant afford basic recruitment (approx 50 gold)
         final shouldEndTurn = tutorialAction == TutorialAction.recruit && gold < 50;
         
@@ -140,7 +138,7 @@ class InlineVillagePanel extends StatelessWidget {
         children: active.map((e) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.amber.withOpacity(0.1),
+            color: Colors.amber.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
@@ -176,7 +174,7 @@ class InlineVillagePanel extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: vp.progress,
                     minHeight: isSelected ? 4 : 3,
-                    backgroundColor: Colors.white.withOpacity(0.08),
+                    backgroundColor: Colors.white.withValues(alpha: 0.08),
                     valueColor: AlwaysStoppedAnimation(
                       vp.achieved ? Colors.greenAccent : color,
                     ),
@@ -942,7 +940,6 @@ class _MusterDialogState extends State<_MusterDialog> {
     
     // 2. Create new army
     game.createArmy(selectedUnits, widget.army.stationedAt!, widget.army.owner);
-    game.notifyListeners(); // Force UI update
 
     Navigator.of(context).pop();
   }

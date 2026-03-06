@@ -14,7 +14,6 @@ import '../data/models/turn_event.dart';
 import '../data/models/unit.dart';
 import '../data/models/unit_type.dart';
 import '../data/models/village.dart';
-import '../data/models/building.dart';
 import '../data/models/combat_log.dart';
 import '../data/models/difficulty.dart';
 import '../data/models/game_event.dart';
@@ -423,34 +422,6 @@ class GameManager extends ChangeNotifier {
     cityConnections = symmetric;
   }
 
-  List<Building> _generateBuildings({required bool isCapital}) {
-    if (isCapital) {
-      return [
-        Building.farm.copyWith(level: 5),
-        Building.lumberMill.copyWith(level: 5),
-        Building.ironMine.copyWith(level: 3),
-        Building.market.copyWith(level: 3),
-        Building.barracks.copyWith(level: 3),
-        Building.fortress.copyWith(level: 1),
-      ];
-    } else {
-      // Neutral - significantly weaker and random
-      final buildings = <Building>[];
-      final random = Random();
-      
-      // Always some food
-      buildings.add(Building.farm.copyWith(level: random.nextInt(2) + 1)); // Lv 1-2
-      
-      // Random resource
-      if (random.nextBool()) buildings.add(Building.lumberMill.copyWith(level: 1));
-      if (random.nextBool()) buildings.add(Building.ironMine.copyWith(level: 1));
-      
-      // Random defense
-      if (random.nextBool()) buildings.add(Building.barracks.copyWith(level: 1));
-      
-      return buildings;
-    }
-  }
 
   void initializeGame() {
     gameStarted = true;
@@ -556,6 +527,8 @@ class GameManager extends ChangeNotifier {
       createArmy(startingUnits, village.id, village.owner);
     }
   }
+
+  void refreshUI() => notifyListeners();
 
   // Resource Management
   void syncGlobalResources() {
@@ -699,6 +672,7 @@ class GameManager extends ChangeNotifier {
       stationedAt: villageId,
     );
     armies.add(army);
+    notifyListeners();
     return army;
   }
 

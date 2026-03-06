@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/models/player_character.dart';
 import '../../data/models/resource.dart';
-import '../../data/models/unit_type.dart';
 import '../../data/models/village.dart';
 import '../../engines/game_manager.dart';
 import '../../engines/recruitment_engine.dart';

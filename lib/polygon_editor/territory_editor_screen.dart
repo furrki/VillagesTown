@@ -256,9 +256,6 @@ class _TerritoryEditorScreenState extends State<TerritoryEditorScreen> {
       return;
     }
 
-    // Fresh random each time for different results
-    final random = math.Random(DateTime.now().millisecondsSinceEpoch);
-
     // Clear pair biases so we get new borders each generation
     _pairBiases.clear();
 

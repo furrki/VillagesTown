@@ -494,7 +494,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
                 Expanded(
                   flex: max(1, (attackerPercent * 100).round()),
                   child: Container(
-                    color: _attackerNationality?.color.withOpacity(0.8) ?? Colors.red,
+                    color: _attackerNationality?.color.withValues(alpha: 0.8) ?? Colors.red,
                     alignment: Alignment.center,
                     child: Text(
                       '$attackerPower',
@@ -505,7 +505,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
                 Expanded(
                   flex: max(1, ((1 - attackerPercent) * 100).round()),
                   child: Container(
-                    color: _defenderNationality?.color.withOpacity(0.8) ?? Colors.blue,
+                    color: _defenderNationality?.color.withValues(alpha: 0.8) ?? Colors.blue,
                     alignment: Alignment.center,
                     child: Text(
                       '$defenderPower',
@@ -595,7 +595,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(text, style: TextStyle(color: color, fontSize: 10)),
@@ -625,8 +625,8 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isSelected
-                ? [Colors.amber.withOpacity(0.3), Colors.amber.withOpacity(0.1)]
-                : [Colors.white.withOpacity(0.1), Colors.white.withOpacity(0.05)],
+                ? [Colors.amber.withValues(alpha: 0.3), Colors.amber.withValues(alpha: 0.1)]
+                : [Colors.white.withValues(alpha: 0.1), Colors.white.withValues(alpha: 0.05)],
           ),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
@@ -653,7 +653,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
                   const SizedBox(height: 2),
                   Text(
                     formation.shortDescription,
-                    style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
                   ),
                 ],
               ),

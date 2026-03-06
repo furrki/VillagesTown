@@ -391,8 +391,8 @@ class _BattleTestScreenState extends State<BattleTestScreen> {
     Color? cardColor;
     if (result != null) {
       cardColor = result.passed
-          ? (isDark ? Colors.green.shade900.withOpacity(0.4) : Colors.green.shade50)
-          : (isDark ? Colors.red.shade900.withOpacity(0.4) : Colors.red.shade50);
+          ? (isDark ? Colors.green.shade900.withValues(alpha: 0.4) : Colors.green.shade50)
+          : (isDark ? Colors.red.shade900.withValues(alpha: 0.4) : Colors.red.shade50);
     }
 
     return Card(
@@ -1177,7 +1177,7 @@ class _TestBattleViewerState extends State<_TestBattleViewer>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.brown.shade900.withOpacity(0.5),
+                  color: Colors.brown.shade900.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.brown.shade700),
                 ),
@@ -1253,7 +1253,7 @@ class _TestBattleViewerState extends State<_TestBattleViewer>
                 Expanded(
                   flex: (attackerPercent * 100).round(),
                   child: Container(
-                    color: _attackerNation.color.withOpacity(0.8),
+                    color: _attackerNation.color.withValues(alpha: 0.8),
                     alignment: Alignment.center,
                     child: Text(
                       '$attackerPower',
@@ -1268,7 +1268,7 @@ class _TestBattleViewerState extends State<_TestBattleViewer>
                 Expanded(
                   flex: ((1 - attackerPercent) * 100).round(),
                   child: Container(
-                    color: _defenderNation.color.withOpacity(0.8),
+                    color: _defenderNation.color.withValues(alpha: 0.8),
                     alignment: Alignment.center,
                     child: Text(
                       '$defenderPower',
@@ -1306,9 +1306,9 @@ class _TestBattleViewerState extends State<_TestBattleViewer>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: advantageColor.withOpacity(0.15),
+        color: advantageColor.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: advantageColor.withOpacity(0.5)),
+        border: Border.all(color: advantageColor.withValues(alpha: 0.5)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1453,7 +1453,7 @@ class _TestBattleViewerState extends State<_TestBattleViewer>
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: color.withOpacity(0.3),
+                        color: color.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -1494,7 +1494,7 @@ class _TestBattleViewerState extends State<_TestBattleViewer>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(

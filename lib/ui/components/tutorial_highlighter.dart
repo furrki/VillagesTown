@@ -63,7 +63,7 @@ class _TutorialHighlighterState extends State<TutorialHighlighter>
                     shape: BoxShape.circle, // Assuming circular buttons mostly
                     boxShadow: [
                       BoxShadow(
-                        color: widget.color.withOpacity(_opacityAnimation.value),
+                        color: widget.color.withValues(alpha: _opacityAnimation.value),
                         blurRadius: 10,
                         spreadRadius: 2,
                       ),

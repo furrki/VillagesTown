@@ -60,7 +60,7 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 4.0,
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ),
                     Positioned(
@@ -73,7 +73,7 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.06),
+                            color: Colors.white.withValues(alpha: 0.06),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Row(
@@ -103,7 +103,7 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 2.0,
-                        color: Colors.amber.withOpacity(0.8),
+                        color: Colors.amber.withValues(alpha: 0.8),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -138,7 +138,7 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 2.0,
-                        color: Colors.grey.withOpacity(0.7),
+                        color: Colors.grey.withValues(alpha: 0.7),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -174,7 +174,7 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 2.0,
-                        color: Colors.white.withOpacity(0.6),
+                        color: Colors.white.withValues(alpha: 0.6),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -194,11 +194,11 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? Colors.amber.withOpacity(0.2)
-                                  : Colors.white.withOpacity(0.05),
+                                  ? Colors.amber.withValues(alpha: 0.2)
+                                  : Colors.white.withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: isSelected ? Colors.amber : Colors.white.withOpacity(0.1),
+                                color: isSelected ? Colors.amber : Colors.white.withValues(alpha: 0.1),
                                 width: isSelected ? 1.5 : 1,
                               ),
                             ),
@@ -229,7 +229,7 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                         key: ValueKey(_selectedVictory),
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.white.withOpacity(0.4),
+                          color: Colors.white.withValues(alpha: 0.4),
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -251,7 +251,7 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 2.0,
-                        color: Colors.white.withOpacity(0.6),
+                        color: Colors.white.withValues(alpha: 0.6),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -271,11 +271,11 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? d.color.withOpacity(0.2)
-                                    : Colors.white.withOpacity(0.05),
+                                    ? d.color.withValues(alpha: 0.2)
+                                    : Colors.white.withValues(alpha: 0.05),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: isSelected ? d.color : Colors.white.withOpacity(0.1),
+                                  color: isSelected ? d.color : Colors.white.withValues(alpha: 0.1),
                                   width: isSelected ? 1.5 : 1,
                                 ),
                               ),
@@ -295,7 +295,7 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                     const SizedBox(height: 6),
                     Text(
                       _selectedDifficulty.description,
-                      style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.35)),
+                      style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.35)),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -320,7 +320,7 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 2.0,
-                              color: Colors.white.withOpacity(0.5),
+                              color: Colors.white.withValues(alpha: 0.5),
                             ),
                           ),
                           const SizedBox(width: 6),
@@ -328,7 +328,7 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                               decoration: BoxDecoration(
-                                color: Colors.purple.withOpacity(0.3),
+                                color: Colors.purple.withValues(alpha: 0.3),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -355,7 +355,7 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                               padding: const EdgeInsets.only(bottom: 6),
                               child: Text(
                                 cat.displayName,
-                                style: TextStyle(fontSize: 9, color: Colors.white.withOpacity(0.3), letterSpacing: 1.5, fontWeight: FontWeight.bold),
+                                style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.3), letterSpacing: 1.5, fontWeight: FontWeight.bold),
                               ),
                             ),
                             Wrap(
@@ -381,13 +381,13 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                     decoration: BoxDecoration(
                                       color: isActive
-                                          ? Colors.purple.withOpacity(0.2)
+                                          ? Colors.purple.withValues(alpha: 0.2)
                                           : hasConflict
-                                              ? Colors.white.withOpacity(0.02)
-                                              : Colors.white.withOpacity(0.05),
+                                              ? Colors.white.withValues(alpha: 0.02)
+                                              : Colors.white.withValues(alpha: 0.05),
                                       borderRadius: BorderRadius.circular(10),
                                       border: Border.all(
-                                        color: isActive ? Colors.purpleAccent : Colors.white.withOpacity(hasConflict ? 0.05 : 0.1),
+                                        color: isActive ? Colors.purpleAccent : Colors.white.withValues(alpha: hasConflict ? 0.05 : 0.1),
                                         width: isActive ? 1.5 : 1,
                                       ),
                                     ),
@@ -461,7 +461,7 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                           foregroundColor: _selectedNationality!.color,
                           padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
                           elevation: 8,
-                          shadowColor: _selectedNationality!.color.withOpacity(0.5),
+                          shadowColor: _selectedNationality!.color.withValues(alpha: 0.5),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
                           ),
@@ -493,14 +493,14 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
       duration: const Duration(milliseconds: 200),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: isSelected ? n.color.withOpacity(0.3) : Colors.white.withOpacity(0.05),
+        color: isSelected ? n.color.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isSelected ? n.color : Colors.white.withOpacity(0.1),
+          color: isSelected ? n.color : Colors.white.withValues(alpha: 0.1),
           width: isSelected ? 2 : 1,
         ),
         boxShadow: isSelected
-            ? [BoxShadow(color: n.color.withOpacity(0.4), blurRadius: 12, spreadRadius: 2)]
+            ? [BoxShadow(color: n.color.withValues(alpha: 0.4), blurRadius: 12, spreadRadius: 2)]
             : null,
       ),
       child: Column(
@@ -535,7 +535,7 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
             style: TextStyle(
               fontSize: fontSize,
               fontWeight: FontWeight.bold,
-              color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
+              color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.6),
               letterSpacing: 1,
             ),
             textAlign: TextAlign.center,

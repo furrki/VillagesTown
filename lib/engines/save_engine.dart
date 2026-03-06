@@ -101,7 +101,7 @@ class SaveEngine {
     game.gameLoop.onArrival = game.onPlayerArrivalCallback;
     game.gameLoop.tickCount = data['tickCount'] as int? ?? 0;
 
-    game.notifyListeners();
+    game.refreshUI();
     return true;
   }
 

@@ -59,7 +59,7 @@ class ArmyActionPanel extends StatelessWidget {
         // Header
         Container(
           padding: const EdgeInsets.all(16),
-          color: Colors.white.withOpacity(0.05),
+          color: Colors.white.withValues(alpha: 0.05),
           child: Column(
             children: [
               Row(
@@ -77,7 +77,7 @@ class ArmyActionPanel extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           army.isMarching ? 'Marching • ${army.turnsUntilArrival} turns' : '${army.unitCount} units',
-                          style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.6)),
+                          style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.6)),
                         ),
                       ],
                     ),
@@ -113,9 +113,9 @@ class ArmyActionPanel extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.2),
+                    color: Colors.orange.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.orange.withOpacity(0.5)),
+                    border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -151,10 +151,10 @@ class ArmyActionPanel extends StatelessWidget {
   Widget _statItem(IconData icon, String value, String label) {
     return Column(
       children: [
-        Icon(icon, color: Colors.white.withOpacity(0.6)),
+        Icon(icon, color: Colors.white.withValues(alpha: 0.6)),
         const SizedBox(height: 4),
         Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-        Text(label, style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.4))),
+        Text(label, style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.4))),
       ],
     );
   }

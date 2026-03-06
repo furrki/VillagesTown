@@ -111,7 +111,7 @@ class BattleIdConverter implements JsonConverter<BattleId, String> {
   String toJson(BattleId object) => object.value;
 }
 
-/// JSON converter for List<VillageId>.
+/// JSON converter for `List<VillageId>`.
 class VillageIdListConverter implements JsonConverter<List<VillageId>, List<dynamic>> {
   const VillageIdListConverter();
 
@@ -124,7 +124,7 @@ class VillageIdListConverter implements JsonConverter<List<VillageId>, List<dyna
       object.map((e) => e.value).toList();
 }
 
-/// JSON converter for Set<VillageId>.
+/// JSON converter for `Set<VillageId>`.
 class VillageIdSetConverter implements JsonConverter<Set<VillageId>, List<dynamic>> {
   const VillageIdSetConverter();
 
@@ -137,7 +137,7 @@ class VillageIdSetConverter implements JsonConverter<Set<VillageId>, List<dynami
       object.map((e) => e.value).toList();
 }
 
-/// JSON converter for Map<VillageId, Village> - handled by json_serializable with custom key.
+/// JSON converter for `Map<VillageId, Village>` - handled by json_serializable with custom key.
 class VillageMapConverter implements JsonConverter<Map<VillageId, dynamic>, Map<String, dynamic>> {
   const VillageMapConverter();
 
@@ -150,7 +150,7 @@ class VillageMapConverter implements JsonConverter<Map<VillageId, dynamic>, Map<
       object.map((k, v) => MapEntry(k.value, v));
 }
 
-/// JSON converter for Map<ArmyId, Army>.
+/// JSON converter for `Map<ArmyId, Army>`.
 class ArmyMapConverter implements JsonConverter<Map<ArmyId, dynamic>, Map<String, dynamic>> {
   const ArmyMapConverter();
 
@@ -163,7 +163,7 @@ class ArmyMapConverter implements JsonConverter<Map<ArmyId, dynamic>, Map<String
       object.map((k, v) => MapEntry(k.value, v));
 }
 
-/// JSON converter for Map<PlayerId, Player>.
+/// JSON converter for `Map<PlayerId, Player>`.
 class PlayerMapConverter implements JsonConverter<Map<PlayerId, dynamic>, Map<String, dynamic>> {
   const PlayerMapConverter();
 
@@ -176,7 +176,7 @@ class PlayerMapConverter implements JsonConverter<Map<PlayerId, dynamic>, Map<St
       object.map((k, v) => MapEntry(k.value, v));
 }
 
-/// JSON converter for Map<VillageId, Set<VillageId>> (connections).
+/// JSON converter for `Map<VillageId, Set<VillageId>>` (connections).
 class ConnectionsMapConverter implements JsonConverter<Map<VillageId, Set<VillageId>>, Map<String, dynamic>> {
   const ConnectionsMapConverter();
 

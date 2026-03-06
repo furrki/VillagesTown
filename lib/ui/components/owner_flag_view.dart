@@ -32,7 +32,7 @@ class OwnerFlagView extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppTheme.ownerColor(owner).withOpacity(0.3),
+        color: AppTheme.ownerColor(owner).withValues(alpha: 0.3),
       ),
       child: Center(
         child: ClipOval(

@@ -295,7 +295,7 @@ class _VillageInfoSection extends StatelessWidget {
                 // BUILD NEW Section
                 if (village.buildings.length < village.maxBuildings && onBuild != null) ...[
                   const SizedBox(height: 20),
-                  Text('BUILD NEW', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.5))),
+                  Text('BUILD NEW', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.5))),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -311,7 +311,7 @@ class _VillageInfoSection extends StatelessWidget {
                 // UPGRADE Section
                 if (village.buildings.isNotEmpty && onUpgrade != null) ...[
                   const SizedBox(height: 20),
-                  Text('UPGRADE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.5))),
+                  Text('UPGRADE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.5))),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -328,7 +328,7 @@ class _VillageInfoSection extends StatelessWidget {
                 if (onRecruit != null) ...[
                   const SizedBox(height: 20),
                   if (availableUnits.isNotEmpty) ...[
-                    Text('RECRUIT UNITS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.5))),
+                    Text('RECRUIT UNITS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.5))),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -343,7 +343,7 @@ class _VillageInfoSection extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
+                        color: Colors.orange.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -353,7 +353,7 @@ class _VillageInfoSection extends StatelessWidget {
                           Expanded(
                             child: Text(
                               'Build military buildings to recruit',
-                              style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.6)),
+                              style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.6)),
                             ),
                           ),
                         ],
@@ -364,14 +364,14 @@ class _VillageInfoSection extends StatelessWidget {
 
                 // Resources
                 const SizedBox(height: 20),
-                Text('VILLAGE RESOURCES', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.5))),
+                Text('VILLAGE RESOURCES', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.5))),
                 const SizedBox(height: 8),
                 _ResourcesRow(resources: village.resources),
 
                 // COMMAND CENTER (Army Management)
                 if (onSelectArmy != null) ...[
                   const SizedBox(height: 20),
-                  Text('COMMAND CENTER', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.5))),
+                  Text('COMMAND CENTER', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.5))),
                   const SizedBox(height: 8),
                   Builder(
                     builder: (context) {
@@ -380,12 +380,12 @@ class _VillageInfoSection extends StatelessWidget {
                         return Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.05),
+                            color: Colors.white.withValues(alpha: 0.05),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             'No troops stationed here.\nRecruit units to build an army.',
-                            style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.4)),
+                            style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.4)),
                             textAlign: TextAlign.center,
                           ),
                         );
@@ -412,7 +412,7 @@ class _VillageInfoSection extends StatelessWidget {
                     return Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
+                        color: Colors.red.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -433,7 +433,7 @@ class _VillageInfoSection extends StatelessWidget {
                             showLegend: true,
                           ),
                           const SizedBox(height: 8),
-                          Text('Send army to conquer', style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5))),
+                          Text('Send army to conquer', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
                         ],
                       ),
                     );
@@ -474,7 +474,7 @@ class _StatsGrid extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -519,7 +519,7 @@ class _StatTile extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 4),
-        Text(label, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5))),
+        Text(label, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
       ],
     );
   }
@@ -564,9 +564,9 @@ class _BuildButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
-            border: canAfford ? Border.all(color: Colors.green.withOpacity(0.5)) : null,
+            border: canAfford ? Border.all(color: Colors.green.withValues(alpha: 0.5)) : null,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -628,7 +628,7 @@ class _UpgradeButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -640,7 +640,7 @@ class _UpgradeButton extends StatelessWidget {
               const SizedBox(width: 4),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                decoration: BoxDecoration(color: Colors.yellow.withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
+                decoration: BoxDecoration(color: Colors.yellow.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
                 child: Text('Lv.${building.level}', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.yellow)),
               ),
               if (building.level < 5) ...[
@@ -678,9 +678,9 @@ class _RecruitButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
-            border: canAfford ? Border.all(color: Colors.blue.withOpacity(0.5)) : null,
+            border: canAfford ? Border.all(color: Colors.blue.withValues(alpha: 0.5)) : null,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -708,7 +708,7 @@ class _ResourcesRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -752,7 +752,7 @@ class _ArmyInfoSection extends StatelessWidget {
                     Text(army.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
                     Text(
                       army.isMarching ? 'Marching • ${army.turnsUntilArrival} turns' : 'Stationed',
-                      style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.6)),
+                      style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.6)),
                     ),
                   ],
                 ),
@@ -763,7 +763,7 @@ class _ArmyInfoSection extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -774,18 +774,18 @@ class _ArmyInfoSection extends StatelessWidget {
                       const Icon(Icons.people, color: Colors.blue, size: 24),
                       const SizedBox(height: 8),
                       Text('${army.unitCount}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                      Text('Units', style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5))),
+                      Text('Units', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
                     ],
                   ),
                 ),
-                Container(width: 1, height: 60, color: Colors.white.withOpacity(0.1)),
+                Container(width: 1, height: 60, color: Colors.white.withValues(alpha: 0.1)),
                 Expanded(
                   child: Column(
                     children: [
                       const Icon(Icons.flash_on, color: Colors.orange, size: 24),
                       const SizedBox(height: 8),
                       Text('${army.strength}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                      Text('Strength', style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5))),
+                      Text('Strength', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
                     ],
                   ),
                 ),
@@ -805,9 +805,9 @@ class _EmptySection extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.touch_app, size: 48, color: Colors.white.withOpacity(0.2)),
+          Icon(Icons.touch_app, size: 48, color: Colors.white.withValues(alpha: 0.2)),
           const SizedBox(height: 16),
-          Text('Select a village or army', style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.4))),
+          Text('Select a village or army', style: TextStyle(fontSize: 16, color: Colors.white.withValues(alpha: 0.4))),
         ],
       ),
     );
@@ -829,12 +829,12 @@ class _ArmyCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: army.foodDeprivedTurns > 0
-            ? Colors.orange.withOpacity(0.15)
-            : Colors.white.withOpacity(0.05),
+            ? Colors.orange.withValues(alpha: 0.15)
+            : Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: army.foodDeprivedTurns > 0
-              ? Colors.orange.withOpacity(0.5)
+              ? Colors.orange.withValues(alpha: 0.5)
               : Colors.white10,
         ),
       ),
@@ -846,7 +846,7 @@ class _ArmyCard extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.2),
+                  color: Colors.blue.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.blueAccent),
                 ),
@@ -858,7 +858,7 @@ class _ArmyCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(army.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                    Text('${army.unitCount} Units • ${army.strength} Power', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
+                    Text('${army.unitCount} Units • ${army.strength} Power', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11)),
                   ],
                 ),
               ),
@@ -883,7 +883,7 @@ class _ArmyCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.2),
+                color: Colors.orange.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
@@ -904,7 +904,7 @@ class _ArmyCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.2),
+                color: Colors.green.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
@@ -956,7 +956,7 @@ class _VictoryProgressBar extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: vp.progress,
                           minHeight: isSelected ? 6 : 4,
-                          backgroundColor: Colors.white.withOpacity(0.08),
+                          backgroundColor: Colors.white.withValues(alpha: 0.08),
                           valueColor: AlwaysStoppedAnimation(
                             vp.achieved ? Colors.greenAccent : color,
                           ),
@@ -1010,9 +1010,9 @@ class _ActiveEventsBar extends StatelessWidget {
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.amber.withOpacity(0.1),
+              color: Colors.amber.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.amber.withOpacity(0.3)),
+              border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
