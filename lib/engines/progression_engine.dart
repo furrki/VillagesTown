@@ -70,14 +70,24 @@ class ProgressionEngine {
     final unlocked = await getUnlockedAchievements();
     final newlyUnlocked = <Achievement>[];
 
-    if (isVictory) {
-      final allRecords = await getGameRecords();
-      for (final achievement in Achievement.values) {
-        if (unlocked.contains(achievement.name)) continue;
-        if (_checkAchievement(achievement, game, allRecords)) {
-          newlyUnlocked.add(achievement);
-          unlocked.add(achievement.name);
-        }
+    // Achievements that can be earned regardless of victory/defeat
+    const alwaysCheckable = {
+      Achievement.firstBlood,
+      Achievement.blitzkrieg,
+      Achievement.cavalryMaster,
+      Achievement.merchantPrince,
+      Achievement.empireBuilder,
+      Achievement.winterWarrior,
+      Achievement.earthquakeSurvivor,
+    };
+
+    final allRecords = await getGameRecords();
+    for (final achievement in Achievement.values) {
+      if (unlocked.contains(achievement.name)) continue;
+      if (!isVictory && !alwaysCheckable.contains(achievement)) continue;
+      if (_checkAchievement(achievement, game, allRecords)) {
+        newlyUnlocked.add(achievement);
+        unlocked.add(achievement.name);
       }
     }
 

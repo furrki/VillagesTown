@@ -1,6 +1,5 @@
 import 'dart:math';
 import '../data/models/army.dart';
-import '../data/models/game_modifier.dart';
 import '../data/models/resource.dart';
 import '../data/models/victory_condition.dart';
 import '../data/models/village_level.dart';
@@ -135,8 +134,7 @@ class VictoryEngine {
   }
 
   /// Calculate end-of-game score.
-  static GameScore calculateScore(GameManager game) {
-    const playerId = 'player';
+  static GameScore calculateScore(GameManager game, {String playerId = 'player'}) {
     final villages = game.getPlayerVillages(playerId);
     final battlesWon = game.battlesWon[playerId] ?? 0;
     final totalPop = villages.fold<int>(0, (sum, v) => sum + v.population);

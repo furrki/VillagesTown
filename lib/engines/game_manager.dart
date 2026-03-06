@@ -21,8 +21,15 @@ import '../data/models/game_event.dart';
 import '../data/models/game_modifier.dart';
 import '../data/models/victory_condition.dart';
 import '../data/models/village_trait.dart';
+import '../data/models/player_character.dart';
+import '../data/models/encounter.dart';
+import '../data/models/battle_plan.dart';
 import 'combat_engine.dart';
+import 'recruitment_engine.dart';
+import 'encounter_engine.dart';
+import 'save_engine.dart';
 import 'event_engine.dart';
+import 'game_loop.dart';
 import 'turn_engine.dart';
 
 class GameManager extends ChangeNotifier {
@@ -84,6 +91,14 @@ class GameManager extends ChangeNotifier {
   bool hadCavalryOnlyBattleWin = false;
   bool conqueredDuringWinter = false;
   List<int> conquestTurns = []; // turns when villages were conquered
+  Map<String, int> previousTurnVillageCounts = {};
+  String? capitalVillageId;
+
+  // RTS Character System
+  PlayerCharacter? playerCharacter;
+  final GameLoop gameLoop = GameLoop();
+  Encounter? currentEncounter;
+  bool isGameOver = false;
 
   bool tutorialEnabled = true;
   int tutorialStep = 0;
@@ -443,6 +458,12 @@ class GameManager extends ChangeNotifier {
     syncGlobalResources();
     _createStartingArmies();
 
+    // Store capital village ID for achievement tracking
+    final playerVillages = getPlayerVillages('player');
+    if (playerVillages.isNotEmpty) {
+      capitalVillageId = playerVillages.first.id;
+    }
+
     // Apply difficulty starting gold bonus
     final goldBonus = difficulty?.playerStartGoldBonus ?? 0;
     if (goldBonus != 0) {
@@ -460,6 +481,26 @@ class GameManager extends ChangeNotifier {
         discoveredVillageIDs.add(v.id);
       }
     }
+
+    // Initialize player character at their capital city
+    final startCity = getPlayerVillages('player').firstOrNull;
+    playerCharacter = PlayerCharacter(
+      currentCityId: startCity?.id,
+      gold: 150,
+    );
+
+    // Create player's starting warband (3 militia + 1 spearman)
+    if (startCity != null) {
+      final startingUnits = <Unit>[
+        ...List.generate(3, (_) => Unit.create(UnitType.militia, 'player', startCity.coordinates)),
+        Unit.create(UnitType.spearman, 'player', startCity.coordinates),
+      ];
+      createArmy(startingUnits, startCity.id, 'player');
+    }
+
+    // Wire game loop callbacks
+    gameLoop.onTick = _onGameTick;
+    gameLoop.onArrival = _onPlayerArrival;
 
     notifyListeners();
   }
@@ -486,6 +527,7 @@ class GameManager extends ChangeNotifier {
     eventHistory.clear();
     difficulty = null;
     activeModifiers.clear();
+    visionRangeKm = 400.0;
     battlesLost = 0;
     peakGold = 0;
     peakVillageCount = 0;
@@ -493,6 +535,12 @@ class GameManager extends ChangeNotifier {
     hadCavalryOnlyBattleWin = false;
     conqueredDuringWinter = false;
     conquestTurns.clear();
+    previousTurnVillageCounts.clear();
+    capitalVillageId = null;
+    gameLoop.dispose();
+    playerCharacter = null;
+    currentEncounter = null;
+    isGameOver = false;
 
     map = VirtualMap(villages: []);
     players = Player.createPlayers();
@@ -1055,6 +1103,17 @@ class GameManager extends ChangeNotifier {
     // Classic elimination: last player standing
     final activePlayers = players.where((p) => !p.isEliminated).toList();
     if (activePlayers.length == 1) return activePlayers.first;
+
+    // Human player defeated — return AI with most villages
+    final humanPlayer = players.firstWhere((p) => p.isHuman);
+    if (humanPlayer.isEliminated) {
+      final activeAI = activePlayers.where((p) => !p.isHuman).toList();
+      if (activeAI.isNotEmpty) {
+        activeAI.sort((a, b) => getPlayerVillages(b.id).length.compareTo(getPlayerVillages(a.id).length));
+        return activeAI.first;
+      }
+    }
+
     return null;
   }
 
@@ -1106,6 +1165,9 @@ class GameManager extends ChangeNotifier {
       defLosses += record.rounds[i].defenderLosses;
     }
 
+    // Check cavalry-only BEFORE applying casualties
+    final wasCavalryOnly = record.attackerOwnerId == 'player' && attacker.units.every((u) => u.unitType.category == 'Cavalry');
+
     // 3. Apply Losses to armies and garrison
     _applyCasualtiesToArmy(attacker, attLosses);
 
@@ -1139,6 +1201,7 @@ class GameManager extends ChangeNotifier {
         defenderVillage.underSiege = false;
         updateVillage(defenderVillage);
       }
+      if (record.attackerOwnerId == 'player') battlesLost++;
       addTurnEvent(BattleLostEvent(location: record.locationName, casualties: attLosses));
       record.isPending = false;
       pendingBattles.removeWhere((b) => b.id == record.id);
@@ -1174,8 +1237,8 @@ class GameManager extends ChangeNotifier {
       // Attacker won - attacker gets battle win credit
       battlesWon[record.attackerOwnerId] = (battlesWon[record.attackerOwnerId] ?? 0) + 1;
 
-      // Track cavalry-only win for achievement
-      if (playerWasAttacker && attacker.units.every((u) => u.unitType.category == 'Cavalry')) {
+      // Track cavalry-only win for achievement (checked before casualties)
+      if (wasCavalryOnly) {
         hadCavalryOnlyBattleWin = true;
       }
       if (defenderVillage != null) {
@@ -1188,6 +1251,7 @@ class GameManager extends ChangeNotifier {
         if (playerWasAttacker) {
           addTurnEvent(BattleWonEvent(location: record.locationName, casualties: attLosses));
         } else if (playerWasDefender) {
+          battlesLost++;
           addTurnEvent(BattleLostEvent(location: record.locationName, casualties: defLosses));
         }
       }
@@ -1241,8 +1305,8 @@ class GameManager extends ChangeNotifier {
         }
         addTurnEvent(VillageConqueredEvent(villageName: getVillageDisplayName(village)));
       } else if (oldOwner == 'player') {
-        // Check if player lost their capital (first village of their nationality)
-        if (village.nationality == playerNationality) {
+        // Check if player lost their capital
+        if (village.id == capitalVillageId) {
           lostCapital = true;
         }
         addTurnEvent(VillageLostEvent(villageName: getVillageDisplayName(village)));
@@ -1301,6 +1365,374 @@ class GameManager extends ChangeNotifier {
     for (final battle in toFinalize) {
       finalizeBattle(battle, battle.rounds.length, false);
     }
+  }
+
+  // --- RTS Game Loop Integration ---
+
+  // Public accessors for save/load rewiring
+  void Function() get onGameTickCallback => _onGameTick;
+  void Function(String) get onPlayerArrivalCallback => _onPlayerArrival;
+
+  void _onGameTick() {
+    if (playerCharacter == null) return;
+
+    final pc = playerCharacter!;
+
+    // Advance travel if traveling
+    if (pc.state == PlayerState.traveling) {
+      pc.travelProgress += 1.0 / pc.travelTotalTicks;
+
+      if (pc.travelProgress >= 1.0) {
+        // Arrived
+        pc.travelProgress = 1.0;
+        _onPlayerArrival(pc.travelDestinationId!);
+        return;
+      }
+
+      // Roll for encounter
+      final warbandStrength = getArmiesFor('player').fold<int>(0, (sum, a) => sum + a.unitCount);
+      final encounter = EncounterEngine.rollEncounter(warbandStrength, gameLoop.tickCount, scoutingSkill: pc.scoutingSkill);
+      if (encounter != null) {
+        currentEncounter = encounter;
+        gameLoop.pause();
+        notifyListeners();
+        return;
+      }
+    }
+
+    // Warband upkeep (every 5 ticks, same as world sim)
+    if (gameLoop.tickCount % 5 == 0) {
+      final warband = playerWarband;
+      if (warband != null) {
+        final upkeepGold = warband.unitCount * 2; // 2 gold per soldier per cycle
+        pc.gold -= upkeepGold;
+        if (pc.gold < 0) {
+          // Desertion: remove 1 soldier if can't pay
+          if (warband.units.isNotEmpty) {
+            warband.units.removeLast();
+            if (warband.units.isEmpty) {
+              removeArmy(warband.id);
+            } else {
+              updateArmy(warband);
+            }
+          }
+          pc.gold = 0;
+        }
+      }
+    }
+
+    // Game over check
+    if (pc.gold <= 0 && (playerWarband == null || playerWarband!.units.isEmpty) && pc.currentCargoCount == 0) {
+      isGameOver = true;
+      gameLoop.pause();
+      notifyListeners();
+      return;
+    }
+
+    // World simulation (every 5 ticks)
+    if (gameLoop.tickCount % 5 == 0) {
+      currentTurn++;
+      turnEngine.doTurn();
+    }
+
+    // Auto-save every 10 ticks
+    if (gameLoop.tickCount % 10 == 0) {
+      SaveEngine.saveGame(this);
+    }
+
+    notifyListeners();
+  }
+
+  void _onPlayerArrival(String cityId) {
+    final pc = playerCharacter!;
+    pc.state = PlayerState.atCity;
+    pc.currentCityId = cityId;
+    pc.travelOriginId = null;
+    pc.travelDestinationId = null;
+    pc.travelProgress = 0.0;
+    pc.travelTotalTicks = 0;
+
+    // Station warband at arrived city
+    final warband = playerWarband;
+    if (warband != null) {
+      warband.station(cityId);
+      updateArmy(warband);
+    }
+
+    pc.checkProgression();
+    gameLoop.setSpeed(GameSpeed.normal);
+    notifyListeners();
+  }
+
+  /// Start traveling from current city to a connected city.
+  bool startTravel(String destinationCityId) {
+    final pc = playerCharacter;
+    if (pc == null || pc.state != PlayerState.atCity) return false;
+    if (pc.currentCityId == null) return false;
+    if (!areNeighbors(pc.currentCityId!, destinationCityId)) return false;
+
+    final origin = map.villages.cast<Village?>().firstWhere(
+      (v) => v!.id == pc.currentCityId,
+      orElse: () => null,
+    );
+    final dest = map.villages.cast<Village?>().firstWhere(
+      (v) => v!.id == destinationCityId,
+      orElse: () => null,
+    );
+    if (origin == null || dest == null) return false;
+
+    final baseTicks = Army.calculateTravelTime(origin.coordinates, dest.coordinates);
+    final ticks = (baseTicks / pc.travelSpeedModifier).ceil().clamp(3, 30);
+
+    pc.state = PlayerState.traveling;
+    pc.travelOriginId = pc.currentCityId;
+    pc.travelDestinationId = destinationCityId;
+    pc.travelProgress = 0.0;
+    pc.travelTotalTicks = ticks;
+    pc.currentCityId = null;
+
+    currentEncounter = null;
+    gameLoop.start();
+
+    // Move player's warband with them (unstation from origin)
+    final warband = playerWarband;
+    if (warband != null && warband.stationedAt == pc.travelOriginId) {
+      warband.stationedAt = null;
+      updateArmy(warband);
+    }
+
+    notifyListeners();
+    return true;
+  }
+
+  /// Dismiss current encounter and resume travel.
+  void dismissEncounter() {
+    currentEncounter = null;
+    if (playerCharacter?.state == PlayerState.traveling) {
+      gameLoop.start();
+    }
+    notifyListeners();
+  }
+
+  /// Get the village the player is currently at (or null if traveling).
+  Village? get playerCurrentCity {
+    final id = playerCharacter?.currentCityId;
+    if (id == null) return null;
+    return map.villages.cast<Village?>().firstWhere(
+      (v) => v!.id == id,
+      orElse: () => null,
+    );
+  }
+
+  /// Get connected cities from the player's current location.
+  List<Village> get travelDestinations {
+    final id = playerCharacter?.currentCityId;
+    if (id == null) return [];
+    return getNeighbors(id);
+  }
+
+  /// Get the player's personal warband (first army at player's location or traveling).
+  Army? get playerWarband {
+    if (playerCharacter == null) return null;
+    final cityId = playerCharacter!.currentCityId;
+    if (cityId != null) {
+      return armies.cast<Army?>().firstWhere(
+        (a) => a!.owner == 'player' && a.stationedAt == cityId,
+        orElse: () => null,
+      );
+    }
+    // While traveling, warband is the first player army
+    return armies.cast<Army?>().firstWhere(
+      (a) => a!.owner == 'player',
+      orElse: () => null,
+    );
+  }
+
+  /// Recruit a unit to the player's warband at the current city.
+  /// Pays from player's personal gold, not faction resources.
+  bool recruitToWarband(UnitType unitType, Village city) {
+    final pc = playerCharacter;
+    if (pc == null || pc.currentCityId != city.id) return false;
+
+    // Check warband size limit
+    final warband = playerWarband;
+    final currentSize = warband?.unitCount ?? 0;
+    if (currentSize >= pc.maxWarbandSize) return false;
+
+    // Check required building
+    final recruitEngine = RecruitmentEngine();
+    final reqBuilding = recruitEngine.getRequiredBuilding(unitType);
+    if (reqBuilding != null && !city.buildings.any((b) => b.name == reqBuilding)) return false;
+
+    // Check gold cost
+    final goldCost = unitType.stats.cost[Resource.gold] ?? 0;
+    if (pc.gold < goldCost) return false;
+
+    // Pay gold from personal reserves
+    pc.gold -= goldCost;
+
+    // Create the unit
+    final unit = Unit.create(unitType, 'player', city.coordinates);
+
+    // Add to existing warband or create new one
+    if (warband != null) {
+      warband.addUnits([unit]);
+      updateArmy(warband);
+    } else {
+      createArmy([unit], city.id, 'player');
+    }
+
+    notifyListeners();
+    return true;
+  }
+
+  bool buyPackMule() {
+    final pc = playerCharacter;
+    if (pc == null) return false;
+    if (pc.gold < 50) return false;
+    pc.gold -= 50;
+    pc.packMules++;
+    notifyListeners();
+    return true;
+  }
+
+  bool buyTradeWagon() {
+    final pc = playerCharacter;
+    if (pc == null) return false;
+    if (pc.gold < 200) return false;
+    pc.gold -= 200;
+    pc.tradeWagons++;
+    notifyListeners();
+    return true;
+  }
+
+  /// Resolve an encounter battle. Returns true if player won.
+  bool resolveEncounterBattle(Encounter encounter, BattlePlan plan) {
+    if (encounter.enemyUnits == null || encounter.enemyUnits!.isEmpty) return true;
+
+    final warband = playerWarband;
+    if (warband == null || warband.units.isEmpty) return false;
+
+    final combatEngine = CombatEngine();
+    final tactics = plan.toTactics(warband);
+
+    final result = combatEngine.resolveCombat(
+      attackerName: warband.name,
+      defenderName: 'Bandits',
+      attackerId: warband.id,
+      defenderId: 'encounter',
+      attackerOwnerId: 'player',
+      defenderOwnerId: 'bandits',
+      attackers: warband.units,
+      defenders: encounter.enemyUnits!,
+      map: map,
+      attackerTactics: tactics,
+    );
+
+    // Apply casualties to warband
+    int losses = 0;
+    for (final round in result.rounds) {
+      losses += round.attackerLosses;
+    }
+    if (losses > 0) {
+      int killed = 0;
+      for (var i = 0; i < warband.units.length && killed < losses; i++) {
+        if (warband.units[i].isAlive) {
+          warband.units[i].takeDamage(9999);
+          killed++;
+        }
+      }
+      warband.removeDeadUnits();
+    }
+
+    final won = result.attackerWon;
+
+    if (won) {
+      // Loot
+      final loot = encounter.goldReward ?? 0;
+      playerCharacter!.earnGold(loot);
+      playerCharacter!.battlesWon++;
+      playerCharacter!.combatSkill = (playerCharacter!.combatSkill + 1).clamp(1, 20);
+      battlesWon['player'] = (battlesWon['player'] ?? 0) + 1;
+      // XP to surviving warband
+      for (final u in warband.units) {
+        u.gainExperience(25);
+      }
+    } else {
+      battlesLost++;
+      // Lose some gold on defeat
+      final goldLost = (playerCharacter!.gold * 0.3).round();
+      playerCharacter!.gold -= goldLost;
+      // XP even on loss
+      for (final u in warband.units) {
+        u.gainExperience(10);
+      }
+    }
+
+    // Clean up dead warband
+    if (warband.units.isEmpty) {
+      removeArmy(warband.id);
+    } else {
+      updateArmy(warband);
+    }
+
+    playerCharacter!.checkProgression();
+    notifyListeners();
+    return won;
+  }
+
+  /// Flee from encounter. Costs: -10 rep, lose 25% cargo, 1 soldier dies.
+  void fleeEncounter() {
+    final pc = playerCharacter;
+    if (pc == null) return;
+
+    // Lose 25% of each cargo
+    for (final good in pc.cargo.keys.toList()) {
+      final amount = pc.cargo[good] ?? 0;
+      final lost = (amount * 0.25).ceil();
+      if (lost > 0) pc.removeCargo(good, lost);
+    }
+
+    // Lose 1 soldier as rearguard
+    final warband = playerWarband;
+    if (warband != null && warband.units.isNotEmpty) {
+      warband.units.last.takeDamage(9999);
+      warband.removeDeadUnits();
+      if (warband.units.isEmpty) {
+        removeArmy(warband.id);
+      } else {
+        updateArmy(warband);
+      }
+    }
+
+    dismissEncounter();
+  }
+
+  /// Recruit a wounded soldier from encounter.
+  bool recruitWoundedSoldier(Encounter encounter) {
+    final pc = playerCharacter;
+    if (pc == null) return false;
+    if (encounter.recruitableUnit == null) return false;
+
+    final warband = playerWarband;
+    final currentSize = warband?.unitCount ?? 0;
+    if (currentSize >= pc.maxWarbandSize) return false;
+
+    final unit = Unit.create(encounter.recruitableUnit!, 'player', const GeoCoordinate(0, 0));
+    // Wounded: half HP
+    unit.takeDamage(unit.maxHP ~/ 2);
+
+    if (warband != null) {
+      warband.addUnits([unit]);
+      updateArmy(warband);
+    } else {
+      // Need a city ID — use travel destination or origin
+      final locationId = pc.travelDestinationId ?? pc.travelOriginId ?? '';
+      createArmy([unit], locationId, 'player');
+    }
+
+    notifyListeners();
+    return true;
   }
 }
 

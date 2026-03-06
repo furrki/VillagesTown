@@ -108,6 +108,11 @@ class TurnEngine {
         }
       }
 
+      // Gold Standard modifier: double gold upkeep
+      if (game.activeModifiers.contains(GameModifier.goldStandard)) {
+        totalUpkeep[Resource.gold] = (totalUpkeep[Resource.gold] ?? 0) * 2;
+      }
+
       for (final entry in totalUpkeep.entries) {
         game.modifyGlobalResource(player.id, entry.key, -entry.value);
       }
@@ -313,7 +318,10 @@ class TurnEngine {
     final existing = game.pendingBattles.any((b) => b.attackerId == army1Id && b.defenderId == army2Id);
     if (existing) return;
 
-    final fatigueMod = army1.foodDeprivationModifier * army1.marchFatigueModifier;
+    var fatigueMod = army1.foodDeprivationModifier * army1.marchFatigueModifier;
+    if (EventEngine.isCrusadeActive(game, army1.owner)) {
+      fatigueMod *= 1.1;
+    }
 
     final result = _combatEngine.resolveCombat(
       attackerName: army1.name,
@@ -410,7 +418,10 @@ class TurnEngine {
     final allDefenders = [...defenderUnits, ...garrisonUnits];
 
     // Compute attacker fatigue: food deprivation + march fatigue
-    final fatigueMod = attacker.foodDeprivationModifier * attacker.marchFatigueModifier;
+    var fatigueMod = attacker.foodDeprivationModifier * attacker.marchFatigueModifier;
+    if (EventEngine.isCrusadeActive(game, attacker.owner)) {
+      fatigueMod *= 1.1;
+    }
 
     final result = _combatEngine.resolveCombat(
       attackerName: attacker.name,
@@ -512,8 +523,7 @@ class TurnEngine {
         if (game.players[i].isEliminated) continue;
         final playerId = game.players[i].id;
         final currentCount = game.map.villages.where((v) => v.owner == playerId).length;
-        // Player started with villages but now has fewer (lost at least one)
-        if (game.players[i].villages.length > currentCount && currentCount > 0) {
+        if ((game.previousTurnVillageCounts[playerId] ?? 0) > currentCount && currentCount >= 0 && game.previousTurnVillageCounts.containsKey(playerId)) {
           game.players[i] = game.players[i].copyWith(isEliminated: true);
           game.armies.removeWhere((a) => a.owner == playerId);
           // Transfer remaining villages to neutral
@@ -540,8 +550,32 @@ class TurnEngine {
     // Blitz: game ends at turn 30, highest score wins
     if (mods.contains(GameModifier.blitz) && game.currentTurn >= 30) {
       if (game.achievedVictoryType == null) {
-        game.achievedVictoryType = VictoryType.domination;
-        game.addTurnEvent(VictoryAchievedEvent(victoryType: VictoryType.domination));
+        // Calculate scores for all non-eliminated players
+        String bestPlayerId = 'player';
+        int bestScore = 0;
+        for (final player in game.players) {
+          if (player.isEliminated) continue;
+          final score = VictoryEngine.calculateScore(game, playerId: player.id).total;
+          if (score > bestScore) {
+            bestScore = score;
+            bestPlayerId = player.id;
+          }
+        }
+        if (bestPlayerId == 'player') {
+          game.achievedVictoryType = VictoryType.domination;
+          game.addTurnEvent(VictoryAchievedEvent(victoryType: VictoryType.domination));
+        } else {
+          // AI won — eliminate human player, set AI as last standing
+          final humanIdx = game.players.indexWhere((p) => p.isHuman);
+          if (humanIdx != -1) {
+            game.players[humanIdx] = game.players[humanIdx].copyWith(isEliminated: true);
+          }
+          for (var i = 0; i < game.players.length; i++) {
+            if (!game.players[i].isHuman && game.players[i].id != bestPlayerId) {
+              game.players[i] = game.players[i].copyWith(isEliminated: true);
+            }
+          }
+        }
       }
       return;
     }
@@ -552,6 +586,13 @@ class TurnEngine {
       if (achieved != null) {
         game.achievedVictoryType = achieved;
         game.addTurnEvent(VictoryAchievedEvent(victoryType: achieved));
+      }
+    }
+
+    // Update village counts for next turn (used by Sudden Death)
+    for (final player in game.players) {
+      if (!player.isEliminated) {
+        game.previousTurnVillageCounts[player.id] = game.map.villages.where((v) => v.owner == player.id).length;
       }
     }
   }

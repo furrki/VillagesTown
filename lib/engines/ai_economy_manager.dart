@@ -7,68 +7,62 @@ import '../data/models/player.dart';
 import '../data/models/ai_personality.dart';
 import 'building_construction_engine.dart';
 import 'game_manager.dart';
-import 'victory_engine.dart';
 
 class AIEconomyManager {
   final BuildingConstructionEngine _buildingEngine;
 
   AIEconomyManager(this._buildingEngine);
 
-  void manageEconomy(Player player, Village village) {
-    if (!village.canBuildMore) return;
-
+  void manageEconomy(Player player, Village village, {VictoryType? victoryGoal}) {
     final game = GameManager.shared;
     final personality = player.aiPersonality ?? AIPersonality.balanced;
     final resources = game.getGlobalResources(player.id);
 
-    // Determine AI's victory goal for economy-aware building
-    final victoryGoal = _getBestVictoryGoal(game, player);
-
     // Track what we built this turn to add diversity
     bool builtSomething = false;
 
-    // 1. Critical Needs: Emergency farm when food critical
-    if ((resources[Resource.food] ?? 0) < 50) {
-      if (_tryBuild(village, Building.farm)) {
-        builtSomething = true;
+    if (village.canBuildMore) {
+      // 1. Critical Needs: Emergency farm when food critical
+      if ((resources[Resource.food] ?? 0) < 50) {
+        if (_tryBuild(village, Building.farm)) {
+          builtSomething = true;
+        }
+      }
+
+      // 2. Victory-aware + trait-aware prioritization
+      final priorities = _getVictoryAwarePriorities(personality, village.trait, victoryGoal);
+
+      for (final building in priorities) {
+        if (village.buildings.any((b) => b.name == building.name)) {
+          continue;
+        }
+        if (builtSomething) break;
+
+        if (_tryBuild(village, building)) {
+          builtSomething = true;
+          break;
+        }
       }
     }
 
-    // 2. Victory-aware + trait-aware prioritization
-    final priorities = _getVictoryAwarePriorities(personality, village.trait, victoryGoal);
-
-    for (final building in priorities) {
-      if (village.buildings.any((b) => b.name == building.name)) {
-        continue;
-      }
-      if (builtSomething) break;
-
-      if (_tryBuild(village, building)) {
-        builtSomething = true;
-        break;
-      }
+    // 3. If no build slots and didn't build, try upgrading
+    if (!builtSomething && !village.canBuildMore) {
+      _tryUpgrade(village);
     }
   }
 
-  VictoryType? _getBestVictoryGoal(GameManager game, Player player) {
-    final progresses = VictoryEngine.getAllProgress(game, player.id);
-    VictoryType? best;
-    double bestScore = -1;
-    final personality = player.aiPersonality ?? AIPersonality.balanced;
-    for (final p in progresses) {
-      double weight = p.progress;
-      weight *= switch (p.type) {
-        VictoryType.domination => personality.expansionBias,
-        VictoryType.economic => personality.economicBias,
-        VictoryType.military => personality.aggressionBias,
-        VictoryType.imperial => personality.economicBias * 0.8,
-      };
-      if (weight > bestScore) {
-        bestScore = weight;
-        best = p.type;
+  bool _tryUpgrade(Village village) {
+    final upgradeable = village.buildings.where((b) => b.level < 5).toList();
+    if (upgradeable.isEmpty) return false;
+    upgradeable.sort((a, b) => a.level.compareTo(b.level));
+    for (final building in upgradeable) {
+      if (_buildingEngine.canUpgradeBuilding(building.id, village)) {
+        _buildingEngine.upgradeBuilding(building.id, village);
+        GameManager.shared.updateVillage(village);
+        return true;
       }
     }
-    return best;
+    return false;
   }
 
   bool _tryBuild(Village village, Building template) {
@@ -131,6 +125,8 @@ class AIEconomyManager {
         return [
           Building.ironMine,
           Building.barracks,
+          Building.archeryRange,
+          Building.stables,
           Building.market,
           Building.lumberMill,
           Building.farm,
@@ -143,6 +139,8 @@ class AIEconomyManager {
           Building.lumberMill,
           Building.ironMine,
           Building.barracks,
+          Building.archeryRange,
+          Building.stables,
           Building.fortress,
         ];
       case AIPersonality.balanced:
@@ -152,12 +150,16 @@ class AIEconomyManager {
           Building.lumberMill,
           Building.ironMine,
           Building.barracks,
+          Building.archeryRange,
+          Building.stables,
           Building.fortress,
         ];
       case AIPersonality.defensive:
         return [
           Building.fortress,
           Building.barracks,
+          Building.archeryRange,
+          Building.stables,
           Building.farm,
           Building.market,
           Building.lumberMill,

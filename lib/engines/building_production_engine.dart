@@ -1,4 +1,3 @@
-import '../data/models/game_modifier.dart';
 import '../data/models/resource.dart';
 import '../data/models/village.dart';
 import 'event_engine.dart';

@@ -11,32 +11,27 @@ import '../data/models/geo_coordinate.dart';
 import '../data/models/resource.dart';
 import '../data/models/unit_type.dart';
 import '../data/models/ai_personality.dart';
+import '../data/models/game_modifier.dart';
 import '../data/models/victory_condition.dart';
 import 'event_engine.dart';
 import 'game_manager.dart';
-import 'victory_engine.dart';
 
 class AIStrategyManager {
-  /// Cached AI victory goals per player (refreshed each turn).
-  final Map<String, VictoryType?> _aiVictoryGoals = {};
-
-  void manageStrategy(Player player, GameMap map) {
+  void manageStrategy(Player player, GameMap map, {VictoryType? victoryGoal, VictoryType? playerThreat}) {
     final game = GameManager.shared;
     final personality = player.aiPersonality ?? AIPersonality.balanced;
-
-    // Determine AI's victory goal (what it's closest to achieving)
-    final victoryGoal = _determineVictoryGoal(game, player);
-    _aiVictoryGoals[player.id] = victoryGoal;
-
-    // Determine threat level from player's victory progress
-    final playerThreat = _assessPlayerThreat(game);
 
     // 1. Identify Idle Armies
     final armies = game.getStationedArmiesFor(player.id);
     if (armies.isEmpty) return;
 
     // 2. Scan Targets (AI has 500km base vision, only attacks visible/discovered)
-    final aiVisionRange = 500.0;
+    final baseVision = 500.0;
+    final aiVisionRange = game.activeModifiers.contains(GameModifier.fogEternal)
+        ? baseVision * 0.5
+        : game.activeModifiers.contains(GameModifier.openBook)
+            ? 99999.0
+            : baseVision;
     final playerVillages = game.getPlayerVillages(player.id);
     final enemies = map.villages.where((v) {
       if (v.owner == player.id) return false;
@@ -63,41 +58,6 @@ class AIStrategyManager {
          _issueOrder(game, army, bestTarget);
       }
     }
-  }
-
-  /// Determine which victory type the AI is closest to achieving.
-  VictoryType? _determineVictoryGoal(GameManager game, Player player) {
-    final progresses = VictoryEngine.getAllProgress(game, player.id);
-    VictoryType? best;
-    double bestProgress = -1;
-
-    for (final p in progresses) {
-      // Weight by personality
-      double weight = p.progress;
-      final personality = player.aiPersonality ?? AIPersonality.balanced;
-      weight *= switch (p.type) {
-        VictoryType.domination => personality.expansionBias,
-        VictoryType.economic => personality.economicBias,
-        VictoryType.military => personality.aggressionBias,
-        VictoryType.imperial => personality.economicBias * 0.8,
-      };
-
-      if (weight > bestProgress) {
-        bestProgress = weight;
-        best = p.type;
-      }
-    }
-    return best;
-  }
-
-  /// Assess how close the human player is to winning.
-  /// Returns a threat type to counter, or null if no immediate threat.
-  VictoryType? _assessPlayerThreat(GameManager game) {
-    final progresses = VictoryEngine.getAllProgress(game, 'player');
-    for (final p in progresses) {
-      if (p.progress >= 0.7) return p.type;
-    }
-    return null;
   }
 
   Village? _findBestTarget(
@@ -210,7 +170,7 @@ class AIStrategyManager {
       // Military: prioritize targets to get battle wins (weaker = easier win)
       VictoryType.military => 15.0,
       // Imperial: avoid attacking, but if forced, prefer high-level villages
-      VictoryType.imperial => target.level == VillageLevel.city ? 20.0 : -5.0,
+      VictoryType.imperial => target.level == VillageLevel.city ? 25.0 : 10.0,
     };
   }
 

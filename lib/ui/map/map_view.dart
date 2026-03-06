@@ -4,9 +4,11 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/army.dart';
 import '../../data/models/nationality.dart';
+import '../../data/models/player_character.dart';
 import '../../data/models/village.dart';
 import '../../engines/game_manager.dart';
 import '../../providers/game_provider.dart';
+import '../components/countryball_avatar.dart';
 import 'village_marker.dart';
 import 'army_visual_marker.dart';
 import 'land_mask_layer.dart';
@@ -126,6 +128,11 @@ class _MapViewState extends State<MapView> {
             MarkerLayer(
               markers: _buildMarchingArmyMarkers(visibleArmies, game),
             ),
+
+            // Player character marker (while traveling)
+            MarkerLayer(
+              markers: _buildPlayerMarker(game),
+            ),
           ],
         );
       },
@@ -161,6 +168,31 @@ class _MapViewState extends State<MapView> {
         pattern: const StrokePattern.dotted(),
       ));
     }
+
+    // Player travel path
+    final pc = game.playerCharacter;
+    if (pc != null && pc.state == PlayerState.traveling) {
+      final pOrigin = game.map.villages.cast<Village?>().firstWhere(
+        (v) => v!.id == pc.travelOriginId,
+        orElse: () => null,
+      );
+      final pDest = game.map.villages.cast<Village?>().firstWhere(
+        (v) => v!.id == pc.travelDestinationId,
+        orElse: () => null,
+      );
+      if (pOrigin != null && pDest != null) {
+        lines.add(Polyline(
+          points: [
+            pOrigin.coordinates.toLatLng(),
+            pDest.coordinates.toLatLng(),
+          ],
+          color: Colors.blue.withValues(alpha: 0.8),
+          strokeWidth: 3,
+          pattern: const StrokePattern.dotted(),
+        ));
+      }
+    }
+
     return lines;
   }
 
@@ -315,6 +347,64 @@ class _MapViewState extends State<MapView> {
     }
 
     return markers;
+  }
+
+  List<Marker> _buildPlayerMarker(GameManager game) {
+    final pc = game.playerCharacter;
+    if (pc == null) return [];
+
+    if (pc.state == PlayerState.traveling) {
+      final originId = pc.travelOriginId;
+      final destId = pc.travelDestinationId;
+      if (originId == null || destId == null) return [];
+
+      final origin = game.map.villages.cast<Village?>().firstWhere(
+        (v) => v!.id == originId,
+        orElse: () => null,
+      );
+      final dest = game.map.villages.cast<Village?>().firstWhere(
+        (v) => v!.id == destId,
+        orElse: () => null,
+      );
+      if (origin == null || dest == null) return [];
+
+      final progress = pc.travelProgress.clamp(0.0, 1.0);
+      final lat = origin.coordinates.latitude + (dest.coordinates.latitude - origin.coordinates.latitude) * progress;
+      final lng = origin.coordinates.longitude + (dest.coordinates.longitude - origin.coordinates.longitude) * progress;
+
+      return [
+        Marker(
+          point: LatLng(lat, lng),
+          width: 36,
+          height: 36,
+          child: CountryballAvatar.player(size: 36, showGlow: true),
+        ),
+      ];
+    }
+
+    // Show at current city when stationed
+    if (pc.state == PlayerState.atCity && pc.currentCityId != null) {
+      final city = game.map.villages.cast<Village?>().firstWhere(
+        (v) => v!.id == pc.currentCityId,
+        orElse: () => null,
+      );
+      if (city == null) return [];
+
+      // Offset slightly so it doesn't overlap the village marker
+      return [
+        Marker(
+          point: LatLng(
+            city.coordinates.latitude + 0.15,
+            city.coordinates.longitude + 0.15,
+          ),
+          width: 30,
+          height: 30,
+          child: CountryballAvatar.player(size: 30),
+        ),
+      ];
+    }
+
+    return [];
   }
 
   Nationality _getNationality(String ownerId, GameManager game) {

@@ -63,8 +63,14 @@ class BuildingConstructionEngine {
     if (building == null) return false;
     if (building.level >= 5) return false;
 
-    final cost = getUpgradeCost(building);
+    var cost = getUpgradeCost(building);
     final game = GameManager.shared;
+    if (game.activeModifiers.contains(GameModifier.goldStandard)) {
+      cost = Map.from(cost);
+      if (cost.containsKey(Resource.gold)) {
+        cost[Resource.gold] = (cost[Resource.gold]! * 2);
+      }
+    }
     return game.canAfford(village.owner, cost);
   }
 
@@ -75,8 +81,14 @@ class BuildingConstructionEngine {
     final building = village.buildings[buildingIndex];
     if (building.level >= 5) return false;
 
-    final cost = getUpgradeCost(building);
+    var cost = getUpgradeCost(building);
     final game = GameManager.shared;
+    if (game.activeModifiers.contains(GameModifier.goldStandard)) {
+      cost = Map.from(cost);
+      if (cost.containsKey(Resource.gold)) {
+        cost[Resource.gold] = (cost[Resource.gold]! * 2);
+      }
+    }
 
     if (!game.spendResources(village.owner, cost)) return false;
 

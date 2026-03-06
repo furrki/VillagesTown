@@ -9,8 +9,15 @@ import 'stats_screen.dart';
 
 class NationalitySelectionScreen extends StatefulWidget {
   final void Function(Nationality) onSelect;
+  final bool hasSavedGame;
+  final VoidCallback? onContinue;
 
-  const NationalitySelectionScreen({super.key, required this.onSelect});
+  const NationalitySelectionScreen({
+    super.key,
+    required this.onSelect,
+    this.hasSavedGame = false,
+    this.onContinue,
+  });
 
   @override
   State<NationalitySelectionScreen> createState() => _NationalitySelectionScreenState();
@@ -413,6 +420,28 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
               ),
 
               const SizedBox(height: 24),
+
+              // Continue saved game
+              if (widget.hasSavedGame && widget.onContinue != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: OutlinedButton(
+                    onPressed: () {
+                      LayoutConstants.impactFeedback(style: HapticStyle.medium);
+                      widget.onContinue!();
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.amber,
+                      side: const BorderSide(color: Colors.amber),
+                      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    ),
+                    child: const Text(
+                      'CONTINUE',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+                    ),
+                  ),
+                ),
 
               // Start Button
               AnimatedSwitcher(

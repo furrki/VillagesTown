@@ -289,6 +289,7 @@ class EventEngine {
       type: GameEventType.earthquake,
       triggerTurn: game.currentTurn,
       targetVillageId: target.id,
+      targetPlayerId: target.owner,
     );
     game.eventHistory.add(event);
     game.addTurnEvent(WorldEventStartedEvent(

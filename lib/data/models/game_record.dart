@@ -34,16 +34,24 @@ class GameRecord {
         'difficulty': difficulty,
       };
 
-  factory GameRecord.fromJson(Map<String, dynamic> json) => GameRecord(
-        date: DateTime.parse(json['date'] as String),
-        factionId: json['factionId'] as String,
-        victoryType: json['victoryType'] as String?,
-        score: json['score'] as int,
-        turns: json['turns'] as int,
-        battlesWon: json['battlesWon'] as int,
-        villagesControlled: json['villagesControlled'] as int,
-        difficulty: json['difficulty'] as String?,
-      );
+  factory GameRecord.fromJson(Map<String, dynamic> json) {
+    DateTime date;
+    try {
+      date = DateTime.parse(json['date'] as String);
+    } catch (_) {
+      date = DateTime.now();
+    }
+    return GameRecord(
+      date: date,
+      factionId: json['factionId'] as String? ?? 'unknown',
+      victoryType: json['victoryType'] as String?,
+      score: json['score'] as int? ?? 0,
+      turns: json['turns'] as int? ?? 0,
+      battlesWon: json['battlesWon'] as int? ?? 0,
+      villagesControlled: json['villagesControlled'] as int? ?? 0,
+      difficulty: json['difficulty'] as String? ?? 'normal',
+    );
+  }
 
   static String encodeList(List<GameRecord> records) =>
       jsonEncode(records.map((r) => r.toJson()).toList());

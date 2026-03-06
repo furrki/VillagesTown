@@ -296,8 +296,8 @@ class CombatEngine {
       _applyRoleModifiers(defenderUnits, defenderTactics, terrain);
     }
 
-    // Apply attacker fatigue (food deprivation + march fatigue)
-    if (attackerFatigueMod < 1.0) {
+    // Apply attacker fatigue (food deprivation + march fatigue) or buff (e.g. crusade)
+    if (attackerFatigueMod != 1.0) {
       for (final unit in attackerUnits) {
         unit.attackModifier *= attackerFatigueMod;
       }

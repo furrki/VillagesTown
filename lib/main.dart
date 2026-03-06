@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
 import 'package:provider/provider.dart';
+import 'engines/save_engine.dart';
 import 'providers/game_provider.dart';
 import 'ui/screens/nationality_selection_screen.dart';
 import 'ui/screens/game_screen.dart';
@@ -9,8 +10,6 @@ import 'ui/theme/app_theme.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
-    // Riverpod ProviderScope wraps everything for new architecture
-    // Old Provider is nested inside for backwards compatibility during migration
     riverpod.ProviderScope(
       child: ChangeNotifierProvider(
         create: (_) => GameProvider(),
@@ -36,8 +35,37 @@ class VillagesTownApp extends StatelessWidget {
   }
 }
 
-class ContentView extends StatelessWidget {
+class ContentView extends StatefulWidget {
   const ContentView({super.key});
+
+  @override
+  State<ContentView> createState() => _ContentViewState();
+}
+
+class _ContentViewState extends State<ContentView> {
+  bool _checkingForSave = true;
+  bool _hasSave = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSave();
+  }
+
+  Future<void> _checkSave() async {
+    final has = await SaveEngine.hasSave();
+    if (mounted) setState(() { _checkingForSave = false; _hasSave = has; });
+  }
+
+  Future<void> _loadSave() async {
+    final game = context.read<GameProvider>().gameManager;
+    final success = await SaveEngine.loadGame(game);
+    if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load save')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,16 +73,25 @@ class ContentView extends StatelessWidget {
       builder: (context, provider, _) {
         final game = provider.gameManager;
 
-        if (!game.gameStarted) {
-          return NationalitySelectionScreen(
-            onSelect: (nationality) {
-              game.setupGame(nationality);
-              game.initializeGame();
-            },
+        if (game.gameStarted) {
+          return const GameScreen();
+        }
+
+        if (_checkingForSave) {
+          return const Scaffold(
+            backgroundColor: Colors.black,
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        return const GameScreen();
+        return NationalitySelectionScreen(
+          hasSavedGame: _hasSave,
+          onSelect: (nationality) {
+            game.setupGame(nationality);
+            game.initializeGame();
+          },
+          onContinue: _hasSave ? () => _loadSave() : null,
+        );
       },
     );
   }
