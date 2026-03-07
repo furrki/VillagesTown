@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
 import 'package:provider/provider.dart';
+import 'data/models/nationality.dart';
 import 'engines/save_engine.dart';
 import 'providers/game_provider.dart';
+import 'ui/screens/character_creation_screen.dart';
 import 'ui/screens/nationality_selection_screen.dart';
+import 'ui/screens/origin_selection_screen.dart';
 import 'ui/screens/game_screen.dart';
 import 'ui/theme/app_theme.dart';
 
@@ -45,6 +48,9 @@ class ContentView extends StatefulWidget {
 class _ContentViewState extends State<ContentView> {
   bool _checkingForSave = true;
   bool _hasSave = false;
+  Nationality? _selectedNationality;
+  String? _characterName;
+  bool _wasInGame = false;
 
   @override
   void initState() {
@@ -74,7 +80,17 @@ class _ContentViewState extends State<ContentView> {
         final game = provider.gameManager;
 
         if (game.gameStarted) {
+          // Remember that we were in-game so we can reset creation
+          // state if the player returns to menu.
+          _wasInGame = true;
           return const GameScreen();
+        }
+
+        // Returning from a running game → reset creation flow
+        if (_wasInGame) {
+          _wasInGame = false;
+          _selectedNationality = null;
+          _characterName = null;
         }
 
         if (_checkingForSave) {
@@ -84,11 +100,36 @@ class _ContentViewState extends State<ContentView> {
           );
         }
 
+        // Step 3: Origin selection
+        if (_selectedNationality != null && _characterName != null) {
+          return OriginSelectionScreen(
+            nationality: _selectedNationality!,
+            characterName: _characterName!,
+            onSelect: (origin) {
+              game.setupGame(_selectedNationality!);
+              game.initializeGame(
+                characterName: _characterName!,
+                origin: origin,
+              );
+            },
+          );
+        }
+
+        // Step 2: Character naming
+        if (_selectedNationality != null) {
+          return CharacterCreationScreen(
+            nationality: _selectedNationality!,
+            onNext: (name) {
+              setState(() => _characterName = name);
+            },
+          );
+        }
+
+        // Step 1: Nationality selection
         return NationalitySelectionScreen(
           hasSavedGame: _hasSave,
           onSelect: (nationality) {
-            game.setupGame(nationality);
-            game.initializeGame();
+            setState(() => _selectedNationality = nationality);
           },
           onContinue: _hasSave ? () => _loadSave() : null,
         );

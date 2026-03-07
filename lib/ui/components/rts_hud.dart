@@ -31,7 +31,7 @@ class RtsHud extends StatelessWidget {
                 CountryballAvatar.player(size: 26),
                 const SizedBox(width: 6),
                 // Character info
-                _badge(pc.stageTitle, Colors.amber),
+                _badge(pc.name.isNotEmpty ? pc.name : pc.stageTitle, Colors.amber),
                 const SizedBox(width: 8),
                 // Gold
                 _stat('\u{1FA99}', '${pc.gold}', Colors.amber),
@@ -109,13 +109,12 @@ class RtsHud extends StatelessWidget {
     };
 
     final isPaused = loop.speed == GameSpeed.paused;
-    final isTraveling = pc.state == PlayerState.traveling;
 
     return GestureDetector(
       onTap: () {
         if (onSpeedTap != null) {
           onSpeedTap!();
-        } else if (isTraveling) {
+        } else {
           // Cycle through speeds
           final next = switch (loop.speed) {
             GameSpeed.paused => GameSpeed.normal,

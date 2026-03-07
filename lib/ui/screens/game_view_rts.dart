@@ -29,12 +29,6 @@ class _RtsGameViewState extends State<RtsGameView> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final game = GameManager.shared;
-      if (!game.gameStarted) {
-        game.initializeGame();
-      }
-    });
   }
 
   void _showToast(String message) {
@@ -106,6 +100,17 @@ class _RtsGameViewState extends State<RtsGameView> {
             backgroundColor: Colors.black,
             body: Center(child: CircularProgressIndicator()),
           );
+        }
+
+        // Consume pending notifications from game engine
+        if (game.pendingNotifications.isNotEmpty) {
+          final notifications = List<String>.from(game.pendingNotifications);
+          game.pendingNotifications.clear();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            for (final msg in notifications) {
+              _showToast(msg);
+            }
+          });
         }
 
         // If at city, show full city screen

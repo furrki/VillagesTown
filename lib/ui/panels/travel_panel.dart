@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/models/battle_plan.dart';
+import '../../data/models/mission.dart';
 import '../../data/models/player_character.dart';
 import '../../data/models/encounter.dart';
 import '../../engines/game_manager.dart';
@@ -81,6 +82,11 @@ class TravelPanel extends StatelessWidget {
               minHeight: 6,
             ),
           ),
+          // Active mission tracker
+          if (player.activeMissions.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _buildMissionTracker(player.activeMissions.first, game),
+          ],
           const SizedBox(height: 10),
           // Cargo summary
           Row(
@@ -101,121 +107,160 @@ class TravelPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildEncounterView(Encounter enc) {
-    final color = switch (enc.type) {
-      EncounterType.bandits => Colors.red,
-      EncounterType.merchant => Colors.green,
-      EncounterType.woundedSoldier => Colors.orange,
-      EncounterType.nothing => Colors.white54,
-    };
+  Widget _buildMissionTracker(Mission mission, GameManager game) {
+    final nextObj = mission.objectives
+        .where((o) => !o.completed)
+        .firstOrNull;
+    if (nextObj == null) return const SizedBox.shrink();
 
-    final icon = switch (enc.type) {
-      EncounterType.bandits => Icons.warning,
-      EncounterType.merchant => Icons.storefront,
-      EncounterType.woundedSoldier => Icons.personal_injury,
-      EncounterType.nothing => Icons.landscape,
-    };
+    String label = nextObj.description;
+    if (nextObj.type == ObjectiveType.travelTo && nextObj.targetCityId != null) {
+      final city = game.getVillageById(nextObj.targetCityId);
+      if (city != null) label = 'Go to ${game.getVillageDisplayName(city)}';
+    }
 
     return Container(
-      padding: const EdgeInsets.all(16),
-      color: const Color(0xFF1A0A0A),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.2)),
+      ),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 24),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  enc.description,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // Action buttons based on encounter type
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              if (enc.type == EncounterType.bandits) ...[
-                for (final plan in BattlePlan.values)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: _actionButton(
-                      '${plan.emoji} ${plan.displayName}',
-                      Colors.red,
-                      () {
-                        final game = GameManager.shared;
-                        final won = game.resolveEncounterBattle(enc, plan);
-                        if (won) {
-                          final loot = enc.goldReward ?? 0;
-                          showToast('Victory! +${loot}g');
-                        } else {
-                          showToast('Defeated! Lost soldiers and gold.');
-                        }
-                        onDismissEncounter();
-                      },
-                    ),
-                  ),
-                _actionButton('Flee', Colors.grey, () {
-                  final game = GameManager.shared;
-                  game.fleeEncounter();
-                  showToast('Fled! Lost cargo and 1 soldier.');
-                }),
-              ] else if (enc.type == EncounterType.merchant) ...[
-                _actionButton('Trade', Colors.green, () {
-                  if (enc.tradeGood != null && enc.goldReward != null) {
-                    final game = GameManager.shared;
-                    final pc = game.playerCharacter;
-                    if (pc != null && pc.gold >= enc.goldReward!) {
-                      pc.gold -= enc.goldReward!;
-                      pc.addCargo(enc.tradeGood!, enc.tradeGoodAmount ?? 1);
-                      showToast('Bought ${enc.tradeGoodAmount ?? 1} ${enc.tradeGood!.displayName}');
-                    } else {
-                      showToast('Not enough gold');
-                    }
-                  }
-                  onDismissEncounter();
-                }),
-                const SizedBox(width: 8),
-                _actionButton('Pass', Colors.grey, onDismissEncounter),
-              ] else if (enc.type == EncounterType.woundedSoldier) ...[
-                _actionButton('Recruit', Colors.orange, () {
-                  final game = GameManager.shared;
-                  if (game.recruitWoundedSoldier(enc)) {
-                    showToast('${enc.recruitableUnit?.displayName ?? "Soldier"} joined your warband!');
-                  } else {
-                    showToast('Warband is full');
-                  }
-                  onDismissEncounter();
-                }),
-                const SizedBox(width: 8),
-                _actionButton('Ignore', Colors.grey, onDismissEncounter),
-              ] else ...[
-                _actionButton('Continue', Colors.blue, onDismissEncounter),
-              ],
-            ],
+          const Icon(Icons.auto_stories, color: Colors.amber, size: 14),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              '${mission.title}: $label',
+              style: const TextStyle(color: Colors.amber, fontSize: 11),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _actionButton(String label, Color color, VoidCallback onTap) {
+  Widget _buildEncounterView(Encounter enc) {
+    final game = GameManager.shared;
+    final pc = game.playerCharacter;
+    final skills = <String, int>{
+      'combat': pc?.combatSkill ?? 1,
+      'leadership': pc?.leadershipSkill ?? 1,
+      'tactics': pc?.tacticsSkill ?? 1,
+      'trade': pc?.tradeSkill ?? 1,
+      'scouting': pc?.scoutingSkill ?? 1,
+    };
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      color: const Color(0xFF1A0A0A),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Narrative text
+            Text(
+              enc.narrative,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.85),
+                fontSize: 14,
+                height: 1.5,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Choice buttons
+            if (enc.choices.isNotEmpty)
+              ...enc.choices.map((choice) {
+                final available = choice.isAvailable(skills);
+                final isFight = choice.outcome == EncounterChoiceOutcome.fight;
+                final color = switch (choice.outcome) {
+                  EncounterChoiceOutcome.fight => Colors.red,
+                  EncounterChoiceOutcome.flee => Colors.grey,
+                  EncounterChoiceOutcome.payGold || EncounterChoiceOutcome.loseGold => Colors.amber,
+                  EncounterChoiceOutcome.gainCargo || EncounterChoiceOutcome.gainGold => Colors.green,
+                  EncounterChoiceOutcome.recruitUnit => Colors.cyan,
+                  EncounterChoiceOutcome.loseCargo => Colors.orange,
+                  _ => Colors.white70,
+                };
+                final skillTag = choice.skillRequired != null
+                    ? ' [${choice.skillRequired} ${choice.skillLevel}+]'
+                    : '';
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: _choiceButton(
+                    '${choice.label}$skillTag',
+                    color,
+                    available
+                        ? () {
+                            if (isFight) {
+                              _showBattlePlanPicker(enc);
+                            } else {
+                              final result = game.resolveEncounterChoice(enc, choice);
+                              if (result != null) {
+                                showToast(result);
+                              } else {
+                                showToast('Cannot do that right now');
+                              }
+                              onDismissEncounter();
+                            }
+                          }
+                        : null,
+                  ),
+                );
+              })
+            else ...[
+              // Fallback for encounters without choices
+              _choiceButton('Continue', Colors.blue, onDismissEncounter),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showBattlePlanPicker(Encounter enc) {
+    showToast('Choose your battle plan');
+    // For now, use aggressive plan directly. Could be expanded to a picker.
+    final game = GameManager.shared;
+    final won = game.resolveEncounterBattle(enc, BattlePlan.aggressive);
+    if (won) {
+      final loot = enc.goldReward ?? 0;
+      showToast('Victory! +${loot}g');
+    } else {
+      showToast('Defeated! Lost soldiers and gold.');
+    }
+    onDismissEncounter();
+  }
+
+  Widget _choiceButton(String label, Color color, VoidCallback? onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.2),
+          color: onTap != null
+              ? color.withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.03),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withValues(alpha: 0.5)),
+          border: Border.all(
+            color: onTap != null
+                ? color.withValues(alpha: 0.4)
+                : Colors.white.withValues(alpha: 0.1),
+          ),
         ),
         child: Text(
           label,
-          style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: onTap != null ? color : Colors.white24,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );

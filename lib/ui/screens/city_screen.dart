@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../data/models/mission.dart';
 import '../../data/models/player_character.dart';
 import '../../data/models/resource.dart';
 import '../../data/models/village.dart';
 import '../../engines/game_manager.dart';
+import '../../engines/narrative_engine.dart';
 import '../../engines/recruitment_engine.dart';
 import '../../engines/trade_engine.dart';
 import '../components/countryball_avatar.dart';
@@ -28,6 +30,7 @@ class CityScreen extends StatefulWidget {
 class _CityScreenState extends State<CityScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late String _arrivalNarrative;
 
   static const _bgColor = Color(0xFF0D0D0D);
   static const _cardColor = Color(0xFF1A1A1A);
@@ -36,7 +39,17 @@ class _CityScreenState extends State<CityScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _arrivalNarrative = NarrativeEngine.cityArrival(
+      widget.city,
+      GameManager.shared,
+    );
+    // Start on Tavern tab if player has active missions (e.g., first visit)
+    final hasActiveMission = widget.player.activeMissions.isNotEmpty;
+    _tabController = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: hasActiveMission ? 2 : 0,
+    );
   }
 
   @override
@@ -105,6 +118,21 @@ class _CityScreenState extends State<CityScreen>
                     ),
                   ),
                 ],
+              ),
+            ),
+            // Arrival narrative
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: const Color(0xFF111118),
+              child: Text(
+                _arrivalNarrative,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                  height: 1.4,
+                ),
               ),
             ),
             // Tabs
@@ -437,6 +465,11 @@ class _CityScreenState extends State<CityScreen>
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
+        // Active missions
+        if (widget.player.activeMissions.isNotEmpty) ...[
+          ...widget.player.activeMissions.map(_buildMissionCard),
+          const SizedBox(height: 12),
+        ],
         // Rest section
         Container(
           padding: const EdgeInsets.all(14),
@@ -633,6 +666,101 @@ class _CityScreenState extends State<CityScreen>
               style: const TextStyle(
                   color: Colors.white, fontSize: 12,
                   fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMissionCard(Mission mission) {
+    final game = GameManager.shared;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                mission.type == MissionType.story
+                    ? Icons.auto_stories
+                    : Icons.assignment,
+                color: Colors.amber,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  mission.title,
+                  style: const TextStyle(
+                    color: Colors.amber,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (mission.goldReward > 0)
+                Text(
+                  '${mission.goldReward}g',
+                  style: const TextStyle(
+                    color: Colors.amber,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            mission.description,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.6),
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...mission.objectives.map((obj) {
+            String label = obj.description;
+            if (obj.type == ObjectiveType.travelTo && obj.targetCityId != null) {
+              final city = game.getVillageById(obj.targetCityId);
+              if (city != null) {
+                label = 'Travel to ${game.getVillageDisplayName(city)}';
+              }
+            }
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  Icon(
+                    obj.completed
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    color: obj.completed ? Colors.green : Colors.white38,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: obj.completed ? Colors.green : Colors.white70,
+                        fontSize: 12,
+                        decoration: obj.completed
+                            ? TextDecoration.lineThrough
+                            : null,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );

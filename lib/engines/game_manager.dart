@@ -20,7 +20,10 @@ import '../data/models/game_event.dart';
 import '../data/models/game_modifier.dart';
 import '../data/models/victory_condition.dart';
 import '../data/models/village_trait.dart';
+import '../data/models/character_origin.dart';
+import '../data/models/mission.dart';
 import '../data/models/player_character.dart';
+import '../data/models/trade_good.dart';
 import '../data/models/encounter.dart';
 import '../data/models/battle_plan.dart';
 import 'combat_engine.dart';
@@ -98,6 +101,7 @@ class GameManager extends ChangeNotifier {
   final GameLoop gameLoop = GameLoop();
   Encounter? currentEncounter;
   bool isGameOver = false;
+  final List<String> pendingNotifications = [];
 
   bool tutorialEnabled = true;
   int tutorialStep = 0;
@@ -423,7 +427,10 @@ class GameManager extends ChangeNotifier {
   }
 
 
-  void initializeGame() {
+  void initializeGame({
+    String characterName = '',
+    CharacterOrigin? origin,
+  }) {
     gameStarted = true;
     currentTurn = 1;
     syncGlobalResources();
@@ -447,7 +454,6 @@ class GameManager extends ChangeNotifier {
     }
     if (activeModifiers.contains(GameModifier.openBook)) {
       visionRangeKm = 99999.0;
-      // Discover all villages immediately
       for (final v in map.villages) {
         discoveredVillageIDs.add(v.id);
       }
@@ -455,18 +461,39 @@ class GameManager extends ChangeNotifier {
 
     // Initialize player character at their capital city
     final startCity = getPlayerVillages('player').firstOrNull;
+    final startGold = 150 + (origin?.bonusGold ?? 0);
     playerCharacter = PlayerCharacter(
+      name: characterName,
+      origin: origin,
       currentCityId: startCity?.id,
-      gold: 150,
+      gold: startGold,
+      combatSkill: 1 + (origin?.bonusCombat ?? 0),
+      leadershipSkill: 1 + (origin?.bonusLeadership ?? 0),
+      tacticsSkill: 1 + (origin?.bonusTactics ?? 0),
+      tradeSkill: 1 + (origin?.bonusTrade ?? 0),
+      scoutingSkill: 1 + (origin?.bonusScouting ?? 0),
+      packMules: (origin?.startsWithPackMule ?? false) ? 1 : 0,
     );
 
-    // Create player's starting warband (3 militia + 1 spearman)
+    // Create player's starting warband
     if (startCity != null) {
       final startingUnits = <Unit>[
-        ...List.generate(3, (_) => Unit.create(UnitType.militia, 'player', startCity.coordinates)),
+        ...List.generate(
+          3 + (origin?.bonusMilitia ?? 0),
+          (_) => Unit.create(UnitType.militia, 'player', startCity.coordinates),
+        ),
         Unit.create(UnitType.spearman, 'player', startCity.coordinates),
+        ...List.generate(
+          origin?.bonusSwordsmen ?? 0,
+          (_) => Unit.create(UnitType.swordsman, 'player', startCity.coordinates),
+        ),
       ];
       createArmy(startingUnits, startCity.id, 'player');
+    }
+
+    // Create initial story mission from origin
+    if (origin != null && startCity != null) {
+      _createInitialMission(origin, startCity.id);
     }
 
     // Wire game loop callbacks
@@ -474,6 +501,19 @@ class GameManager extends ChangeNotifier {
     gameLoop.onArrival = _onPlayerArrival;
 
     notifyListeners();
+  }
+
+  void _createInitialMission(CharacterOrigin origin, String startCityId) {
+    final neighbors = getNeighbors(startCityId);
+    if (neighbors.isEmpty) return;
+    final nearest = neighbors.first;
+    final nearestName = getVillageDisplayName(nearest);
+    final mission = origin.createInitialMission(
+      startCityId: startCityId,
+      nearestCityId: nearest.id,
+      nearestCityName: nearestName,
+    );
+    playerCharacter?.activeMissions.add(mission);
   }
 
   void resetGame() {
@@ -1410,8 +1450,87 @@ class GameManager extends ChangeNotifier {
     }
 
     pc.checkProgression();
-    gameLoop.pause();
+    checkMissions(cityId);
+    // Keep world ticking at normal speed while at city
+    gameLoop.setSpeed(GameSpeed.normal);
     notifyListeners();
+  }
+
+  /// Check all active missions for objective completion.
+  void checkMissions([String? arrivedCityId]) {
+    final pc = playerCharacter;
+    if (pc == null) return;
+
+    for (final mission in pc.activeMissions) {
+      if (mission.state != MissionState.active) continue;
+
+      for (final obj in mission.objectives) {
+        if (obj.completed) continue;
+
+        switch (obj.type) {
+          case ObjectiveType.travelTo:
+            if (arrivedCityId != null && obj.targetCityId == arrivedCityId) {
+              // For delivery missions, check cargo requirement first
+              final cargoObj = mission.objectives
+                  .where((o) => o.type == ObjectiveType.haveCargo && !o.completed)
+                  .firstOrNull;
+              if (cargoObj == null || _checkCargoObjective(cargoObj, pc)) {
+                obj.markComplete();
+                cargoObj?.markComplete();
+              }
+            }
+          case ObjectiveType.haveCargo:
+            _checkCargoObjective(obj, pc);
+          case ObjectiveType.winBattles:
+            if (pc.battlesWon >= obj.targetAmount) obj.markComplete();
+          case ObjectiveType.recruitUnits:
+            final warband = playerWarband;
+            if (warband != null && warband.unitCount >= obj.targetAmount) {
+              obj.markComplete();
+            }
+          case ObjectiveType.earnGold:
+            if (pc.totalGoldEarned >= obj.targetAmount) obj.markComplete();
+          case ObjectiveType.deliverGoods:
+            break; // handled via travelTo + haveCargo combo
+        }
+      }
+
+      mission.checkCompletion();
+      if (mission.state == MissionState.completed) {
+        _completeMission(mission);
+      }
+    }
+
+    // Move completed/failed missions
+    pc.activeMissions.removeWhere((m) =>
+        m.state == MissionState.completed || m.state == MissionState.failed);
+  }
+
+  bool _checkCargoObjective(MissionObjective obj, PlayerCharacter pc) {
+    if (obj.targetGoodName == null) return true;
+    final good = TradeGood.values.where((g) => g.name == obj.targetGoodName).firstOrNull;
+    if (good == null) return false;
+    final amount = pc.cargoOf(good);
+    obj.currentAmount = amount;
+    if (amount >= obj.targetAmount) {
+      obj.markComplete();
+      return true;
+    }
+    return false;
+  }
+
+  void _completeMission(Mission mission) {
+    final pc = playerCharacter;
+    if (pc == null) return;
+    if (mission.goldReward > 0) pc.earnGold(mission.goldReward);
+    if (mission.reputationReward > 0 && mission.reputationFactionId != null) {
+      pc.addReputation(mission.reputationFactionId!, mission.reputationReward);
+    }
+    pc.contractsCompleted++;
+    pc.completedMissions.add(mission);
+
+    final reward = mission.goldReward > 0 ? ' (+${mission.goldReward}g)' : '';
+    pendingNotifications.add('Mission complete: ${mission.title}$reward');
   }
 
   /// Start traveling from current city to a connected city.
@@ -1647,6 +1766,94 @@ class GameManager extends ChangeNotifier {
     }
 
     dismissEncounter();
+  }
+
+  /// Resolve a narrative encounter choice.
+  /// Returns the result text to display, or null on failure.
+  String? resolveEncounterChoice(Encounter encounter, EncounterChoice choice) {
+    final pc = playerCharacter;
+    if (pc == null) return null;
+
+    switch (choice.outcome) {
+      case EncounterChoiceOutcome.fight:
+        // Fight is handled separately via resolveEncounterBattle
+        return null;
+
+      case EncounterChoiceOutcome.flee:
+        fleeEncounter();
+        return choice.resultText;
+
+      case EncounterChoiceOutcome.payGold:
+        final cost = choice.goldAmount ?? 0;
+        if (pc.gold < cost) return null;
+        pc.gold -= cost;
+        dismissEncounter();
+        notifyListeners();
+        return choice.resultText;
+
+      case EncounterChoiceOutcome.gainGold:
+        pc.earnGold(choice.goldAmount ?? 0);
+        dismissEncounter();
+        notifyListeners();
+        return choice.resultText;
+
+      case EncounterChoiceOutcome.gainCargo:
+        final cost = choice.goldAmount ?? 0;
+        if (pc.gold < cost) return null;
+        if (choice.tradeGood != null) {
+          final space = pc.totalCargoCapacity - pc.currentCargoCount;
+          if (space < (choice.tradeGoodAmount ?? 1)) return null;
+          pc.gold -= cost;
+          pc.addCargo(choice.tradeGood!, choice.tradeGoodAmount ?? 1);
+        }
+        dismissEncounter();
+        notifyListeners();
+        return choice.resultText;
+
+      case EncounterChoiceOutcome.recruitUnit:
+        final unitType = choice.unitType ?? encounter.recruitableUnit;
+        if (unitType == null) return null;
+        final warband = playerWarband;
+        final currentSize = warband?.unitCount ?? 0;
+        if (currentSize >= pc.maxWarbandSize) return null;
+        final unit = Unit.create(unitType, 'player', const GeoCoordinate(0, 0));
+        if (warband != null) {
+          warband.addUnits([unit]);
+          updateArmy(warband);
+        } else {
+          final locationId = pc.travelDestinationId ?? pc.travelOriginId ?? '';
+          createArmy([unit], locationId, 'player');
+        }
+        dismissEncounter();
+        notifyListeners();
+        return choice.resultText;
+
+      case EncounterChoiceOutcome.dismiss:
+        dismissEncounter();
+        notifyListeners();
+        return choice.resultText;
+
+      case EncounterChoiceOutcome.loseGold:
+        final amount = choice.goldAmount ?? 0;
+        pc.gold = (pc.gold - amount).clamp(0, pc.gold);
+        dismissEncounter();
+        notifyListeners();
+        return choice.resultText;
+
+      case EncounterChoiceOutcome.loseCargo:
+        if (choice.tradeGood != null) {
+          pc.removeCargo(choice.tradeGood!, choice.tradeGoodAmount ?? 1);
+        }
+        dismissEncounter();
+        notifyListeners();
+        return choice.resultText;
+
+      case EncounterChoiceOutcome.gainReputation:
+        // Could be wired to faction rep later
+        dismissEncounter();
+        notifyListeners();
+        return choice.resultText;
+    }
   }
 
   /// Recruit a wounded soldier from encounter.

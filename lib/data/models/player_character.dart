@@ -1,4 +1,6 @@
 import 'dart:math';
+import 'character_origin.dart';
+import 'mission.dart';
 import 'trade_good.dart';
 
 enum PlayerState { atCity, traveling }
@@ -8,6 +10,9 @@ enum ProgressionStage { wanderer, merchant, mercenary, vassal, lord }
 enum PlayerAllegiance { independent, mercenary, vassal }
 
 class PlayerCharacter {
+  String name;
+  CharacterOrigin? origin;
+
   PlayerState state;
   String? currentCityId;
   String? travelOriginId;
@@ -37,7 +42,12 @@ class PlayerCharacter {
   int contractsCompleted;
   int battlesWon;
 
+  List<Mission> activeMissions;
+  List<Mission> completedMissions;
+
   PlayerCharacter({
+    this.name = '',
+    this.origin,
     this.state = PlayerState.atCity,
     this.currentCityId,
     this.travelOriginId,
@@ -61,8 +71,12 @@ class PlayerCharacter {
     this.totalGoldEarned = 0,
     this.contractsCompleted = 0,
     this.battlesWon = 0,
+    List<Mission>? activeMissions,
+    List<Mission>? completedMissions,
   })  : cargo = cargo ?? {},
-        reputation = reputation ?? {};
+        reputation = reputation ?? {},
+        activeMissions = activeMissions ?? [],
+        completedMissions = completedMissions ?? [];
 
   int get maxWarbandSize => switch (stage) {
         ProgressionStage.wanderer => 10,
@@ -142,6 +156,8 @@ class PlayerCharacter {
   double get scoutingRange => 1.0 + scoutingSkill * 0.1;
 
   Map<String, dynamic> toJson() => {
+    'name': name,
+    'origin': origin?.toJson(),
     'state': state.name,
     'currentCityId': currentCityId,
     'travelOriginId': travelOriginId,
@@ -165,10 +181,16 @@ class PlayerCharacter {
     'totalGoldEarned': totalGoldEarned,
     'contractsCompleted': contractsCompleted,
     'battlesWon': battlesWon,
+    'activeMissions': activeMissions.map((m) => m.toJson()).toList(),
+    'completedMissions': completedMissions.map((m) => m.toJson()).toList(),
   };
 
   factory PlayerCharacter.fromJson(Map<String, dynamic> json) {
     return PlayerCharacter(
+      name: json['name'] as String? ?? '',
+      origin: json['origin'] != null
+          ? CharacterOrigin.fromJson(json['origin'] as Map<String, dynamic>)
+          : null,
       state: PlayerState.values.firstWhere((e) => e.name == json['state'], orElse: () => PlayerState.atCity),
       currentCityId: json['currentCityId'] as String?,
       travelOriginId: json['travelOriginId'] as String?,
@@ -197,6 +219,12 @@ class PlayerCharacter {
       totalGoldEarned: json['totalGoldEarned'] as int? ?? 0,
       contractsCompleted: json['contractsCompleted'] as int? ?? 0,
       battlesWon: json['battlesWon'] as int? ?? 0,
+      activeMissions: (json['activeMissions'] as List<dynamic>?)
+          ?.map((m) => Mission.fromJson(m as Map<String, dynamic>))
+          .toList(),
+      completedMissions: (json['completedMissions'] as List<dynamic>?)
+          ?.map((m) => Mission.fromJson(m as Map<String, dynamic>))
+          .toList(),
     );
   }
 }
