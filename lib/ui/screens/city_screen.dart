@@ -32,7 +32,6 @@ class _CityScreenState extends State<CityScreen>
   late TabController _tabController;
   late String _arrivalNarrative;
 
-  static const _bgColor = Color(0xFF0D0D0D);
   static const _cardColor = Color(0xFF1A1A1A);
   static const _cardAltColor = Color(0xFF1E1E1E);
 
@@ -64,10 +63,7 @@ class _CityScreenState extends State<CityScreen>
     final cityName = game.getVillageDisplayName(widget.city);
     final ownerNat = game.getNationality(widget.city.owner);
 
-    return Container(
-      color: _bgColor,
-      child: SafeArea(
-        child: Column(
+    return Column(
           children: [
             // Header
             Container(
@@ -166,8 +162,6 @@ class _CityScreenState extends State<CityScreen>
               ),
             ),
           ],
-        ),
-      ),
     );
   }
 
