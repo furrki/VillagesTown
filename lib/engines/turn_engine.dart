@@ -332,12 +332,16 @@ class TurnEngine {
       attackerFatigueMod: fatigueMod,
     );
     
-    // Store record for later viewing only if actual combat occurred
+    // Only queue player-involved battles for UI; auto-resolve AI ones
     if (result.rounds.isNotEmpty) {
-      game.pendingBattles.add(result);
+      final playerInvolved = result.attackerOwnerId == 'player' ||
+                             result.defenderOwnerId == 'player';
+      if (playerInvolved) {
+        game.pendingBattles.add(result);
+      } else {
+        game.finalizeBattle(result, result.rounds.length, false);
+      }
     }
-    
-    // Defer consequences to GameManager.finalizeBattle
   }
 
   void _processArmyMovement() {
@@ -432,10 +436,14 @@ class TurnEngine {
     );
     
     if (result.rounds.isNotEmpty) {
-      game.pendingBattles.add(result);
+      final playerInvolved = result.attackerOwnerId == 'player' ||
+                             result.defenderOwnerId == 'player';
+      if (playerInvolved) {
+        game.pendingBattles.add(result);
+      } else {
+        game.finalizeBattle(result, result.rounds.length, false);
+      }
     }
-
-    // Defer consequences to GameManager.finalizeBattle
   }
 
   /// Trigger combat immediately (called when attacking enemy village)

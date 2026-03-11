@@ -22,10 +22,9 @@ class RtsGameView extends StatefulWidget {
 
 class _RtsGameViewState extends State<RtsGameView> {
   String? _toastMessage;
-  bool _showTravelPicker = false;
   bool _showWarband = false;
   bool _showCargo = false;
-  bool _showCityPanel = true; // auto-open city panel on arrival
+  bool _showCityPanel = true;
 
   @override
   void initState() {
@@ -49,23 +48,18 @@ class _RtsGameViewState extends State<RtsGameView> {
         // Tapped current city — toggle city panel
         setState(() => _showCityPanel = !_showCityPanel);
       } else if (game.areNeighbors(pc.currentCityId!, village.id)) {
-        // Tapped connected city — start travel
+        // Tapped connected city — just go there, Bannerlord style
         game.startTravel(village.id);
-        setState(() {
-          _showTravelPicker = false;
-          _showCityPanel = false;
-        });
+        setState(() => _showCityPanel = false);
       } else {
-        _showToast('Not connected to ${game.getVillageDisplayName(village)}');
+        _showToast('No road to ${game.getVillageDisplayName(village)}');
       }
     }
   }
 
-  void _openTravelPicker() {
-    setState(() {
-      _showTravelPicker = !_showTravelPicker;
-      if (_showTravelPicker) _showCityPanel = false;
-    });
+  void _leaveCity() {
+    // Just close city panel so player sees the map and can tap a destination
+    setState(() => _showCityPanel = false);
   }
 
   void _showMenuDialog() {
@@ -179,13 +173,13 @@ class _RtsGameViewState extends State<RtsGameView> {
                   ),
                 ),
 
-              // City action bar (when city panel is hidden)
+              // Hint bar when map is visible at city (city panel closed)
               if (isAtCity && !_showCityPanel)
                 Positioned(
                   left: 16,
                   right: 16,
                   bottom: MediaQuery.of(context).padding.bottom + 12,
-                  child: _buildCityActionBar(game),
+                  child: _buildMapHintBar(game),
                 ),
 
               // HUD overlay — always on top
@@ -199,10 +193,6 @@ class _RtsGameViewState extends State<RtsGameView> {
                   onMenuTap: () => _showMenuDialog(),
                 ),
               ),
-
-              // Travel picker overlay
-              if (_showTravelPicker)
-                _buildCityTravelPicker(game),
 
               // Warband panel overlay
               if (_showWarband)
@@ -278,7 +268,7 @@ class _RtsGameViewState extends State<RtsGameView> {
     );
   }
 
-  /// Compact bottom panel for city — shows header + tabs over the map
+  /// Bottom panel for city — pixel art header + tabs
   Widget _buildCityBottomPanel(GameManager game, PlayerCharacter pc) {
     return Container(
       decoration: BoxDecoration(
@@ -300,14 +290,13 @@ class _RtsGameViewState extends State<RtsGameView> {
               ),
             ),
           ),
-          // City screen content fills the rest
           Expanded(
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               child: CityScreen(
                 city: game.playerCurrentCity!,
                 player: pc,
-                onLeave: _openTravelPicker,
+                onLeave: _leaveCity,
                 showToast: _showToast,
               ),
             ),
@@ -317,11 +306,11 @@ class _RtsGameViewState extends State<RtsGameView> {
     );
   }
 
-  /// Floating action bar when city panel is collapsed — quick access buttons
-  Widget _buildCityActionBar(GameManager game) {
+  /// Hint bar when looking at map from city — tells player to tap a city
+  Widget _buildMapHintBar(GameManager game) {
     final cityName = game.getVillageDisplayName(game.playerCurrentCity!);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A).withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(12),
@@ -346,112 +335,11 @@ class _RtsGameViewState extends State<RtsGameView> {
             ),
           ),
           const Spacer(),
-          _actionChip('Trade', Icons.store, () {
-            setState(() => _showCityPanel = true);
-          }),
-          const SizedBox(width: 6),
-          _actionChip('Leave', Icons.directions_walk, _openTravelPicker),
+          Text(
+            'Tap a city to travel',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12, fontStyle: FontStyle.italic),
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _actionChip(String label, IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Colors.white54, size: 14),
-            const SizedBox(width: 4),
-            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCityTravelPicker(GameManager game) {
-    final destinations = game.travelDestinations;
-    return Positioned(
-      top: MediaQuery.of(context).size.height * 0.15,
-      left: 24,
-      right: 24,
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          constraints: const BoxConstraints(maxHeight: 350),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1A),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.8),
-                blurRadius: 20,
-                spreadRadius: 5,
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    const Icon(Icons.map, color: Colors.blue, size: 18),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Travel to...',
-                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => setState(() => _showTravelPicker = false),
-                      child: const Icon(Icons.close, color: Colors.white38, size: 20),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1, color: Color(0xFF333333)),
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  itemCount: destinations.length,
-                  itemBuilder: (context, index) {
-                    final dest = destinations[index];
-                    final name = game.getVillageDisplayName(dest);
-                    final owner = dest.owner == 'neutral'
-                        ? 'Neutral'
-                        : game.getNationality(dest.owner)?.name ?? dest.owner;
-                    return ListTile(
-                      dense: true,
-                      visualDensity: VisualDensity.compact,
-                      title: Text(name, style: const TextStyle(color: Colors.white, fontSize: 14)),
-                      subtitle: Text('$owner | ${dest.trait.name}', style: const TextStyle(color: Colors.white38, fontSize: 11)),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.white24),
-                      onTap: () {
-                        game.startTravel(dest.id);
-                        setState(() {
-                          _showTravelPicker = false;
-                          _showCityPanel = false;
-                        });
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

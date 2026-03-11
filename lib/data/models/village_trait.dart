@@ -26,6 +26,17 @@ enum VillageTrait {
         none => {},
       };
 
+  /// Asset image path for city header illustration.
+  String get cityImageAsset => switch (this) {
+        fertile => 'assets/images/cities/fertile.jpeg',
+        forested => 'assets/images/cities/forested.jpeg',
+        mountainous => 'assets/images/cities/mountainous.jpeg',
+        tradeCrossroads => 'assets/images/cities/trade_crossroads.jpeg',
+        coastal => 'assets/images/cities/coastal.jpeg',
+        strategic => 'assets/images/cities/strategic.jpeg',
+        none => 'assets/images/cities/none.jpeg',
+      };
+
   /// Extra garrison regen rate multiplier for strategic trait.
   double get garrisonRegenBonus => this == strategic ? 0.25 : 0.0;
 

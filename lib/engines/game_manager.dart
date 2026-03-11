@@ -808,13 +808,21 @@ class GameManager extends ChangeNotifier {
     );
 
     if (result.rounds.isNotEmpty) {
-      pendingBattles.add(result);
       village.underSiege = false; // Battle resolving the siege
 
       // Reset besiegers to stationed state (battle will determine outcome)
       for (final army in besiegers) {
         army.state = ArmyState.stationed;
         army.siegeTurns = 0;
+      }
+
+      // Only queue player-involved battles for UI display; auto-resolve AI ones
+      final playerInvolved = result.attackerOwnerId == 'player' ||
+                             result.defenderOwnerId == 'player';
+      if (playerInvolved) {
+        pendingBattles.add(result);
+      } else {
+        finalizeBattle(result, result.rounds.length, false);
       }
 
       addTurnEvent(GeneralEvent(text: '${village.name} garrison sallied out!'));
@@ -1451,8 +1459,8 @@ class GameManager extends ChangeNotifier {
 
     pc.checkProgression();
     checkMissions(cityId);
-    // Keep world ticking at normal speed while at city
-    gameLoop.setSpeed(GameSpeed.normal);
+    // Bannerlord-style: world is frozen while at city
+    gameLoop.pause();
     notifyListeners();
   }
 

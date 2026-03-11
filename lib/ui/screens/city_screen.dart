@@ -65,70 +65,112 @@ class _CityScreenState extends State<CityScreen>
 
     return Column(
           children: [
-            // Header
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              color: _cardColor,
-              child: Row(
+            // City header with pixel art background
+            SizedBox(
+              height: 140,
+              width: double.infinity,
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  CountryballAvatar(
-                    size: 36,
-                    owner: widget.city.owner,
-                    nationality: ownerNat,
+                  // Pixel art background
+                  Image.asset(
+                    widget.city.trait.cityImageAsset,
+                    fit: BoxFit.cover,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  // Gradient overlay for readability
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.2),
+                          Colors.black.withValues(alpha: 0.85),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // City info overlaid at bottom
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    bottom: 10,
+                    child: Row(
                       children: [
-                        Text(
-                          cityName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        CountryballAvatar(
+                          size: 32,
+                          owner: widget.city.owner,
+                          nationality: ownerNat,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                cityName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  shadows: [Shadow(blurRadius: 4, color: Colors.black)],
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${widget.city.trait.emoji} ${widget.city.trait.displayName}'
+                                '  |  Pop: ${widget.city.population}'
+                                '  |  Garrison: ${widget.city.garrisonStrength}/${widget.city.garrisonMaxStrength}',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.7),
+                                  fontSize: 10,
+                                  shadows: const [Shadow(blurRadius: 4, color: Colors.black)],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${widget.city.trait.emoji} ${widget.city.trait.displayName}'
-                          '  |  Pop: ${widget.city.population}'
-                          '  |  Garrison: ${widget.city.garrisonStrength}/${widget.city.garrisonMaxStrength}',
-                          style: const TextStyle(
-                              color: Colors.white54, fontSize: 11),
+                        GestureDetector(
+                          onTap: widget.onLeave,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.withValues(alpha: 0.5)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.map, size: 14, color: Colors.blueAccent),
+                                SizedBox(width: 4),
+                                Text('Map', style: TextStyle(color: Colors.blueAccent, fontSize: 12, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  FilledButton.icon(
-                    onPressed: widget.onLeave,
-                    icon: const Icon(Icons.logout, size: 16),
-                    label: const Text('Leave City'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.red.withValues(alpha: 0.25),
-                      foregroundColor: Colors.redAccent,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 8),
-                      textStyle: const TextStyle(fontSize: 12),
+                  // Narrative text overlaid at top
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    top: 8,
+                    child: Text(
+                      _arrivalNarrative,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                        height: 1.3,
+                        shadows: const [Shadow(blurRadius: 6, color: Colors.black)],
+                      ),
                     ),
                   ),
                 ],
-              ),
-            ),
-            // Arrival narrative
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              color: const Color(0xFF111118),
-              child: Text(
-                _arrivalNarrative,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
-                  height: 1.4,
-                ),
               ),
             ),
             // Tabs
