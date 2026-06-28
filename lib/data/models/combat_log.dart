@@ -133,6 +133,30 @@ class FormationModifiers {
   });
 }
 
+/// One sequential engagement of a battle: the open-field clash, or the
+/// city assault that follows it. The visual layer plays these in order so the
+/// player sees the field battle, then survivors push into the city.
+class BattleEngagement {
+  final bool isCityAssault; // false = open field, true = inside-the-walls street fight
+  final int attackerStart; // attackers entering this engagement
+  final int defenderStart; // field: mobile defender army; city: garrison defenders
+  final int attackerSurvivors; // attackers still standing when it ends
+  final int defenderSurvivors;
+  final bool attackerWon;
+
+  const BattleEngagement({
+    required this.isCityAssault,
+    required this.attackerStart,
+    required this.defenderStart,
+    required this.attackerSurvivors,
+    required this.defenderSurvivors,
+    required this.attackerWon,
+  });
+
+  int get attackerLosses => attackerStart - attackerSurvivors;
+  int get defenderLosses => defenderStart - defenderSurvivors;
+}
+
 /// Complete battle record with phase-based combat.
 class BattleRecord {
   final String id;
@@ -146,6 +170,7 @@ class BattleRecord {
   final String locationName;
   final List<BattleRound> rounds; // Legacy compatibility
   final List<PhaseResult> phases; // New phase-based results
+  final List<BattleEngagement> engagements; // Sequential field -> city engagements
   final bool attackerWon;
   final int initialAttackerCount;
   final int initialDefenderCount;
@@ -177,6 +202,7 @@ class BattleRecord {
     required this.locationName,
     required this.rounds,
     this.phases = const [],
+    this.engagements = const [],
     required this.attackerWon,
     required this.initialAttackerCount,
     required this.initialDefenderCount,
@@ -204,6 +230,25 @@ class BattleRecord {
       phases.isNotEmpty
           ? phases.fold(0, (sum, p) => sum + p.attackerKills)
           : rounds.fold(0, (sum, r) => sum + r.defenderLosses);
+
+  /// The open-field engagement, if one was fought.
+  BattleEngagement? get fieldEngagement {
+    for (final e in engagements) {
+      if (!e.isCityAssault) return e;
+    }
+    return null;
+  }
+
+  /// The city-assault engagement, if the attackers reached the walls.
+  BattleEngagement? get cityEngagement {
+    for (final e in engagements) {
+      if (e.isCityAssault) return e;
+    }
+    return null;
+  }
+
+  /// True when the battle includes a street fight inside the city.
+  bool get hasCityAssault => cityEngagement != null;
 
   /// Get kills by phase for display.
   Map<CombatPhase, (int attackerKills, int defenderKills)> get killsByPhase {

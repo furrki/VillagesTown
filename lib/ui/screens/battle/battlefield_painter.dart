@@ -15,11 +15,23 @@ class BattlefieldPainter extends CustomPainter {
   final double time;
   final List<AtmosphericParticle> particles;
 
+  /// 0 = open field, 1 = inside the city walls. Drives the scene morph.
+  final double cityProgress;
+
+  /// 0 = old flag flying, 1 = conqueror's flag fully raised.
+  final double flagRaiseProgress;
+  final Color attackerColor;
+  final Color defenderColor;
+
   BattlefieldPainter({
     required this.terrain,
     required this.isSiege,
     required this.time,
     required this.particles,
+    this.cityProgress = 0.0,
+    this.flagRaiseProgress = 0.0,
+    this.attackerColor = Colors.red,
+    this.defenderColor = Colors.blue,
   });
 
   @override
@@ -37,8 +49,15 @@ class BattlefieldPainter extends CustomPainter {
     _drawGround(canvas, size);
 
     // City walls if siege
-    if (isSiege) {
+    if (isSiege || cityProgress > 0) {
       _drawCityWalls(canvas, size);
+    }
+
+    // As the attack pushes inside, the walls rise around the view and a gate
+    // flagpole comes into play for the flag-raise moment.
+    if (cityProgress > 0) {
+      _drawCityInterior(canvas, size);
+      _drawGateFlag(canvas, size);
     }
 
     // Atmospheric particles
@@ -309,6 +328,102 @@ class BattlefieldPainter extends CustomPainter {
     );
   }
 
+  /// Buildings closing in on both flanks as the fight moves into the streets.
+  void _drawCityInterior(Canvas canvas, Size size) {
+    final p = Curves.easeOut.transform(cityProgress.clamp(0.0, 1.0));
+    final groundY = size.height * 0.5;
+
+    // Cobblestone tint over the ground
+    canvas.drawRect(
+      Rect.fromLTWH(0, groundY, size.width, size.height * 0.5),
+      Paint()..color = const Color(0xFF3a3530).withValues(alpha: 0.55 * p),
+    );
+
+    // Flanking rows of houses sliding in from the edges
+    final houseColors = [const Color(0xFF6b5b4a), const Color(0xFF5a4d3e), const Color(0xFF746252)];
+    void houseRow(bool left) {
+      for (int i = 0; i < 4; i++) {
+        final w = 46.0 + i * 4;
+        final h = 70.0 + (i.isEven ? 18 : 0);
+        final baseX = left ? -60.0 + i * 52 : size.width + 60.0 - (i + 1) * 52;
+        final slide = (left ? -1 : 1) * (1 - p) * 120;
+        final rect = Rect.fromLTWH(baseX + slide, groundY - h, w, h);
+        canvas.drawRect(rect, Paint()..color = houseColors[i % 3].withValues(alpha: 0.9 * p));
+        // Roof
+        final roof = Path()
+          ..moveTo(rect.left - 4, rect.top)
+          ..lineTo(rect.center.dx, rect.top - 18)
+          ..lineTo(rect.right + 4, rect.top)
+          ..close();
+        canvas.drawPath(roof, Paint()..color = const Color(0xFF3e2f25).withValues(alpha: 0.9 * p));
+        // Windows
+        final winPaint = Paint()..color = const Color(0xFFffcf73).withValues(alpha: 0.5 * p);
+        canvas.drawRect(Rect.fromLTWH(rect.left + 10, rect.top + 16, 10, 14), winPaint);
+        canvas.drawRect(Rect.fromLTWH(rect.right - 20, rect.top + 16, 10, 14), winPaint);
+      }
+    }
+
+    houseRow(true);
+    houseRow(false);
+  }
+
+  /// The gate flagpole. As [flagRaiseProgress] runs 0→1 the defender banner is
+  /// hauled down and the conqueror's colours rise in its place.
+  void _drawGateFlag(Canvas canvas, Size size) {
+    if (flagRaiseProgress <= 0 && isSiege == false && cityProgress < 1) return;
+
+    final poleX = size.width * 0.5;
+    final groundY = size.height * 0.48;
+    final poleTop = size.height * 0.16;
+    final poleHeight = groundY - poleTop;
+
+    // Pole
+    canvas.drawRect(
+      Rect.fromLTWH(poleX - 2.5, poleTop, 5, poleHeight),
+      Paint()..color = const Color(0xFF2a2018),
+    );
+    // Finial
+    canvas.drawCircle(Offset(poleX, poleTop), 5, Paint()..color = const Color(0xFFd9b25a));
+
+    final raise = Curves.easeInOut.transform(flagRaiseProgress.clamp(0.0, 1.0));
+
+    // Defender flag descends in the first half, attacker flag climbs in the second.
+    final defenderY = poleTop + raise.clamp(0.0, 1.0) * (poleHeight - 30);
+    if (raise < 0.98) {
+      _drawBanner(canvas, Offset(poleX, defenderY), defenderColor, 1 - raise);
+    }
+    if (raise > 0.0) {
+      final attackerY = poleTop + (1 - raise) * (poleHeight - 30);
+      _drawBanner(canvas, Offset(poleX, attackerY), attackerColor, raise);
+    }
+  }
+
+  void _drawBanner(Canvas canvas, Offset top, Color color, double alpha) {
+    final wave = sin(time * 4) * 4;
+    final w = 54.0;
+    final h = 34.0;
+    final path = Path()
+      ..moveTo(top.dx, top.dy)
+      ..lineTo(top.dx + w, top.dy - 4 + wave)
+      ..lineTo(top.dx + w, top.dy + h - 4 + wave)
+      ..quadraticBezierTo(top.dx + w * 0.5, top.dy + h + 6, top.dx, top.dy + h)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color.withValues(alpha: (0.95 * alpha).clamp(0.0, 1.0)));
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.25 * alpha)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+    // Emblem dot
+    canvas.drawCircle(
+      Offset(top.dx + w * 0.45, top.dy + h * 0.5 + wave),
+      5,
+      Paint()..color = Colors.white.withValues(alpha: 0.7 * alpha),
+    );
+  }
+
   void _drawParticles(Canvas canvas, Size size) {
     for (final particle in particles) {
       final paint = Paint()
@@ -334,7 +449,10 @@ class BattlefieldPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant BattlefieldPainter oldDelegate) =>
-      oldDelegate.time != time || oldDelegate.particles.length != particles.length;
+      oldDelegate.time != time ||
+      oldDelegate.particles.length != particles.length ||
+      oldDelegate.cityProgress != cityProgress ||
+      oldDelegate.flagRaiseProgress != flagRaiseProgress;
 }
 
 class AtmosphericParticle {

@@ -806,7 +806,7 @@ class _TestBattleViewerState extends State<_TestBattleViewer>
     _tickController.repeat();
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
-        simulation.phase = BattlePhase.combat;
+        simulation.phase = BattlePhase.field;
         setState(() {});
       }
     });
@@ -1556,8 +1556,14 @@ class _TestBattleViewerState extends State<_TestBattleViewer>
         return 'PREPARING';
       case BattlePhase.setup:
         return 'DEPLOYING';
-      case BattlePhase.combat:
-        return 'BATTLE';
+      case BattlePhase.field:
+        return 'FIELD BATTLE';
+      case BattlePhase.advance:
+        return 'ADVANCING';
+      case BattlePhase.cityAssault:
+        return 'CITY ASSAULT';
+      case BattlePhase.flagRaise:
+        return 'RAISING FLAG';
       case BattlePhase.victory:
         return 'ATTACKER WINS';
       case BattlePhase.defeat:

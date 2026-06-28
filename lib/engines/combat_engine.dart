@@ -303,8 +303,13 @@ class CombatEngine {
       }
     }
 
-    // Apply defender bonuses
-    _applyDefenderBonuses(defenderUnits, defenderFortressLevel);
+    // Split defenders into the mobile field army and the garrison behind walls.
+    final fieldDefenders = defenderUnits.where((u) => !u.isGarrison).toList();
+    final garrisonDefenders = defenderUnits.where((u) => u.isGarrison).toList();
+
+    // Apply defender (fortress) bonuses ONLY to the garrison troops actually
+    // behind the walls — the field army fighting outside gets no fortress bonus.
+    _applyDefenderBonuses(garrisonDefenders, defenderFortressLevel);
 
     // Formation effectiveness modifier
     final formationMod = attackerFormation.bonusAgainst(defenderFormation);
@@ -317,11 +322,6 @@ class CombatEngine {
     // Fortress cavalry penalty for attackers
     final fortressCavPenalty = _fortressCavalryPenalty(defenderFortressLevel);
 
-    // Simulation state
-    double currentTime = 0;
-    bool battleEnded = false;
-    bool attackerWon = false;
-
     // Initial charge event if cavalry present
     if (attackerUnits.any((u) => u.isCavalry) || defenderUnits.any((u) => u.isCavalry)) {
       events.add(CombatEvent(
@@ -331,8 +331,177 @@ class CombatEngine {
       ));
     }
 
-    // Main simulation loop - fight to the death
-    while (!battleEnded && currentTime < maxBattleDuration) {
+    final isSiege = defendingVillage != null;
+    final engagements = <BattleEngagement>[];
+    double currentTime = 0;
+    bool attackerWon;
+
+    if (isSiege && fieldDefenders.isNotEmpty && garrisonDefenders.isNotEmpty) {
+      // Siege with both a field army and a garrison: field clash, then assault.
+      final attStart = attackerUnits.where((u) => u.isAlive).length;
+      final defStart = fieldDefenders.where((u) => u.isAlive).length;
+      final fieldWon = _runEngagement(
+        attackerUnits,
+        fieldDefenders,
+        events: events,
+        formationMod: formationMod,
+        defenderFormationMod: defenderFormationMod,
+        enemyChargeModForAttacker: enemyChargeModForAttacker,
+        enemyChargeModForDefender: enemyChargeModForDefender,
+        fortressCavPenalty: 1.0, // Field army is outside the walls.
+        startTime: currentTime,
+      );
+      currentTime = _lastEventTime(events, currentTime);
+      final attAfterField = attackerUnits.where((u) => u.isAlive).length;
+      engagements.add(BattleEngagement(
+        isCityAssault: false,
+        attackerStart: attStart,
+        defenderStart: defStart,
+        attackerSurvivors: attAfterField,
+        defenderSurvivors: fieldDefenders.where((u) => u.isAlive).length,
+        attackerWon: fieldWon,
+      ));
+
+      if (attAfterField == 0) {
+        // Attackers wiped out in the field — no assault.
+        attackerWon = false;
+      } else {
+        final survivors = attackerUnits.where((u) => u.isAlive).toList();
+        final cityAttStart = survivors.length;
+        final cityDefStart = garrisonDefenders.where((u) => u.isAlive).length;
+        final cityWon = _runEngagement(
+          survivors,
+          garrisonDefenders,
+          events: events,
+          formationMod: formationMod,
+          defenderFormationMod: defenderFormationMod,
+          enemyChargeModForAttacker: enemyChargeModForAttacker,
+          enemyChargeModForDefender: enemyChargeModForDefender,
+          fortressCavPenalty: fortressCavPenalty,
+          startTime: currentTime,
+        );
+        currentTime = _lastEventTime(events, currentTime);
+        engagements.add(BattleEngagement(
+          isCityAssault: true,
+          attackerStart: cityAttStart,
+          defenderStart: cityDefStart,
+          attackerSurvivors: survivors.where((u) => u.isAlive).length,
+          defenderSurvivors: garrisonDefenders.where((u) => u.isAlive).length,
+          attackerWon: cityWon,
+        ));
+        attackerWon = cityWon;
+      }
+    } else if (isSiege && fieldDefenders.isEmpty && garrisonDefenders.isNotEmpty) {
+      // Pure city assault, no field army.
+      final attStart = attackerUnits.where((u) => u.isAlive).length;
+      final defStart = garrisonDefenders.where((u) => u.isAlive).length;
+      attackerWon = _runEngagement(
+        attackerUnits,
+        garrisonDefenders,
+        events: events,
+        formationMod: formationMod,
+        defenderFormationMod: defenderFormationMod,
+        enemyChargeModForAttacker: enemyChargeModForAttacker,
+        enemyChargeModForDefender: enemyChargeModForDefender,
+        fortressCavPenalty: fortressCavPenalty,
+        startTime: currentTime,
+      );
+      currentTime = _lastEventTime(events, currentTime);
+      engagements.add(BattleEngagement(
+        isCityAssault: true,
+        attackerStart: attStart,
+        defenderStart: defStart,
+        attackerSurvivors: attackerUnits.where((u) => u.isAlive).length,
+        defenderSurvivors: garrisonDefenders.where((u) => u.isAlive).length,
+        attackerWon: attackerWon,
+      ));
+    } else {
+      // Field battle (no village / no garrison): single open-field engagement.
+      final attStart = attackerUnits.where((u) => u.isAlive).length;
+      final defStart = defenderUnits.where((u) => u.isAlive).length;
+      attackerWon = _runEngagement(
+        attackerUnits,
+        defenderUnits,
+        events: events,
+        formationMod: formationMod,
+        defenderFormationMod: defenderFormationMod,
+        enemyChargeModForAttacker: enemyChargeModForAttacker,
+        enemyChargeModForDefender: enemyChargeModForDefender,
+        fortressCavPenalty: fortressCavPenalty,
+        startTime: currentTime,
+      );
+      currentTime = _lastEventTime(events, currentTime);
+      engagements.add(BattleEngagement(
+        isCityAssault: false,
+        attackerStart: attStart,
+        defenderStart: defStart,
+        attackerSurvivors: attackerUnits.where((u) => u.isAlive).length,
+        defenderSurvivors: defenderUnits.where((u) => u.isAlive).length,
+        attackerWon: attackerWon,
+      ));
+    }
+
+    // Create legacy phases for compatibility with existing UI
+    final phases = _createPhasesFromEvents(events, initialAttackerCount, initialDefenderCount);
+    final legacyRounds = _createLegacyRounds(phases);
+
+    return BattleRecord(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      attackerName: attackerName,
+      defenderName: defenderName,
+      attackerId: attackerId,
+      defenderId: defenderId,
+      attackerOwnerId: attackerOwnerId,
+      defenderOwnerId: defenderOwnerId,
+      originVillageId: originVillageId,
+      locationName: defendingVillage?.name ?? 'Open Field',
+      rounds: legacyRounds,
+      phases: phases,
+      engagements: engagements,
+      attackerWon: attackerWon,
+      initialAttackerCount: initialAttackerCount,
+      initialDefenderCount: initialDefenderCount,
+      initialGarrisonCount: garrisonCount,
+      terrain: terrain,
+      attackerFormation: attackerFormation,
+      defenderFormation: defenderFormation,
+      formationBonus: formationMod,
+      attackerBarracksLevel: attackerBarracksLevel,
+      attackerArcheryLevel: attackerArcheryLevel,
+      attackerStablesLevel: attackerStablesLevel,
+      defenderBarracksLevel: defenderBarracksLevel,
+      defenderArcheryLevel: defenderArcheryLevel,
+      defenderStablesLevel: defenderStablesLevel,
+    );
+  }
+
+  /// The timestamp of the most recent event, used to keep events ordered
+  /// across sequential engagements.
+  double _lastEventTime(List<CombatEvent> events, double fallback) {
+    if (events.isEmpty) return fallback;
+    return events.last.timestamp > fallback ? events.last.timestamp : fallback;
+  }
+
+  /// Run one engagement (open-field clash or city assault) to elimination.
+  /// Mutates unit HP/alive state in place and appends to [events] using a
+  /// continuing timestamp ([startTime]) so events stay ordered across phases.
+  /// Returns true if all defenders are eliminated (attacker wins).
+  bool _runEngagement(
+    List<CombatUnit> attackerUnits,
+    List<CombatUnit> defenderUnits, {
+    required List<CombatEvent> events,
+    required double formationMod,
+    required double defenderFormationMod,
+    required double enemyChargeModForAttacker,
+    required double enemyChargeModForDefender,
+    required double fortressCavPenalty,
+    required double startTime,
+  }) {
+    double currentTime = startTime;
+    bool battleEnded = false;
+    bool attackerWon = false;
+
+    while (!battleEnded && currentTime - startTime < maxBattleDuration) {
       currentTime += tickRate;
 
       final aliveAttackers = attackerUnits.where((u) => u.isAlive).toList();
@@ -406,37 +575,7 @@ class CombatEngine {
       attackerWon = false;
     }
 
-    // Create legacy phases for compatibility with existing UI
-    final phases = _createPhasesFromEvents(events, initialAttackerCount, initialDefenderCount);
-    final legacyRounds = _createLegacyRounds(phases);
-
-    return BattleRecord(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      attackerName: attackerName,
-      defenderName: defenderName,
-      attackerId: attackerId,
-      defenderId: defenderId,
-      attackerOwnerId: attackerOwnerId,
-      defenderOwnerId: defenderOwnerId,
-      originVillageId: originVillageId,
-      locationName: defendingVillage?.name ?? 'Open Field',
-      rounds: legacyRounds,
-      phases: phases,
-      attackerWon: attackerWon,
-      initialAttackerCount: initialAttackerCount,
-      initialDefenderCount: initialDefenderCount,
-      initialGarrisonCount: garrisonCount,
-      terrain: terrain,
-      attackerFormation: attackerFormation,
-      defenderFormation: defenderFormation,
-      formationBonus: formationMod,
-      attackerBarracksLevel: attackerBarracksLevel,
-      attackerArcheryLevel: attackerArcheryLevel,
-      attackerStablesLevel: attackerStablesLevel,
-      defenderBarracksLevel: defenderBarracksLevel,
-      defenderArcheryLevel: defenderArcheryLevel,
-      defenderStablesLevel: defenderStablesLevel,
-    );
+    return attackerWon;
   }
 
   /// Create combat units with initial positions based on formation.

@@ -31,13 +31,23 @@ class OwnerFlagView extends StatelessWidget {
         color: AppTheme.ownerColor(owner).withValues(alpha: 0.3),
       ),
       child: Center(
-        child: ClipOval(
-          child: Image.asset(
-            assetPath,
-            width: size * 0.9,
-            height: size * 0.9,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Text('🏳️', style: TextStyle(fontSize: size * 0.7)),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 400),
+          switchInCurve: Curves.easeOutBack,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) => ScaleTransition(
+            scale: animation,
+            child: FadeTransition(opacity: animation, child: child),
+          ),
+          child: ClipOval(
+            key: ValueKey(owner),
+            child: Image.asset(
+              assetPath,
+              width: size * 0.9,
+              height: size * 0.9,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Text('🏳️', style: TextStyle(fontSize: size * 0.7)),
+            ),
           ),
         ),
       ),

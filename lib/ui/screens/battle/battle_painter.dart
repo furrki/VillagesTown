@@ -72,12 +72,12 @@ class BattlePainter extends CustomPainter {
     // No additional shake here to avoid double-shaking
 
     // Draw clash effect during combat
-    if (simulation.phase == BattlePhase.combat && simulation.totalTime > 3) {
+    if (simulation.isFighting && simulation.combatTime > 3) {
       _drawClashEffect(canvas, simulation.clashPoint);
     }
 
     // Draw cavalry charge trails during combat
-    if (simulation.phase == BattlePhase.combat) {
+    if (simulation.isFighting) {
       _drawCavalryTrails(canvas);
     }
 

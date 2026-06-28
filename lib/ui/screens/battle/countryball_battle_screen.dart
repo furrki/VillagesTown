@@ -93,9 +93,12 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
     // Load faction images
     _loadFactionImages();
 
-    // Build unit lists using RECORD counts (not current army state, which has casualties applied)
+    // Build unit lists using RECORD counts (not current army state, which has casualties applied).
+    // initialDefenderCount already includes the garrison; split it into the mobile
+    // field army and the troops behind the walls.
     final attackerCount = widget.record.initialAttackerCount;
-    final defenderCount = widget.record.initialDefenderCount + widget.record.initialGarrisonCount;
+    final garrisonCount = widget.record.initialGarrisonCount;
+    final fieldDefenderCount = max(0, widget.record.initialDefenderCount - garrisonCount);
 
     // Get unit type samples for visual variety (look up armies if they still exist)
     List<UnitType> attackerSampleTypes = [];
@@ -124,10 +127,13 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
       attackerCount,
       (i) => attackerSampleTypes[i % attackerSampleTypes.length],
     );
-    _defenderUnits = List.generate(
-      defenderCount,
+    _fieldDefenderUnits = List.generate(
+      fieldDefenderCount,
       (i) => defenderSampleTypes[i % defenderSampleTypes.length],
     );
+    // Garrison troops are city militia behind the walls.
+    _garrisonUnits = List.generate(garrisonCount, (_) => UnitType.militia);
+    _defenderUnits = [..._fieldDefenderUnits, ..._garrisonUnits]; // for overview display
 
     // Create simulation
     final size = MediaQuery.of(context).size;
@@ -136,13 +142,15 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
       attackerNationality: _attackerNationality!,
       defenderNationality: _defenderNationality!,
       screenSize: size,
+      isSiege: widget.record.hasCityAssault,
       attackerUnits: _attackerUnits,
-      defenderUnits: _defenderUnits,
+      defenderUnits: _fieldDefenderUnits,
+      garrisonUnits: _garrisonUnits,
       isPlayerAttacker: _isPlayerAttacker,
     );
 
     simulation.onPhaseChanged = () {
-      if (simulation.phase == BattlePhase.combat) {
+      if (simulation.isFighting) {
         _triggerShake();
       }
       setState(() {});
@@ -195,7 +203,9 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
   }
 
   void _endBattle() {
-    final roundsPlayed = simulation.currentRound;
+    // A battle watched to its conclusion applies its full result (all casualties +
+    // conquest). Only a retreat stops short, banking just what played out.
+    final roundsPlayed = _retreated ? simulation.currentRound : widget.record.rounds.length;
     GameManager.shared.finalizeBattle(widget.record, roundsPlayed, _retreated);
     widget.onDismiss();
   }
@@ -250,6 +260,8 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
   // Store unit lists for overview display
   List<UnitType> _attackerUnits = [];
   List<UnitType> _defenderUnits = [];
+  List<UnitType> _fieldDefenderUnits = [];
+  List<UnitType> _garrisonUnits = [];
   BattleFormation? _selectedFormation;
   BattleTerrain _selectedTerrain = BattleTerrain.openField;
   EngagementOrder _selectedEngagement = EngagementOrder.aggressivePush;
@@ -717,7 +729,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
                 _defenderNationality!,
                 widget.record.defenderName,
                 simulation.aliveDefenders,
-                widget.record.initialDefenderCount,
+                simulation.defenderInitialNow,
                 simulation.defenderMorale,
                 isLeft: false,
               ),
@@ -865,8 +877,14 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
         return 'SELECT FORMATION';
       case BattlePhase.setup:
         return '${simulation.playerFormation?.emoji ?? ''} vs ???';
-      case BattlePhase.combat:
-        return '${simulation.playerFormation?.emoji ?? ''} vs ${simulation.enemyFormation?.emoji ?? ''}';
+      case BattlePhase.field:
+        return '⚔️ FIELD BATTLE';
+      case BattlePhase.advance:
+        return '🏰 BREACH THE GATE';
+      case BattlePhase.cityAssault:
+        return '🔥 STREET FIGHT';
+      case BattlePhase.flagRaise:
+        return '🚩 RAISING THE FLAG';
       case BattlePhase.victory:
       case BattlePhase.defeat:
         return _playerWon ? '🏆 VICTORY!' : '💀 DEFEAT';
@@ -901,6 +919,10 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
               isSiege: simulation.isSiege,
               time: simulation.totalTime,
               particles: simulation.particles,
+              cityProgress: simulation.cityProgress,
+              flagRaiseProgress: simulation.flagRaiseProgress,
+              attackerColor: _attackerNationality!.color,
+              defenderColor: _defenderNationality!.color,
             ),
             size: Size.infinite,
           ),
@@ -920,7 +942,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
 
   Widget _buildDiceArea() {
     // Show combat progress during battle
-    if (simulation.phase != BattlePhase.combat) {
+    if (!simulation.isFighting) {
       return const SizedBox(height: 60);
     }
 
@@ -983,8 +1005,8 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
       ),
       child: Row(
         children: [
-          // Retreat button
-          if (!isEnded)
+          // Retreat button — only while actually fighting
+          if (simulation.isFighting)
             Expanded(
               child: OutlinedButton(
                 onPressed: _retreat,
@@ -1007,7 +1029,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
                 ),
               ),
             ),
-          if (!isEnded) const SizedBox(width: 12),
+          if (simulation.isFighting) const SizedBox(width: 12),
 
           // Skip to end button
           if (!isEnded)
