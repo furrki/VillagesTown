@@ -1,4 +1,4 @@
-include ../common/Makefile.common
+include ../bridge/modules/common/Makefile.common
 
 APP_NAME         = VillagesTown
 SCREENSHOT_SLOTS = 1
