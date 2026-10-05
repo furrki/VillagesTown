@@ -1,8 +1,11 @@
+import 'dart:math' show pi;
+
 import 'package:flutter/material.dart';
 import '../../data/models/army.dart';
 import '../../data/models/nationality.dart';
+import '../components/cloth_flag.dart';
 
-class ArmyVisualMarker extends StatelessWidget {
+class ArmyVisualMarker extends StatefulWidget {
   final Army army;
   final Nationality nationality;
   final bool isSelected;
@@ -19,8 +22,31 @@ class ArmyVisualMarker extends StatelessWidget {
   });
 
   @override
+  State<ArmyVisualMarker> createState() => _ArmyVisualMarkerState();
+}
+
+class _ArmyVisualMarkerState extends State<ArmyVisualMarker>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _flagFlutter;
+
+  @override
+  void initState() {
+    super.initState();
+    _flagFlutter = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2600),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _flagFlutter.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final color = nationality.color;
+    final color = widget.nationality.color;
 
     return SizedBox(
       width: 52,
@@ -34,7 +60,8 @@ class ArmyVisualMarker extends StatelessWidget {
             size: const Size(40, 50),
             painter: _BannerPainter(
               color: color,
-              isSelected: isSelected,
+              isSelected: widget.isSelected,
+              animation: _flagFlutter,
             ),
           ),
 
@@ -44,7 +71,7 @@ class ArmyVisualMarker extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: Image.asset(
-                nationality.assetPath,
+                widget.nationality.assetPath,
                 width: 24,
                 height: 24,
                 fit: BoxFit.cover,
@@ -54,7 +81,7 @@ class ArmyVisualMarker extends StatelessWidget {
                   color: color,
                   child: Center(
                     child: Text(
-                      army.emoji,
+                      widget.army.emoji,
                       style: const TextStyle(fontSize: 14),
                     ),
                   ),
@@ -74,7 +101,7 @@ class ArmyVisualMarker extends StatelessWidget {
                 border: Border.all(color: color, width: 1.5),
               ),
               child: Text(
-                '${army.unitCount}',
+                '${widget.army.unitCount}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 11,
@@ -85,7 +112,7 @@ class ArmyVisualMarker extends StatelessWidget {
           ),
 
           // Turns indicator (if marching)
-          if (isMarching)
+          if (widget.isMarching)
             Positioned(
               top: -6,
               right: -4,
@@ -102,7 +129,7 @@ class ArmyVisualMarker extends StatelessWidget {
                   ],
                 ),
                 child: Text(
-                  '${army.turnsUntilArrival}',
+                  '${widget.army.turnsUntilArrival}',
                   style: const TextStyle(
                     color: Colors.black87,
                     fontSize: 9,
@@ -113,7 +140,7 @@ class ArmyVisualMarker extends StatelessWidget {
             ),
 
           // Siege indicator
-          if (isBesieging)
+          if (widget.isBesieging)
             Positioned(
               top: -8,
               right: -8,
@@ -147,52 +174,40 @@ class ArmyVisualMarker extends StatelessWidget {
 class _BannerPainter extends CustomPainter {
   final Color color;
   final bool isSelected;
+  final Animation<double> animation;
 
-  _BannerPainter({required this.color, required this.isSelected});
+  _BannerPainter({
+    required this.color,
+    required this.isSelected,
+    required this.animation,
+  }) : super(repaint: animation);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          color,
-          Color.lerp(color, Colors.black, 0.3)!,
-        ],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-
     // Pole
     final polePaint = Paint()
       ..color = const Color(0xFF5D4037)
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round;
 
+    const left = 3.0;
     canvas.drawLine(
-      Offset(size.width / 2, 0),
-      Offset(size.width / 2, size.height - 8),
+      const Offset(left, 0),
+      Offset(left, size.height - 8),
       polePaint,
     );
 
-    // Banner shape (pennant)
-    final path = Path();
-    final bannerWidth = size.width * 0.85;
-    final left = (size.width - bannerWidth) / 2;
+    final path = ClothFlag.draw(
+      canvas,
+      origin: const Offset(left + 1, 2),
+      width: size.width * 0.82,
+      height: size.height - 12,
+      color: color,
+      phase: animation.value * 2 * pi,
+      flutter: 2.2,
+      shape: ClothFlagShape.pointedPennant,
+    );
 
-    path.moveTo(left, 2);
-    path.lineTo(left + bannerWidth, 2);
-    path.lineTo(left + bannerWidth, 32);
-    path.lineTo(left + bannerWidth / 2, 40); // Point
-    path.lineTo(left, 32);
-    path.close();
-
-    // Shadow
-    canvas.drawShadow(path, Colors.black, 3, true);
-
-    // Banner fill
-    canvas.drawPath(path, paint);
-
-    // Border
     final borderPaint = Paint()
       ..color = isSelected ? Colors.white : Colors.white.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
@@ -210,5 +225,7 @@ class _BannerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BannerPainter oldDelegate) =>
-      color != oldDelegate.color || isSelected != oldDelegate.isSelected;
+      color != oldDelegate.color ||
+      isSelected != oldDelegate.isSelected ||
+      animation != oldDelegate.animation;
 }

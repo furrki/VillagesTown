@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../components/cloth_flag.dart';
 
 enum TerrainType {
   plains,
@@ -399,26 +400,21 @@ class BattlefieldPainter extends CustomPainter {
   }
 
   void _drawBanner(Canvas canvas, Offset top, Color color, double alpha) {
-    final wave = sin(time * 4) * 4;
     final w = 54.0;
     final h = 34.0;
-    final path = Path()
-      ..moveTo(top.dx, top.dy)
-      ..lineTo(top.dx + w, top.dy - 4 + wave)
-      ..lineTo(top.dx + w, top.dy + h - 4 + wave)
-      ..quadraticBezierTo(top.dx + w * 0.5, top.dy + h + 6, top.dx, top.dy + h)
-      ..close();
-    canvas.drawPath(path, Paint()..color = color.withValues(alpha: (0.95 * alpha).clamp(0.0, 1.0)));
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = Colors.black.withValues(alpha: 0.25 * alpha)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
+    ClothFlag.draw(
+      canvas,
+      origin: top,
+      width: w,
+      height: h,
+      color: color,
+      phase: time * 2.1,
+      alpha: (0.95 * alpha).clamp(0.0, 1.0),
+      flutter: 4.2,
     );
     // Emblem dot
     canvas.drawCircle(
-      Offset(top.dx + w * 0.45, top.dy + h * 0.5 + wave),
+      Offset(top.dx + w * 0.45, top.dy + h * 0.5 + sin(time * 2.1 - 1.2) * 1.4),
       5,
       Paint()..color = Colors.white.withValues(alpha: 0.7 * alpha),
     );
