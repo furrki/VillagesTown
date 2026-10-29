@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
@@ -1439,6 +1440,27 @@ class GameManager extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  Timer? _citySaveTimer;
+
+  /// The loop is paused while the player is in a city, so the tick autosave never runs there.
+  /// Every city action ends in notifyListeners: save soon after, once for however many come together.
+  @override
+  void notifyListeners() {
+    super.notifyListeners();
+    if (gameStarted && playerCharacter != null && gameLoop.speed == GameSpeed.paused) {
+      _citySaveTimer ??= Timer(const Duration(seconds: 2), () {
+        _citySaveTimer = null;
+        SaveEngine.saveGame(this);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _citySaveTimer?.cancel();
+    super.dispose();
   }
 
   void _onPlayerArrival(String cityId) {

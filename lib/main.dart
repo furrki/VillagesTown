@@ -45,7 +45,7 @@ class ContentView extends StatefulWidget {
   State<ContentView> createState() => _ContentViewState();
 }
 
-class _ContentViewState extends State<ContentView> {
+class _ContentViewState extends State<ContentView> with WidgetsBindingObserver {
   bool _checkingForSave = true;
   bool _hasSave = false;
   Nationality? _selectedNationality;
@@ -55,7 +55,25 @@ class _ContentViewState extends State<ContentView> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkSave();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Leaving the foreground can end the app: save what was done since the last autosave.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      SaveEngine.saveGame(context.read<GameProvider>().gameManager);
+    }
   }
 
   Future<void> _checkSave() async {

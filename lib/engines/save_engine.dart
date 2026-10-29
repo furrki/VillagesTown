@@ -33,6 +33,7 @@ class SaveEngine {
       'battlesLost': game.battlesLost,
       'peakGold': game.peakGold,
       'peakVillageCount': game.peakVillageCount,
+      'capitalVillageId': game.capitalVillageId,
       'playerCharacter': game.playerCharacter!.toJson(),
       'villages': _serializeVillages(game),
       'armies': _serializeArmies(game),
@@ -81,17 +82,24 @@ class SaveEngine {
     }
 
     // Restore village states
-    _restoreVillages(game, data['villages'] as List<dynamic>? ?? []);
+    final villagesData = data['villages'] as List<dynamic>? ?? [];
+    _restoreVillages(game, villagesData);
+
+    // setupGame gave every city a new random id. Everything saved that points at a city
+    // (army positions, the character's place and trips, missions) holds the old one.
+    final ids = _newIdsBySavedId(game, villagesData);
 
     // Clear auto-generated armies and restore saved ones
     game.armies.clear();
-    _restoreArmies(game, data['armies'] as List<dynamic>? ?? []);
+    _restoreArmies(game, _remapIds(data['armies'], ids) as List<dynamic>? ?? []);
 
     // Restore player character
-    final pcJson = data['playerCharacter'] as Map<String, dynamic>?;
+    final pcJson = _remapIds(data['playerCharacter'], ids) as Map<String, dynamic>?;
     if (pcJson != null) {
       game.playerCharacter = PlayerCharacter.fromJson(pcJson);
     }
+    final capital = data['capitalVillageId'] as String?;
+    if (capital != null) game.capitalVillageId = ids[capital] ?? capital;
 
     // Mark game as started and wire callbacks
     game.gameStarted = true;
@@ -106,8 +114,35 @@ class SaveEngine {
 
   // --- Village Serialization ---
 
+  /// Saved city id -> the id the same city (matched by name) has in the rebuilt map.
+  /// A save from before ids were written has none, and its references stay as they were.
+  static Map<String, String> _newIdsBySavedId(GameManager game, List<dynamic> villagesData) {
+    final ids = <String, String>{};
+    for (final vData in villagesData) {
+      final map = vData as Map<String, dynamic>;
+      final savedId = map['id'] as String?;
+      final village = game.getVillage(map['name'] as String);
+      if (savedId != null && village != null) ids[savedId] = village.id;
+    }
+    return ids;
+  }
+
+  /// [node] with every string that is a saved city id swapped for its new id, keys included.
+  static dynamic _remapIds(dynamic node, Map<String, String> ids) {
+    if (node is String) return ids[node] ?? node;
+    if (node is List) return node.map((e) => _remapIds(e, ids)).toList();
+    if (node is Map) {
+      // JSON keys are strings; the result must stay a Map<String, dynamic> for the casts that follow.
+      return <String, dynamic>{
+        for (final e in node.entries) ids['${e.key}'] ?? '${e.key}': _remapIds(e.value, ids),
+      };
+    }
+    return node;
+  }
+
   static List<Map<String, dynamic>> _serializeVillages(GameManager game) {
     return game.map.villages.map((v) => {
+      'id': v.id,
       'name': v.name,
       'owner': v.owner,
       'garrisonStrength': v.garrisonStrength,
