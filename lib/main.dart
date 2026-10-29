@@ -91,6 +91,9 @@ class _ContentViewState extends State<ContentView> {
           _wasInGame = false;
           _selectedNationality = null;
           _characterName = null;
+          // The game may have autosaved, so the menu must not trust the startup check.
+          _checkingForSave = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) => _checkSave());
         }
 
         if (_checkingForSave) {

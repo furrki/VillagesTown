@@ -449,8 +449,10 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
                 child: _selectedNationality != null
                     ? ElevatedButton(
                         key: ValueKey(_selectedNationality!.id),
-                        onPressed: () {
+                        onPressed: () async {
                           LayoutConstants.impactFeedback(style: HapticStyle.heavy);
+                          // Autosave replaces the only save slot, so a new game must not take it unasked.
+                          if (widget.hasSavedGame && !await _confirmOverwrite()) return;
                           GameManager.shared.selectedVictoryType = _selectedVictory;
                           GameManager.shared.difficulty = _selectedDifficulty;
                           GameManager.shared.activeModifiers = Set.from(_activeModifiers);
@@ -483,6 +485,32 @@ class _NationalitySelectionScreenState extends State<NationalitySelectionScreen>
         ),
       ),
     );
+  }
+
+  Future<bool> _confirmOverwrite() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: const Text('Start a new conquest?', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'Your saved game will be replaced. This cannot be undone.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Keep Save'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text('Start New'),
+          ),
+        ],
+      ),
+    );
+    return ok == true && mounted;
   }
 
   Widget _buildFactionCard(Nationality n, bool isSelected, {required bool isMajor}) {
