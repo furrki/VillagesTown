@@ -335,6 +335,7 @@ class _CityScreenState extends State<CityScreen>
                   () {
                     if (TradeEngine.buy(
                         good, 1, widget.player, widget.city)) {
+                      game.notifyListeners();
                       widget.showToast('Bought 1 ${good.displayName}');
                       setState(() {});
                     } else {
@@ -351,6 +352,7 @@ class _CityScreenState extends State<CityScreen>
                           final earned = TradeEngine.sell(
                               good, 1, widget.player, widget.city);
                           if (earned > 0) {
+                            game.notifyListeners();
                             widget.showToast('Sold for ${earned}g');
                             setState(() {});
                           }
@@ -555,6 +557,7 @@ class _CityScreenState extends State<CityScreen>
                             }
                           }
                           widget.player.gold -= healCost;
+                          game.notifyListeners();
                           widget.showToast(
                               'Healed $woundedCount soldier${woundedCount == 1 ? '' : 's'}');
                           setState(() {});

@@ -11,6 +11,7 @@ import 'package:villages_town/data/models/nationality.dart';
 import 'package:villages_town/data/models/player_character.dart';
 import 'package:villages_town/data/models/unit.dart';
 import 'package:villages_town/data/models/unit_type.dart';
+import 'package:villages_town/engines/game_loop.dart';
 import 'package:villages_town/engines/game_manager.dart';
 import 'package:villages_town/engines/save_engine.dart';
 
@@ -109,6 +110,35 @@ void main() {
     expect(await SaveEngine.hasSave(), isFalse, reason: 'the save waits a moment so a burst of actions writes once');
     await Future<void>.delayed(const Duration(milliseconds: 2400));
     expect(await SaveEngine.hasSave(), isTrue);
+    game.resetGame();
+  });
+
+  test('a save taken on the road resumes the trip', () async {
+    final game = started();
+    final here = game.map.villages[0], there = game.map.villages[1];
+    game.playerCharacter = PlayerCharacter(
+      name: 'Test',
+      currentCityId: here.id,
+      travelOriginId: here.id,
+      travelDestinationId: there.id,
+      state: PlayerState.traveling,
+    );
+    await SaveEngine.saveGame(game);
+    game.resetGame();
+    expect(await SaveEngine.loadGame(game), isTrue);
+    expect(game.gameLoop.speed, GameSpeed.normal);
+    game.resetGame();
+  });
+
+  test('a loaded game keeps the cities the player has found', () async {
+    final game = started();
+    final found = game.map.villages[2];
+    game.playerCharacter = PlayerCharacter(name: 'Test', currentCityId: game.map.villages.first.id);
+    game.discoveredVillageIDs.add(found.id);
+    await SaveEngine.saveGame(game);
+    game.resetGame();
+    expect(await SaveEngine.loadGame(game), isTrue);
+    expect(game.discoveredVillageIDs.map((id) => game.getVillageById(id)?.name), contains(found.name));
     game.resetGame();
   });
 }
