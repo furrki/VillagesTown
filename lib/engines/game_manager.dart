@@ -17,6 +17,7 @@ import '../data/models/unit_type.dart';
 import '../data/models/village.dart';
 import '../data/models/combat_log.dart';
 import '../data/models/difficulty.dart';
+import '../data/models/achievement.dart';
 import '../data/models/game_event.dart';
 import '../data/models/game_modifier.dart';
 import '../data/models/victory_condition.dart';
@@ -79,6 +80,8 @@ class GameManager extends ChangeNotifier {
   VictoryType? selectedVictoryType;
   Map<String, int> battlesWon = {};
   VictoryType? achievedVictoryType;
+  bool gameEndRecorded = false;
+  Future<List<Achievement>>? gameEndRecording;
 
   // World events
   List<GameEvent> activeEvents = [];
@@ -541,6 +544,8 @@ class GameManager extends ChangeNotifier {
     selectedVictoryType = null;
     battlesWon.clear();
     achievedVictoryType = null;
+    gameEndRecorded = false;
+    gameEndRecording = null;
     activeEvents.clear();
     eventHistory.clear();
     difficulty = null;

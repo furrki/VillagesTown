@@ -1,7 +1,11 @@
 // Continue must find the cities again, and a city action must reach the save. Board Appgea/ops#147.
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:villages_town/data/models/army.dart';
+import 'package:villages_town/data/models/difficulty.dart';
+import 'package:villages_town/data/models/game_modifier.dart';
+import 'package:villages_town/data/models/victory_condition.dart';
 import 'package:villages_town/data/models/geo_coordinate.dart';
 import 'package:villages_town/data/models/nationality.dart';
 import 'package:villages_town/data/models/player_character.dart';
@@ -21,6 +25,44 @@ void main() {
     game.gameStarted = true;
     return game;
   }
+
+  test('campaign rules survive a save and reload', () async {
+    final game = started();
+    game.playerCharacter = PlayerCharacter(name: 'Test', currentCityId: game.map.villages.first.id);
+    game.difficulty = Difficulty.hard;
+    game.selectedVictoryType = VictoryType.economic;
+    game.achievedVictoryType = VictoryType.economic;
+    game.activeModifiers = {GameModifier.suddenDeath, GameModifier.goldStandard};
+    game.visionRangeKm = 250;
+    await SaveEngine.saveGame(game);
+    game.resetGame();
+    expect(await SaveEngine.loadGame(game), isTrue);
+    expect(game.difficulty, Difficulty.hard);
+    expect(game.selectedVictoryType, VictoryType.economic);
+    expect(game.achievedVictoryType, VictoryType.economic);
+    expect(game.activeModifiers, {GameModifier.suddenDeath, GameModifier.goldStandard});
+    expect(game.visionRangeKm, 250);
+    game.resetGame();
+  });
+
+  test('old saves retain default rules', () async {
+    final game = started();
+    game.playerCharacter = PlayerCharacter(name: 'Test', currentCityId: game.map.villages.first.id);
+    await SaveEngine.saveGame(game);
+    final prefs = await SharedPreferences.getInstance();
+    final data = jsonDecode(prefs.getString('game_save_v1')!) as Map<String, dynamic>;
+    for (final key in ['difficulty', 'victoryType', 'achievedVictoryType', 'modifiers', 'visionRangeKm']) {
+      data.remove(key);
+    }
+    await prefs.setString('game_save_v1', jsonEncode(data));
+    game.resetGame();
+    expect(await SaveEngine.loadGame(game), isTrue);
+    expect(game.difficulty ?? Difficulty.normal, Difficulty.normal);
+    expect(game.difficulty?.scoreMultiplier ?? 1.0, 1.0);
+    expect(game.visionRangeKm, 400.0);
+    expect(game.activeModifiers, isEmpty);
+    game.resetGame();
+  });
 
   test('a loaded game finds the cities its army, character and capital point at', () async {
     final game = started();

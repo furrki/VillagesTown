@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/models/army.dart';
 import '../data/models/building.dart';
+import '../data/models/difficulty.dart';
+import '../data/models/game_modifier.dart';
+import '../data/models/victory_condition.dart';
 import '../data/models/geo_coordinate.dart';
 import '../data/models/nationality.dart';
 import '../data/models/player_character.dart';
@@ -29,6 +32,11 @@ class SaveEngine {
 
     final data = <String, dynamic>{
       'nationalityId': game.playerNationality?.id,
+      'difficulty': game.difficulty?.name,
+      'victoryType': game.selectedVictoryType?.name,
+      'achievedVictoryType': game.achievedVictoryType?.name,
+      'modifiers': game.activeModifiers.map((m) => m.name).toList(),
+      'visionRangeKm': game.visionRangeKm,
       'currentTurn': game.currentTurn,
       'battlesWon': game.battlesWon.map((k, v) => MapEntry(k, v)),
       'battlesLost': game.battlesLost,
@@ -72,6 +80,13 @@ class SaveEngine {
 
     // Rebuild the map from scratch with the saved nationality
     game.setupGame(nationality);
+    game.difficulty = Difficulty.values.where((d) => d.name == data['difficulty']).firstOrNull ?? game.difficulty;
+    game.selectedVictoryType = VictoryType.values.where((v) => v.name == data['victoryType']).firstOrNull ?? game.selectedVictoryType;
+    game.achievedVictoryType = VictoryType.values.where((v) => v.name == data['achievedVictoryType']).firstOrNull ?? game.achievedVictoryType;
+    if (data['modifiers'] is List) {
+      game.activeModifiers = (data['modifiers'] as List).map((name) => GameModifier.values.where((m) => m.name == name).firstOrNull).whereType<GameModifier>().toSet();
+    }
+    game.visionRangeKm = (data['visionRangeKm'] as num?)?.toDouble() ?? game.visionRangeKm;
 
     // Restore turn state
     game.currentTurn = data['currentTurn'] as int? ?? 1;

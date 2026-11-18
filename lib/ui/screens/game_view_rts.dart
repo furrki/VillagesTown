@@ -12,6 +12,7 @@ import '../panels/warband_panel.dart';
 import '../components/rts_hud.dart';
 import '../components/game_over_overlay.dart';
 import 'battle/countryball_battle_screen.dart';
+import 'victory_screen.dart';
 
 class RtsGameView extends StatefulWidget {
   const RtsGameView({super.key});
@@ -244,6 +245,8 @@ class _RtsGameViewState extends State<RtsGameView> {
                 const Positioned.fill(
                   child: GameOverOverlay(),
                 ),
+              if (game.getWinner() != null)
+                VictoryScreen(key: ValueKey(game.getWinner()!.id), winner: game.getWinner()!),
             ],
           ),
         );

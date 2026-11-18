@@ -29,8 +29,12 @@ class _VictoryScreenState extends State<VictoryScreen> {
     if (_saved) return;
     _saved = true;
     final game = GameManager.shared;
+    if (game.gameEndRecorded) return;
     final isVictory = widget.winner.isHuman;
-    final achievements = await ProgressionEngine.onGameEnd(game, isVictory);
+    final achievements = await (game.gameEndRecording ??=
+        ProgressionEngine.onGameEnd(game, isVictory));
+    game.gameEndRecorded = true;
+    game.gameEndRecording = null;
     if (mounted) {
       setState(() => _newAchievements = achievements);
     }
