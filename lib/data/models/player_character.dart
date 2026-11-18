@@ -42,6 +42,7 @@ class PlayerCharacter {
 
   int totalGoldEarned;
   int contractsCompleted;
+  int salesCompleted;
   int battlesWon;
 
   List<Mission> activeMissions;
@@ -73,6 +74,7 @@ class PlayerCharacter {
     this.scoutingSkill = 1,
     this.totalGoldEarned = 0,
     this.contractsCompleted = 0,
+    this.salesCompleted = 0,
     this.battlesWon = 0,
     List<Mission>? activeMissions,
     List<Mission>? completedMissions,
@@ -184,6 +186,7 @@ class PlayerCharacter {
     'scoutingSkill': scoutingSkill,
     'totalGoldEarned': totalGoldEarned,
     'contractsCompleted': contractsCompleted,
+    'salesCompleted': salesCompleted,
     'battlesWon': battlesWon,
     'activeMissions': activeMissions.map((m) => m.toJson()).toList(),
     'completedMissions': completedMissions.map((m) => m.toJson()).toList(),
@@ -223,6 +226,7 @@ class PlayerCharacter {
       scoutingSkill: json['scoutingSkill'] as int? ?? 1,
       totalGoldEarned: json['totalGoldEarned'] as int? ?? 0,
       contractsCompleted: json['contractsCompleted'] as int? ?? 0,
+      salesCompleted: json['salesCompleted'] as int? ?? 0,
       battlesWon: json['battlesWon'] as int? ?? 0,
       activeMissions: (json['activeMissions'] as List<dynamic>?)
           ?.map((m) => Mission.fromJson(m as Map<String, dynamic>))

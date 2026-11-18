@@ -54,21 +54,24 @@ class TradeEngine {
     GameManager.shared.marketPressure.removeWhere((_, city) => city.isEmpty);
   }
 
-  static int _buyAt(TradeGood good, Village village, double extra) =>
-      (good.basePrice * good.priceModifier(village.trait) * _pressure(good, village, extra)).round();
+  // Trade skill buys up to 15% cheaper and never changes a sale. A sale pays 80% of the price, so a skilled
+  // trader still cannot buy and sell in one city for profit. Why: #2077, a 30% discount with a sale bonus
+  // let skill 11 buy silk for 39g and sell it back for 56g, forever.
+  static int _buyAt(TradeGood good, Village village, PlayerCharacter? player, double extra) =>
+      (good.basePrice * good.priceModifier(village.trait) * _pressure(good, village, extra) * (1 - (player?.tradeDiscount ?? 0)).clamp(0.85, 1.0)).round();
 
-  static int _sellAt(TradeGood good, Village village, double extra) =>
+  static int _sellAt(TradeGood good, Village village, PlayerCharacter? player, double extra) =>
       (good.basePrice * good.priceModifier(village.trait) * 0.8 * _pressure(good, village, extra)).round();
 
-  static int buyPrice(TradeGood good, Village village) => _buyAt(good, village, 0);
+  static int buyPrice(TradeGood good, Village village, [PlayerCharacter? player]) => _buyAt(good, village, player, 0);
 
-  static int sellPrice(TradeGood good, Village village) => _sellAt(good, village, 0);
+  static int sellPrice(TradeGood good, Village village, [PlayerCharacter? player]) => _sellAt(good, village, player, 0);
 
   static bool buy(TradeGood good, int quantity, PlayerCharacter player, Village village) {
     if (player.currentCargoCount + quantity > player.totalCargoCapacity) return false;
     var total = 0;
     for (var i = 0; i < quantity; i++) {
-      total += _buyAt(good, village, i * pressurePerUnit);
+      total += _buyAt(good, village, player, i * pressurePerUnit);
     }
     if (player.gold < total) return false;
 
@@ -84,13 +87,13 @@ class TradeEngine {
 
     var earned = 0;
     for (var i = 0; i < quantity; i++) {
-      earned += _sellAt(good, village, -i * pressurePerUnit);
+      earned += _sellAt(good, village, player, -i * pressurePerUnit);
     }
     player.removeCargo(good, quantity);
     _push(good, village, -quantity * pressurePerUnit);
     player.earnGold(earned);
-    player.contractsCompleted++;
-    if (player.contractsCompleted % 5 == 0) {
+    player.salesCompleted++;
+    if (player.salesCompleted % 5 == 0) {
       player.tradeSkill = (player.tradeSkill + 1).clamp(1, 20);
     }
     return earned;
@@ -113,8 +116,8 @@ class TradeEngine {
       final modifier = good.priceModifier(village.trait);
       return TradePrice(
         good: good,
-        buyPrice: buyPrice(good, village),
-        sellPrice: sellPrice(good, village),
+        buyPrice: buyPrice(good, village, player),
+        sellPrice: sellPrice(good, village, player),
         playerOwned: player.cargoOf(good),
         trend: _trendFromModifier(modifier * _pressure(good, village)),
       );
