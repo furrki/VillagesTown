@@ -4,6 +4,7 @@ import '../../data/models/player.dart';
 import '../../data/models/victory_condition.dart';
 import '../../engines/game_manager.dart';
 import '../../engines/progression_engine.dart';
+import '../../engines/save_engine.dart';
 import '../../engines/victory_engine.dart';
 
 class VictoryScreen extends StatefulWidget {
@@ -31,12 +32,19 @@ class _VictoryScreenState extends State<VictoryScreen> {
     final game = GameManager.shared;
     if (game.gameEndRecorded) return;
     final isVictory = widget.winner.isHuman;
-    final achievements = await (game.gameEndRecording ??=
-        ProgressionEngine.onGameEnd(game, isVictory));
-    game.gameEndRecorded = true;
-    game.gameEndRecording = null;
-    if (mounted) {
-      setState(() => _newAchievements = achievements);
+    final recording = game.gameEndRecording ??=
+        ProgressionEngine.onGameEnd(game, isVictory);
+    try {
+      final achievements = await recording;
+      if (identical(game.gameEndRecording, recording)) {
+        game.gameEndRecorded = true;
+        game.gameEndRecording = null;
+        await SaveEngine.saveGame(game);
+      }
+      if (mounted) setState(() => _newAchievements = achievements);
+    } catch (error, stack) {
+      if (identical(game.gameEndRecording, recording)) game.gameEndRecording = null;
+      debugPrint('Could not record game end: $error\n$stack');
     }
   }
 

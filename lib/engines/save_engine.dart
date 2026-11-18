@@ -35,6 +35,7 @@ class SaveEngine {
       'difficulty': game.difficulty?.name,
       'victoryType': game.selectedVictoryType?.name,
       'achievedVictoryType': game.achievedVictoryType?.name,
+      'gameEndRecorded': game.gameEndRecorded,
       'modifiers': game.activeModifiers.map((m) => m.name).toList(),
       'visionRangeKm': game.visionRangeKm,
       'currentTurn': game.currentTurn,
@@ -83,6 +84,7 @@ class SaveEngine {
     game.difficulty = Difficulty.values.where((d) => d.name == data['difficulty']).firstOrNull ?? game.difficulty;
     game.selectedVictoryType = VictoryType.values.where((v) => v.name == data['victoryType']).firstOrNull ?? game.selectedVictoryType;
     game.achievedVictoryType = VictoryType.values.where((v) => v.name == data['achievedVictoryType']).firstOrNull ?? game.achievedVictoryType;
+    game.gameEndRecorded = data['gameEndRecorded'] as bool? ?? false;
     if (data['modifiers'] is List) {
       game.activeModifiers = (data['modifiers'] as List).map((name) => GameModifier.values.where((m) => m.name == name).firstOrNull).whereType<GameModifier>().toSet();
     }

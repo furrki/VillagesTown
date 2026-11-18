@@ -57,7 +57,7 @@ void main() {
     await prefs.setString('game_save_v1', jsonEncode(data));
     game.resetGame();
     expect(await SaveEngine.loadGame(game), isTrue);
-    expect(game.difficulty ?? Difficulty.normal, Difficulty.normal);
+    expect(game.difficulty, isNull); // Null is the engine's normal default.
     expect(game.difficulty?.scoreMultiplier ?? 1.0, 1.0);
     expect(game.visionRangeKm, 400.0);
     expect(game.activeModifiers, isEmpty);
