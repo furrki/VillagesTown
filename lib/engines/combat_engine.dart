@@ -51,6 +51,8 @@ class CombatUnit {
   double chargeModifier = 1.0;
   double speedModifier = 1.0;
   double attackModifier = 1.0;
+  /// Defense barely changes damage in the formula, so a plan that holds the line cuts damage taken directly.
+  double damageTakenModifier = 1.0;
 
   CombatUnit({
     required this.id,
@@ -58,7 +60,7 @@ class CombatUnit {
     required this.isAttacker,
     this.isGarrison = false,
     required this.position,
-  })  : hp = unit.unitType.stats.hp,
+  })  : hp = unit.currentHP.clamp(1, unit.maxHP),
         attackCooldown = 0,
         ammo = unit.unitType.baseAmmo,
         currentCharge = unit.unitType.baseCharge,
@@ -256,6 +258,8 @@ class CombatEngine {
     BattleTerrain? terrain,
     BattleTactics? attackerTactics,
     BattleTactics? defenderTactics,
+    bool writeAttackerWounds = false,
+    double routBelow = 0,
   }) {
     final events = <CombatEvent>[];
     final initialAttackerCount = attackers.length;
@@ -287,13 +291,25 @@ class CombatEngine {
     }
 
     // Apply engagement order modifiers
+    final attackerOdds = attackers.length / max(1, defenders.length);
     if (attackerTactics != null) {
-      _applyEngagementOrder(attackerUnits, attackerTactics.engagementOrder);
+      _applyEngagementOrder(attackerUnits, attackerTactics.engagementOrder, countRatio: attackerOdds);
       _applyRoleModifiers(attackerUnits, attackerTactics, terrain);
     }
     if (defenderTactics != null) {
-      _applyEngagementOrder(defenderUnits, defenderTactics.engagementOrder);
+      _applyEngagementOrder(defenderUnits, defenderTactics.engagementOrder, countRatio: 1 / max(0.01, attackerOdds));
       _applyRoleModifiers(defenderUnits, defenderTactics, terrain);
+    }
+
+    // Each side's day: nerve, ground, weather. Without it the stronger side always won,
+    // and a fight was decided before it began.
+    final attackerFortune = 0.8 + _random.nextDouble() * 0.4;
+    final defenderFortune = 0.8 + _random.nextDouble() * 0.4;
+    for (final u in attackerUnits) {
+      u.attackModifier *= attackerFortune;
+    }
+    for (final u in defenderUnits) {
+      u.attackModifier *= defenderFortune;
     }
 
     // Apply attacker fatigue (food deprivation + march fatigue) or buff (e.g. crusade)
@@ -429,6 +445,7 @@ class CombatEngine {
         enemyChargeModForDefender: enemyChargeModForDefender,
         fortressCavPenalty: fortressCavPenalty,
         startTime: currentTime,
+        routBelow: routBelow,
       );
       currentTime = _lastEventTime(events, currentTime);
       engagements.add(BattleEngagement(
@@ -439,6 +456,13 @@ class CombatEngine {
         defenderSurvivors: defenderUnits.where((u) => u.isAlive).length,
         attackerWon: attackerWon,
       ));
+    }
+
+    // A warband carries its wounds and its dead out of the fight. Armies keep the round-count casualties.
+    if (writeAttackerWounds) {
+      for (final u in attackerUnits) {
+        u.unit.currentHP = u.isAlive ? u.hp : 0;
+      }
     }
 
     // Create legacy phases for compatibility with existing UI
@@ -496,10 +520,14 @@ class CombatEngine {
     required double enemyChargeModForDefender,
     required double fortressCavPenalty,
     required double startTime,
+    double routBelow = 0,
   }) {
     double currentTime = startTime;
     bool battleEnded = false;
     bool attackerWon = false;
+    // A side breaks and runs once fewer than this many of its men still stand. 0 fights to the last man.
+    final attackerBreaks = (attackerUnits.length * routBelow).ceil();
+    final defenderBreaks = (defenderUnits.length * routBelow).ceil();
 
     while (!battleEnded && currentTime - startTime < maxBattleDuration) {
       currentTime += tickRate;
@@ -508,7 +536,7 @@ class CombatEngine {
       final aliveDefenders = defenderUnits.where((u) => u.isAlive).toList();
 
       // Check win conditions
-      if (aliveAttackers.isEmpty) {
+      if (aliveAttackers.isEmpty || (aliveAttackers.length < attackerBreaks && aliveDefenders.length >= defenderBreaks)) {
         battleEnded = true;
         attackerWon = false;
         events.add(CombatEvent(
@@ -519,7 +547,7 @@ class CombatEngine {
         break;
       }
 
-      if (aliveDefenders.isEmpty) {
+      if (aliveDefenders.isEmpty || aliveDefenders.length < defenderBreaks) {
         battleEnded = true;
         attackerWon = true;
         events.add(CombatEvent(
@@ -792,29 +820,29 @@ class CombatEngine {
     }
   }
 
-  /// Apply engagement order modifiers.
-  void _applyEngagementOrder(List<CombatUnit> units, EngagementOrder order) {
+  /// Apply engagement order modifiers. [countRatio] is this side's men over the enemy's.
+  /// Each order wins somewhere: a push pays when you outnumber them (you can wrap their line),
+  /// holding pays when you are outnumbered (they cannot), and the feint is a coin flip for the desperate.
+  void _applyEngagementOrder(List<CombatUnit> units, EngagementOrder order, {double countRatio = 1}) {
     switch (order) {
       case EngagementOrder.aggressivePush:
+        final envelop = (countRatio - 1).clamp(0.0, 1.0);
         for (final unit in units) {
-          unit.attackModifier *= 1.15;
-          unit.defenseModifier *= 0.90;
+          unit.attackModifier *= 0.95 + 0.35 * envelop;
+          unit.damageTakenModifier *= 1.05;
         }
       case EngagementOrder.holdGround:
+        final outnumbered = (1 / max(0.01, countRatio) - 1).clamp(0.0, 1.0);
         for (final unit in units) {
-          unit.defenseModifier *= 1.15;
           unit.attackModifier *= 0.90;
+          unit.damageTakenModifier *= 0.95 - 0.30 * outnumbered;
           if (unit.isRanged) unit.rangeModifier += 1;
         }
       case EngagementOrder.feignedRetreat:
-        // 50/50 gamble
         final success = _random.nextBool();
         for (final unit in units) {
-          if (success) {
-            unit.attackModifier *= 1.30;
-          } else {
-            unit.attackModifier *= 0.80;
-          }
+          // The loose skirmish line arrives piecemeal, so a feint that works has to work big.
+          unit.attackModifier *= success ? 1.8 : 0.7;
         }
     }
   }
@@ -934,6 +962,7 @@ class CombatEngine {
 
     // Random variance ±10%
     damage *= 0.9 + _random.nextDouble() * 0.2;
+    damage *= target.damageTakenModifier;
 
     // Garrison units are 5% weaker
     if (unit.isGarrison) {

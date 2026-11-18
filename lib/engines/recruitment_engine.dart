@@ -101,7 +101,7 @@ class RecruitmentEngine {
 
     // Add to army at village (owned by same player!)
     final armiesAtVillage = game.getArmiesAt(village.id)
-        .where((a) => a.owner == village.owner)
+        .where((a) => a.owner == village.owner && a.id != game.playerCharacter?.warbandId)
         .toList();
     if (armiesAtVillage.isNotEmpty) {
       final army = armiesAtVillage.first;

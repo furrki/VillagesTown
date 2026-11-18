@@ -6,6 +6,7 @@ import '../data/models/geo_coordinate.dart';
 import '../data/models/nationality.dart';
 import '../data/models/player_character.dart';
 import '../data/models/resource.dart';
+import '../data/models/trade_good.dart';
 import '../data/models/unit.dart';
 import '../data/models/unit_type.dart';
 import 'game_manager.dart';
@@ -38,6 +39,8 @@ class SaveEngine {
       'villages': _serializeVillages(game),
       'armies': _serializeArmies(game),
       'tickCount': game.gameLoop.tickCount,
+      'discoveredVillageIds': game.discoveredVillageIDs.toList(),
+      'marketPressure': game.marketPressure.map((id, city) => MapEntry(id, city.map((g, v) => MapEntry(g.name, v)))),
     };
 
     final prefs = await SharedPreferences.getInstance();
@@ -88,6 +91,17 @@ class SaveEngine {
     // setupGame gave every city a new random id. Everything saved that points at a city
     // (army positions, the character's place and trips, missions) holds the old one.
     final ids = _newIdsBySavedId(game, villagesData);
+    for (final id in data['discoveredVillageIds'] as List<dynamic>? ?? <dynamic>[]) {
+      final mapped = ids['$id'] ?? '$id';
+      if (game.getVillageById(mapped) != null) game.discoveredVillageIDs.add(mapped);
+    }
+    final pressure = _remapIds(data['marketPressure'], ids) as Map<String, dynamic>? ?? {};
+    for (final city in pressure.entries) {
+      for (final g in (city.value as Map<String, dynamic>).entries) {
+        final good = TradeGood.values.where((t) => t.name == g.key).firstOrNull;
+        if (good != null) game.marketPressure.putIfAbsent(city.key, () => {})[good] = (g.value as num).toDouble();
+      }
+    }
 
     // Clear auto-generated armies and restore saved ones
     game.armies.clear();
@@ -96,7 +110,9 @@ class SaveEngine {
     // Restore player character
     final pcJson = _remapIds(data['playerCharacter'], ids) as Map<String, dynamic>?;
     if (pcJson != null) {
-      game.playerCharacter = PlayerCharacter.fromJson(pcJson);
+      final pc = PlayerCharacter.fromJson(pcJson);
+      game.playerCharacter = pc;
+      if (game.playerWarband == null) pc.warbandId = _oldSaveWarband(game, pc)?.id;
     }
     final capital = data['capitalVillageId'] as String?;
     if (capital != null) game.capitalVillageId = ids[capital] ?? capital;
@@ -107,9 +123,21 @@ class SaveEngine {
     game.gameLoop.onTick = game.onGameTickCallback;
     game.gameLoop.onArrival = game.onPlayerArrivalCallback;
     game.gameLoop.tickCount = data['tickCount'] as int? ?? 0;
+    if (game.playerCharacter?.state == PlayerState.traveling) game.gameLoop.start();
 
     game.refreshUI();
     return true;
+  }
+
+  /// A save from before the warband had an id: the old rule took the first player army where the
+  /// character stood, which was often the city's own army. Take the smallest one there instead.
+  static Army? _oldSaveWarband(GameManager game, PlayerCharacter pc) {
+    final here = pc.currentCityId;
+    final candidates = game.armies
+        .where((a) => a.owner == 'player' && (here == null ? a.stationedAt == null : a.stationedAt == here))
+        .toList()
+      ..sort((a, b) => a.unitCount.compareTo(b.unitCount));
+    return candidates.firstOrNull;
   }
 
   // --- Village Serialization ---

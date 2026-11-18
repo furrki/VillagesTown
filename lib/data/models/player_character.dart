@@ -21,6 +21,8 @@ class PlayerCharacter {
   int travelTotalTicks;
 
   int gold;
+  /// The army that travels with the character. The faction's own armies are also owned by 'player'.
+  String? warbandId;
   Map<TradeGood, int> cargo;
   int cargoCapacity;
   int packMules;
@@ -55,6 +57,7 @@ class PlayerCharacter {
     this.travelProgress = 0.0,
     this.travelTotalTicks = 0,
     this.gold = 150,
+    this.warbandId,
     Map<TradeGood, int>? cargo,
     this.cargoCapacity = 20,
     this.packMules = 0,
@@ -165,6 +168,7 @@ class PlayerCharacter {
     'travelProgress': travelProgress,
     'travelTotalTicks': travelTotalTicks,
     'gold': gold,
+    'warbandId': warbandId,
     'cargo': cargo.map((k, v) => MapEntry(k.name, v)),
     'cargoCapacity': cargoCapacity,
     'packMules': packMules,
@@ -198,6 +202,7 @@ class PlayerCharacter {
       travelProgress: (json['travelProgress'] as num?)?.toDouble() ?? 0.0,
       travelTotalTicks: json['travelTotalTicks'] as int? ?? 0,
       gold: json['gold'] as int? ?? 150,
+      warbandId: json['warbandId'] as String?,
       cargo: (json['cargo'] as Map<String, dynamic>?)?.map(
         (k, v) => MapEntry(
           TradeGood.values.firstWhere((e) => e.name == k, orElse: () => TradeGood.grain),

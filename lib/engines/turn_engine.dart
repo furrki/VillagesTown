@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import '../data/models/army.dart';
 import '../data/models/game_modifier.dart';
 import '../data/models/resource.dart';
@@ -12,6 +14,8 @@ import 'combat_engine.dart';
 import 'event_engine.dart';
 import 'game_manager.dart';
 import 'population_engine.dart';
+import 'recruitment_engine.dart';
+import 'trade_engine.dart';
 import 'victory_engine.dart';
 
 class TurnEngine {
@@ -37,9 +41,11 @@ class TurnEngine {
 
     // 2. Tax Collection
     _collectTaxes();
+    _runSteward();
 
     // 2.5 World Events
     EventEngine.processEvents(game);
+    TradeEngine.recoverPrices();
 
     // 3. Army Upkeep
     _processArmyUpkeep();
@@ -96,10 +102,13 @@ class TurnEngine {
   void _processArmyUpkeep() {
     final game = GameManager.shared;
 
+    // The warband is paid from the character's purse each cycle, not from the realm.
+    final warbandId = game.playerCharacter?.warbandId;
     for (final player in game.players) {
       final totalUpkeep = <Resource, int>{};
+      final playerArmies = game.getArmiesFor(player.id).where((a) => a.id != warbandId).toList();
 
-      for (final army in game.getArmiesFor(player.id)) {
+      for (final army in playerArmies) {
         for (final unit in army.units) {
           final stats = unit.unitType.stats;
           for (final entry in stats.upkeep.entries) {
@@ -119,7 +128,6 @@ class TurnEngine {
 
       // Check food starvation for this player's armies
       final foodAfterUpkeep = game.getGlobalResources(player.id)[Resource.food] ?? 0;
-      final playerArmies = game.getArmiesFor(player.id);
 
       for (final army in playerArmies) {
         if (foodAfterUpkeep <= 0) {
@@ -460,6 +468,70 @@ class TurnEngine {
     }
   }
 
+  /// Men each of the player's cities keeps under arms besides its garrison.
+  static const stewardArmyTarget = 20;
+
+  /// Treasury gold the steward never spends on soldiers, so the player can still build.
+  static const stewardGoldReserve = 250;
+
+  /// Gold the steward pays merchants for one food. Dear on purpose: a farm pays for itself.
+  static const stewardFoodPrice = 3;
+
+  /// Turns of food the steward keeps in store.
+  static const stewardFoodTurns = 2;
+
+  /// The lord is on the road, so the player's cities feed and defend themselves from the treasury.
+  /// Without this the realm's food ran out by turn 10 while 4,000 gold sat idle, the garrisons
+  /// starved, and the AI took every city within 25 turns (tool/balance_sim.dart).
+  /// Building stays the player's call.
+  void _runSteward() {
+    _stewardFood();
+    _stewardDefense();
+  }
+
+  void _stewardFood() {
+    final game = GameManager.shared;
+    final warbandId = game.playerCharacter?.warbandId;
+    final cities = game.getPlayerVillages('player');
+    if (cities.isEmpty) return;
+    final armyFood = game
+        .getArmiesFor('player')
+        .where((a) => a.id != warbandId)
+        .fold<int>(0, (n, a) => n + a.units.fold<int>(0, (m, u) => m + (u.unitType.stats.upkeep[Resource.food] ?? 0)));
+    // Each city stores for its own people. Soldiers draw from the whole realm, so their share sits in the capital.
+    final store = cities.firstWhere((c) => c.id == game.capitalVillageId, orElse: () => cities.first);
+    for (final city in cities) {
+      var want = city.population ~/ 10 * stewardFoodTurns;
+      if (city == store) want += armyFood * stewardFoodTurns;
+      final short = want - city.getResource(Resource.food);
+      if (short <= 0) continue;
+      final gold = game.getGlobalResources('player')[Resource.gold] ?? 0;
+      final buy = min(short, gold ~/ stewardFoodPrice);
+      if (buy <= 0) return;
+      game.modifyGlobalResource('player', Resource.gold, -buy * stewardFoodPrice);
+      city.addResource(Resource.food, buy);
+      game.syncGlobalResources();
+    }
+  }
+
+  void _stewardDefense() {
+    final game = GameManager.shared;
+    final warbandId = game.playerCharacter?.warbandId;
+    final recruiter = RecruitmentEngine();
+    for (final city in game.getPlayerVillages('player')) {
+      final gold = game.getGlobalResources('player')[Resource.gold] ?? 0;
+      if (gold < stewardGoldReserve) return;
+      final standing = game
+          .getArmiesAt(city.id)
+          .where((a) => a.owner == 'player' && a.id != warbandId && a.state == ArmyState.stationed)
+          .fold<int>(0, (n, a) => n + a.unitCount);
+      if (standing >= stewardArmyTarget) continue;
+      final type = recruiter.getAvailableUnits(city).contains(UnitType.spearman) ? UnitType.spearman : UnitType.militia;
+      final count = min(3, stewardArmyTarget - standing);
+      if (recruiter.canRecruit(type, count, city).$1) recruiter.recruitUnits(type, count, city, city.coordinates);
+    }
+  }
+
   void _detectIncomingEnemies() {
     final game = GameManager.shared;
 
@@ -512,6 +584,7 @@ class TurnEngine {
   void _checkVictory() {
     final game = GameManager.shared;
     final mods = game.activeModifiers;
+    final warbandId = game.playerCharacter?.warbandId;
 
     // Sudden Death: any player who lost a village this turn gets eliminated
     if (mods.contains(GameModifier.suddenDeath)) {
@@ -521,7 +594,7 @@ class TurnEngine {
         final currentCount = game.map.villages.where((v) => v.owner == playerId).length;
         if ((game.previousTurnVillageCounts[playerId] ?? 0) > currentCount && currentCount >= 0 && game.previousTurnVillageCounts.containsKey(playerId)) {
           game.players[i] = game.players[i].copyWith(isEliminated: true);
-          game.armies.removeWhere((a) => a.owner == playerId);
+          game.armies.removeWhere((a) => a.owner == playerId && a.id != warbandId);
           // Transfer remaining villages to neutral
           for (final v in game.map.villages) {
             if (v.owner == playerId) v.owner = 'neutral';
@@ -535,11 +608,15 @@ class TurnEngine {
       final playerId = game.players[i].id;
       final playerVillages = game.map.villages.where((v) => v.owner == playerId);
 
+      // The human plays a character, not a realm. Losing every city is a setback, and the game ends
+      // only when the character is broke and alone (GameManager's game over check).
+      if (game.players[i].isHuman) continue;
       if (playerVillages.isEmpty && !game.players[i].isEliminated) {
         game.players[i] = game.players[i].copyWith(isEliminated: true);
 
-        // Remove all armies of eliminated player (they have no home to return to)
-        game.armies.removeWhere((a) => a.owner == playerId);
+        // Remove all armies of eliminated player (they have no home to return to).
+        // The lord's warband rides on: a realm lost is a setback, not the end of the character.
+        game.armies.removeWhere((a) => a.owner == playerId && a.id != warbandId);
       }
     }
 

@@ -427,7 +427,8 @@ class _CityScreenState extends State<CityScreen>
                     final unitType = available[index];
                     final stats = unitType.stats;
                     final goldCost = stats.cost[Resource.gold] ?? 0;
-                    final canAfford = widget.player.gold >= goldCost;
+                    final canAfford = widget.player.gold >= goldCost ||
+                        GameManager.shared.treasuryPaysRecruits(widget.city, goldCost);
                     final canFit = warbandSize < maxSize;
 
                     return Container(

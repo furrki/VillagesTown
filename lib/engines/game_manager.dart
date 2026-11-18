@@ -65,6 +65,10 @@ class GameManager extends ChangeNotifier {
   List<TurnEvent> turnEvents = [];
   List<BattleRecord> pendingBattles = [];
   Set<String> discoveredVillageIDs = {};
+
+  /// How far the player's own buying (+) and selling (-) has pushed each city's prices, by city id.
+  /// TradeEngine owns the rule.
+  Map<String, Map<TradeGood, double>> marketPressure = {};
   double visionRangeKm = 400.0; // Vision range in kilometers
 
   /// Cache of last-known info for discovered villages (stale data for fog of war).
@@ -489,7 +493,7 @@ class GameManager extends ChangeNotifier {
           (_) => Unit.create(UnitType.swordsman, 'player', startCity.coordinates),
         ),
       ];
-      createArmy(startingUnits, startCity.id, 'player');
+      playerCharacter!.warbandId = createArmy(startingUnits, startCity.id, 'player').id;
     }
 
     // Create initial story mission from origin
@@ -527,6 +531,8 @@ class GameManager extends ChangeNotifier {
     globalResources.clear();
     discoveredVillageIDs.clear();
     discoveredVillageCache.clear();
+    marketPressure.clear();
+    lastBattleReport = null;
     pendingBattles.clear();
     cityConnections.clear();
     tutorialEnabled = true;
@@ -590,9 +596,31 @@ class GameManager extends ChangeNotifier {
     return globalResources[playerId] ?? {};
   }
 
+  /// The treasury is only the sum of the faction's city stocks and is rebuilt from them every turn,
+  /// so a change has to land in the cities: income in the capital, costs from the richest city first.
   void modifyGlobalResource(String playerId, Resource resource, int amount) {
-    globalResources[playerId] ??= {};
-    globalResources[playerId]![resource] = max(0, (globalResources[playerId]![resource] ?? 0) + amount);
+    final villages = getPlayerVillages(playerId);
+    if (villages.isEmpty || amount == 0) return;
+    if (amount > 0) {
+      final capital = playerId == 'player' ? getVillageById(capitalVillageId) : null;
+      (capital != null && capital.owner == playerId ? capital : villages.first).addResource(resource, amount);
+    } else {
+      var owed = -amount;
+      villages.sort((a, b) => (b.resources[resource] ?? 0).compareTo(a.resources[resource] ?? 0));
+      for (final v in villages) {
+        if (owed == 0) break;
+        final take = min(owed, v.resources[resource] ?? 0);
+        v.resources[resource] = (v.resources[resource] ?? 0) - take;
+        owed -= take;
+      }
+    }
+    final total = <Resource, int>{};
+    for (final v in villages) {
+      for (final e in v.resources.entries) {
+        total[e.key] = (total[e.key] ?? 0) + e.value;
+      }
+    }
+    globalResources[playerId] = total;
   }
 
   bool canAfford(String playerId, Map<Resource, int> cost) {
@@ -745,7 +773,10 @@ class GameManager extends ChangeNotifier {
   }
 
   void mergeArmiesAt(String villageId, String owner) {
-    final armiesHere = armies.where((a) => a.stationedAt == villageId && a.owner == owner).toList();
+    // The warband travels with the character and never folds into a city's army.
+    final armiesHere = armies
+        .where((a) => a.stationedAt == villageId && a.owner == owner && a.id != playerCharacter?.warbandId)
+        .toList();
     if (armiesHere.length <= 1) return;
 
     // Sort by unit count descending - largest army keeps its name
@@ -1388,9 +1419,12 @@ class GameManager extends ChangeNotifier {
         return;
       }
 
-      // Roll for encounter
-      final warbandStrength = getArmiesFor('player').fold<int>(0, (sum, a) => sum + a.unitCount);
-      final encounter = EncounterEngine.rollEncounter(warbandStrength, gameLoop.tickCount, scoutingSkill: pc.scoutingSkill);
+      final encounter = EncounterEngine.rollEncounter(
+        playerWarband?.unitCount ?? 0,
+        gameLoop.tickCount,
+        tripTicks: pc.travelTotalTicks,
+        scoutingSkill: pc.scoutingSkill,
+      );
       if (encounter != null) {
         currentEncounter = encounter;
         gameLoop.pause();
@@ -1403,8 +1437,18 @@ class GameManager extends ChangeNotifier {
     if (gameLoop.tickCount % 5 == 0) {
       final warband = playerWarband;
       if (warband != null) {
-        final upkeepGold = warband.unitCount * 2; // 2 gold per soldier per cycle
-        pc.gold -= upkeepGold;
+        // Wounds close slowly on the road. A city's healer does it at once, for a fee.
+        for (final u in warband.units) {
+          u.heal(max(1, u.maxHP ~/ 20));
+        }
+        final upkeepGold = warband.unitCount * warbandWagePerMan;
+        // The realm pays its lord's soldiers while it can. Without that the purse paid, and a simulated
+        // lord went broke and lost his men while 20,000 gold sat in his own treasury (tool/balance_sim.dart).
+        if ((getGlobalResources('player')[Resource.gold] ?? 0) >= upkeepGold) {
+          modifyGlobalResource('player', Resource.gold, -upkeepGold);
+        } else {
+          pc.gold -= upkeepGold;
+        }
         if (pc.gold < 0) {
           // Desertion: remove 1 soldier if can't pay
           if (warband.units.isNotEmpty) {
@@ -1421,7 +1465,11 @@ class GameManager extends ChangeNotifier {
     }
 
     // Game over check
-    if (pc.gold <= 0 && (playerWarband == null || playerWarband!.units.isEmpty) && pc.currentCargoCount == 0) {
+    // Broke, alone and with nothing to sell. A lord who still holds a city can ride home and hire again.
+    if (pc.gold <= 0 &&
+        (playerWarband == null || playerWarband!.units.isEmpty) &&
+        pc.currentCargoCount == 0 &&
+        getPlayerVillages('player').isEmpty) {
       isGameOver = true;
       gameLoop.pause();
       notifyListeners();
@@ -1430,7 +1478,6 @@ class GameManager extends ChangeNotifier {
 
     // World simulation (every 5 ticks)
     if (gameLoop.tickCount % 5 == 0) {
-      currentTurn++;
       turnEngine.doTurn();
     }
 
@@ -1601,6 +1648,7 @@ class GameManager extends ChangeNotifier {
   /// Dismiss current encounter and resume travel.
   void dismissEncounter() {
     currentEncounter = null;
+    lastBattleReport = null;
     if (playerCharacter?.state == PlayerState.traveling) {
       gameLoop.start();
     }
@@ -1621,25 +1669,30 @@ class GameManager extends ChangeNotifier {
     return getNeighbors(id);
   }
 
-  /// Get the player's personal warband (first army at player's location or traveling).
-  Army? get playerWarband {
-    if (playerCharacter == null) return null;
-    final cityId = playerCharacter!.currentCityId;
-    if (cityId != null) {
-      for (final a in armies) {
-        if (a.owner == 'player' && a.stationedAt == cityId) return a;
-      }
-      return null;
+  /// The army that travels with the character, or null once it was wiped out.
+  Army? get playerWarband => getArmyById(playerCharacter?.warbandId);
+
+  /// Adds [units] to the warband, or raises a new one where the character is when it was lost.
+  void _joinWarband(List<Unit> units) {
+    final pc = playerCharacter!;
+    final warband = playerWarband;
+    if (warband != null) {
+      warband.addUnits(units);
+      updateArmy(warband);
+      return;
     }
-    // While traveling, warband is the first player army
-    for (final a in armies) {
-      if (a.owner == 'player') return a;
-    }
-    return null;
+    final army = createArmy(units, pc.currentCityId ?? pc.travelOriginId ?? '', 'player');
+    if (pc.state == PlayerState.traveling) army.stationedAt = null;
+    pc.warbandId = army.id;
   }
 
   /// Recruit a unit to the player's warband at the current city.
   /// Pays from player's personal gold, not faction resources.
+  /// In the lord's own city the treasury pays for new men. Without this a lord whose men had
+  /// fled could not hire again while his treasury held thousands, and the game ended (tool/balance_sim.dart).
+  bool treasuryPaysRecruits(Village city, int goldCost) =>
+      city.owner == 'player' && (getGlobalResources('player')[Resource.gold] ?? 0) >= goldCost;
+
   bool recruitToWarband(UnitType unitType, Village city) {
     final pc = playerCharacter;
     if (pc == null || pc.currentCityId != city.id) return false;
@@ -1654,24 +1707,15 @@ class GameManager extends ChangeNotifier {
     final reqBuilding = recruitEngine.getRequiredBuilding(unitType);
     if (reqBuilding != null && !city.buildings.any((b) => b.name == reqBuilding)) return false;
 
-    // Check gold cost
     final goldCost = unitType.stats.cost[Resource.gold] ?? 0;
-    if (pc.gold < goldCost) return false;
-
-    // Pay gold from personal reserves
-    pc.gold -= goldCost;
-
-    // Create the unit
-    final unit = Unit.create(unitType, 'player', city.coordinates);
-
-    // Add to existing warband or create new one
-    if (warband != null) {
-      warband.addUnits([unit]);
-      updateArmy(warband);
+    if (treasuryPaysRecruits(city, goldCost)) {
+      modifyGlobalResource('player', Resource.gold, -goldCost);
     } else {
-      createArmy([unit], city.id, 'player');
+      if (pc.gold < goldCost) return false;
+      pc.gold -= goldCost;
     }
 
+    _joinWarband([Unit.create(unitType, 'player', city.coordinates)]);
     notifyListeners();
     return true;
   }
@@ -1696,79 +1740,104 @@ class GameManager extends ChangeNotifier {
     return true;
   }
 
-  /// Resolve an encounter battle. Returns true if player won.
-  bool resolveEncounterBattle(Encounter encounter, BattlePlan plan) {
-    if (encounter.enemyUnits == null || encounter.enemyUnits!.isEmpty) return true;
+  /// What the last road fight cost. The travel panel shows it until the player rides on.
+  EncounterBattleReport? lastBattleReport;
 
+  /// A road band breaks and runs once two thirds of it is down; so does the warband.
+  static const encounterRoutBelow = 0.34;
+
+  /// Gold each warband soldier costs every 5 ticks.
+  static const warbandWagePerMan = 2;
+
+  /// Fight an encounter's band. The warband keeps its wounds, loses its real dead, and a beaten
+  /// warband runs with its survivors instead of dying to the last man.
+  EncounterBattleReport? resolveEncounterBattle(Encounter encounter, BattlePlan plan) {
+    final pc = playerCharacter;
     final warband = playerWarband;
-    if (warband == null || warband.units.isEmpty) return false;
+    final enemies = encounter.enemyUnits;
+    if (pc == null || warband == null || warband.units.isEmpty || enemies == null || enemies.isEmpty) return null;
 
-    final combatEngine = CombatEngine();
+    final before = warband.unitCount;
     final tactics = plan.toTactics(warband);
-
-    final result = combatEngine.resolveCombat(
+    final result = CombatEngine().resolveCombat(
       attackerName: warband.name,
-      defenderName: 'Bandits',
+      defenderName: encounter.type == EncounterType.deserters ? 'Deserters' : 'Bandits',
       attackerId: warband.id,
       defenderId: 'encounter',
       attackerOwnerId: 'player',
       defenderOwnerId: 'bandits',
       attackers: warband.units,
-      defenders: encounter.enemyUnits!,
+      defenders: enemies,
       map: map,
+      attackerFormation: tactics.formation,
       attackerTactics: tactics,
+      attackerFatigueMod: 1 + pc.combatBonus,
+      writeAttackerWounds: true,
+      routBelow: encounterRoutBelow,
     );
-
-    // Apply casualties to warband
-    int losses = 0;
-    for (final round in result.rounds) {
-      losses += round.attackerLosses;
-    }
-    if (losses > 0) {
-      int killed = 0;
-      for (var i = 0; i < warband.units.length && killed < losses; i++) {
-        if (warband.units[i].isAlive) {
-          warband.units[i].takeDamage(9999);
-          killed++;
-        }
-      }
-      warband.removeDeadUnits();
-    }
+    warband.removeDeadUnits();
 
     final won = result.attackerWon;
-
+    var goldGained = 0;
+    var goldLost = 0;
+    var cargoLost = 0;
     if (won) {
-      // Loot
-      final loot = encounter.goldReward ?? 0;
-      playerCharacter!.earnGold(loot);
-      playerCharacter!.battlesWon++;
-      playerCharacter!.combatSkill = (playerCharacter!.combatSkill + 1).clamp(1, 20);
+      goldGained = encounter.goldReward ?? 0;
+      pc.earnGold(goldGained);
+      pc.battlesWon++;
+      // One skill level per three wins: intimidate opens at 3, and combat stays within the 1-10 skill range.
+      if (pc.battlesWon % 3 == 0) pc.combatSkill = min(pc.combatSkill + 1, 10);
       battlesWon['player'] = (battlesWon['player'] ?? 0) + 1;
-      // XP to surviving warband
       for (final u in warband.units) {
         u.gainExperience(25);
       }
     } else {
       battlesLost++;
-      // Lose some gold on defeat
-      final goldLost = (playerCharacter!.gold * 0.3).round();
-      playerCharacter!.gold -= goldLost;
-      // XP even on loss
+      goldLost = (pc.gold * 0.3).round();
+      pc.gold -= goldLost;
+      for (final good in pc.cargo.keys.toList()) {
+        final lost = (pc.cargoOf(good) * 0.3).ceil();
+        cargoLost += lost;
+        pc.removeCargo(good, lost);
+      }
       for (final u in warband.units) {
         u.gainExperience(10);
       }
     }
 
-    // Clean up dead warband
     if (warband.units.isEmpty) {
       removeArmy(warband.id);
     } else {
       updateArmy(warband);
     }
 
-    playerCharacter!.checkProgression();
+    lastBattleReport = EncounterBattleReport(
+      won: won,
+      plan: plan,
+      enemies: enemies.length,
+      killed: before - warband.unitCount,
+      wounded: warband.units.where((u) => u.currentHP < u.maxHP).length,
+      goldGained: goldGained,
+      goldLost: goldLost,
+      cargoLost: cargoLost,
+    );
+    pc.checkProgression();
     notifyListeners();
-    return won;
+    return lastBattleReport;
+  }
+
+  /// Strength for the pre-battle odds: total blows per second times total health, the square law
+  /// of a melee where everyone fights. Only the ratio of two sides means anything.
+  static double fightingPower(Iterable<Unit> units) {
+    var attack = 0.0;
+    var hp = 0;
+    for (final u in units) {
+      final t = u.unitType;
+      final volley = t.baseMissile * t.baseAccuracy / max(0.1, t.baseFireRate) * 1.3;
+      attack += max(u.attack.toDouble(), volley) + t.baseCharge / 3;
+      hp += u.currentHP;
+    }
+    return attack * hp;
   }
 
   /// Flee from encounter. Costs: -10 rep, lose 25% cargo, 1 soldier dies.
@@ -1846,14 +1915,7 @@ class GameManager extends ChangeNotifier {
         final warband = playerWarband;
         final currentSize = warband?.unitCount ?? 0;
         if (currentSize >= pc.maxWarbandSize) return null;
-        final unit = Unit.create(unitType, 'player', const GeoCoordinate(0, 0));
-        if (warband != null) {
-          warband.addUnits([unit]);
-          updateArmy(warband);
-        } else {
-          final locationId = pc.travelDestinationId ?? pc.travelOriginId ?? '';
-          createArmy([unit], locationId, 'player');
-        }
+        _joinWarband([Unit.create(unitType, 'player', const GeoCoordinate(0, 0))]);
         dismissEncounter();
         notifyListeners();
         return choice.resultText;
@@ -1899,19 +1961,32 @@ class GameManager extends ChangeNotifier {
     final unit = Unit.create(encounter.recruitableUnit!, 'player', const GeoCoordinate(0, 0));
     // Wounded: half HP
     unit.takeDamage(unit.maxHP ~/ 2);
-
-    if (warband != null) {
-      warband.addUnits([unit]);
-      updateArmy(warband);
-    } else {
-      // Need a city ID — use travel destination or origin
-      final locationId = pc.travelDestinationId ?? pc.travelOriginId ?? '';
-      createArmy([unit], locationId, 'player');
-    }
-
+    _joinWarband([unit]);
     notifyListeners();
     return true;
   }
+}
+
+class EncounterBattleReport {
+  final bool won;
+  final BattlePlan plan;
+  final int enemies;
+  final int killed;
+  final int wounded;
+  final int goldGained;
+  final int goldLost;
+  final int cargoLost;
+
+  const EncounterBattleReport({
+    required this.won,
+    required this.plan,
+    required this.enemies,
+    required this.killed,
+    required this.wounded,
+    required this.goldGained,
+    required this.goldLost,
+    required this.cargoLost,
+  });
 }
 
 /// Cached info about a discovered village (for fog of war stale data).

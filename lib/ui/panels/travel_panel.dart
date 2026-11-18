@@ -227,10 +227,9 @@ class TravelPanel extends StatelessWidget {
     showToast('Choose your battle plan');
     // For now, use aggressive plan directly. Could be expanded to a picker.
     final game = GameManager.shared;
-    final won = game.resolveEncounterBattle(enc, BattlePlan.aggressive);
-    if (won) {
-      final loot = enc.goldReward ?? 0;
-      showToast('Victory! +${loot}g');
+    final report = game.resolveEncounterBattle(enc, BattlePlan.aggressive);
+    if (report?.won ?? false) {
+      showToast('Victory! +${report!.goldGained}g');
     } else {
       showToast('Defeated! Lost soldiers and gold.');
     }

@@ -1,7 +1,6 @@
 import 'dart:math';
 import '../data/models/resource.dart';
 import '../data/models/village.dart';
-import 'game_manager.dart';
 
 class PopulationEngine {
   void processPopulationGrowth(List<Village> villages) {
@@ -51,8 +50,6 @@ class PopulationEngine {
   }
 
   void collectTaxes(List<Village> villages) {
-    final game = GameManager.shared;
-
     for (var i = 0; i < villages.length; i++) {
       final village = villages[i];
       if (village.owner == 'neutral') continue;
@@ -65,7 +62,7 @@ class PopulationEngine {
         tax = (tax * 1.25).round();
       }
 
-      game.modifyGlobalResource(village.owner, Resource.gold, tax);
+      village.addResource(Resource.gold, tax);
     }
   }
 

@@ -74,37 +74,19 @@ class Encounter {
 
   static Encounter generate(int playerStrength, int tickNumber) {
     final rng = Random();
+    // EncounterEngine decides whether the road brings anything; this picks what.
     final roll = rng.nextDouble();
-
-    if (roll < 0.50) {
-      return const Encounter(
-        type: EncounterType.nothing,
-        narrative: 'The road is quiet.',
-      );
-    }
-
-    if (roll < 0.72) {
-      return _generateBandits(rng, playerStrength, tickNumber);
-    }
-
-    if (roll < 0.82) {
-      return _generateDeserters(rng, tickNumber);
-    }
-
-    if (roll < 0.90) {
-      return _generateMerchant(rng);
-    }
-
-    if (roll < 0.96) {
-      return _generateRefugees(rng);
-    }
-
+    if (roll < 0.50) return _generateBandits(rng, playerStrength, tickNumber);
+    if (roll < 0.68) return _generateDeserters(rng, tickNumber);
+    if (roll < 0.82) return _generateMerchant(rng);
+    if (roll < 0.92) return _generateRefugees(rng);
     return _generateWoundedSoldier(rng);
   }
 
   static Encounter _generateBandits(Random rng, int playerStrength, int tickNumber) {
-    final count = 3 + rng.nextInt(6) + (tickNumber ~/ 50);
-    final actualCount = min(count, 12);
+    // Bands grow slowly with time, about one man per two and a half minutes of play.
+    final count = 3 + rng.nextInt(4) + (tickNumber ~/ 150);
+    final actualCount = min(count, 14);
     final bandits = List.generate(
       actualCount,
       (_) => Unit(
@@ -121,8 +103,9 @@ class Encounter {
       ),
     );
 
-    final tollCost = 15 + rng.nextInt(20);
-    final loot = 10 + rng.nextInt(25);
+    // Loot pays for the men a fight costs, and the toll is a little cheaper than the loot.
+    final loot = actualCount * (6 + rng.nextInt(6));
+    final tollCost = actualCount * 4 + rng.nextInt(10);
 
     final narratives = [
       'A group of armed men emerge from the tree line. Their leader, a scarred man missing an ear, raises his hand. "$actualCount of us, and we\'re hungry. Pay the toll or we take what we want."',
@@ -165,7 +148,7 @@ class Encounter {
   }
 
   static Encounter _generateDeserters(Random rng, int tickNumber) {
-    final count = 4 + rng.nextInt(5);
+    final count = min(4 + rng.nextInt(5) + tickNumber ~/ 200, 16);
     final deserters = List.generate(
       count,
       (_) => Unit(
