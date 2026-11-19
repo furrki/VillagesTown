@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/player_character.dart';
 import '../../data/models/village.dart';
@@ -26,6 +27,8 @@ class _RtsGameViewState extends State<RtsGameView> {
   bool _showWarband = false;
   bool _showCargo = false;
   bool _showCityPanel = true;
+  /// The travel panel's drawn height. It grows with an encounter, so it is measured.
+  double _travelPanelHeight = 0;
 
   @override
   void initState() {
@@ -139,7 +142,16 @@ class _RtsGameViewState extends State<RtsGameView> {
             children: [
               // Map — always full screen
               Positioned.fill(
-                child: _buildMap(game, pc),
+                child: _buildMap(
+                  game,
+                  pc,
+                  // Keep the map credit above the panel that covers the map's bottom edge.
+                  creditBottomInset: isAtCity
+                      ? (_showCityPanel
+                          ? screenHeight * 0.55
+                          : MediaQuery.of(context).padding.bottom + 60)
+                      : (isTraveling ? _travelPanelHeight : 0),
+                ),
               ),
 
               // Bottom panel: city or travel
@@ -157,20 +169,25 @@ class _RtsGameViewState extends State<RtsGameView> {
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(height: 1, color: Colors.white.withValues(alpha: 0.15)),
-                      ConstrainedBox(
-                        constraints: BoxConstraints(maxHeight: screenHeight * 0.40),
-                        child: TravelPanel(
-                          player: pc,
-                          encounter: game.currentEncounter,
-                          onDismissEncounter: () => game.dismissEncounter(),
-                          showToast: _showToast,
+                  child: _HeightReporter(
+                    onHeight: (h) {
+                      if (mounted) setState(() => _travelPanelHeight = h);
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(height: 1, color: Colors.white.withValues(alpha: 0.15)),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(maxHeight: screenHeight * 0.40),
+                          child: TravelPanel(
+                            player: pc,
+                            encounter: game.currentEncounter,
+                            onDismissEncounter: () => game.dismissEncounter(),
+                            showToast: _showToast,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
 
@@ -254,7 +271,7 @@ class _RtsGameViewState extends State<RtsGameView> {
     );
   }
 
-  Widget _buildMap(GameManager game, PlayerCharacter pc) {
+  Widget _buildMap(GameManager game, PlayerCharacter pc, {double creditBottomInset = 0}) {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -267,6 +284,7 @@ class _RtsGameViewState extends State<RtsGameView> {
         selectedVillage: game.playerCurrentCity,
         onVillageSelected: _onVillageTapped,
         onArmySelected: (_) {},
+        creditBottomInset: creditBottomInset,
       ),
     );
   }
@@ -370,5 +388,36 @@ class _RtsGameViewState extends State<RtsGameView> {
         ),
       ),
     );
+  }
+}
+
+/// Reports its child's laid-out height after the frame, when it changes.
+class _HeightReporter extends SingleChildRenderObjectWidget {
+  final ValueChanged<double> onHeight;
+
+  const _HeightReporter({required this.onHeight, required super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderHeightReporter(onHeight);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderHeightReporter renderObject) {
+    renderObject.onHeight = onHeight;
+  }
+}
+
+class _RenderHeightReporter extends RenderProxyBox {
+  _RenderHeightReporter(this.onHeight);
+
+  ValueChanged<double> onHeight;
+  double? _last;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final height = size.height;
+    if (height == _last) return;
+    _last = height;
+    WidgetsBinding.instance.addPostFrameCallback((_) => onHeight(height));
   }
 }

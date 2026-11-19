@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../data/models/army.dart';
 import '../../data/models/nationality.dart';
 import '../../data/models/player_character.dart';
@@ -20,6 +21,9 @@ class MapView extends StatefulWidget {
   final void Function(Army) onArmySelected;
   final void Function(Army, Village)? onArmySent;
 
+  /// Lifts the map credit above a panel the screen draws over the map's bottom edge.
+  final double creditBottomInset;
+
   const MapView({
     super.key,
     this.selectedVillage,
@@ -27,6 +31,7 @@ class MapView extends StatefulWidget {
     required this.onVillageSelected,
     required this.onArmySelected,
     this.onArmySent,
+    this.creditBottomInset = 0,
   });
 
   @override
@@ -104,7 +109,7 @@ class _MapViewState extends State<MapView> {
             TileLayer(
               urlTemplate: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png',
               subdomains: const ['a', 'b', 'c', 'd'],
-              userAgentPackageName: 'com.villages.town',
+              userAgentPackageName: 'com.appgea.villagesTown',
               retinaMode: true,
             ),
 
@@ -132,6 +137,12 @@ class _MapViewState extends State<MapView> {
             // Player character marker (while traveling)
             MarkerLayer(
               markers: _buildPlayerMarker(game),
+            ),
+
+            // The tile data's credit. OSM and CARTO terms require it on the map.
+            Padding(
+              padding: EdgeInsets.only(bottom: widget.creditBottomInset),
+              child: const MapCredit(),
             ),
           ],
         );
@@ -383,5 +394,48 @@ class _MapViewState extends State<MapView> {
       orElse: () => null,
     );
     return player?.nationality ?? Nationality.ottomans;
+  }
+}
+
+/// The map tiles' credit: OpenStreetMap's data and CARTO's style. Both terms require it
+/// on the map. A small (i) button that opens the two links, shown open for a few seconds
+/// when the map first draws.
+class MapCredit extends StatelessWidget {
+  const MapCredit({super.key});
+
+  static const _linkStyle = TextStyle(
+    color: Colors.white70,
+    decoration: TextDecoration.underline,
+    decorationColor: Colors.white38,
+  );
+
+  static Future<void> _open(String url) =>
+      launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+
+  @override
+  Widget build(BuildContext context) {
+    return RichAttributionWidget(
+      popupBackgroundColor: const Color(0xFF1A1A1A),
+      popupInitialDisplayDuration: const Duration(seconds: 4),
+      showFlutterMapAttribution: false,
+      // The default button is a black icon, lost on the dark tiles.
+      openButton: (context, open) => IconButton(
+        onPressed: open,
+        tooltip: 'Map credits',
+        icon: const Icon(Icons.info_outlined, color: Colors.white70, size: 20),
+      ),
+      attributions: [
+        TextSourceAttribution(
+          'OpenStreetMap contributors',
+          textStyle: _linkStyle,
+          onTap: () => _open('https://www.openstreetmap.org/copyright'),
+        ),
+        TextSourceAttribution(
+          'CARTO',
+          textStyle: _linkStyle,
+          onTap: () => _open('https://carto.com/attributions'),
+        ),
+      ],
+    );
   }
 }

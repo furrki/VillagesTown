@@ -937,7 +937,7 @@ class _TerritoryEditorScreenState extends State<TerritoryEditorScreen> {
                       children: [
                         TileLayer(
                           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: 'com.example.territory_editor',
+                          userAgentPackageName: 'com.appgea.villagesTown',
                         ),
                         // All land polygons
                         PolygonLayer(polygons: _buildLandPolygons()),
@@ -948,6 +948,8 @@ class _TerritoryEditorScreenState extends State<TerritoryEditorScreen> {
                           MarkerLayer(markers: _buildVertexMarkers()),
                         // Village markers
                         if (!_editingLand) MarkerLayer(markers: _buildVillageMarkers()),
+                        // OSM's tile policy requires the credit on the map.
+                        const SimpleAttributionWidget(source: Text('© OpenStreetMap contributors')),
                       ],
                     ),
                   ),

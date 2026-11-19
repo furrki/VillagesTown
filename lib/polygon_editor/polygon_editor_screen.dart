@@ -208,7 +208,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                 children: [
                   TileLayer(
                     urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.example.polygon_editor',
+                    userAgentPackageName: 'com.appgea.villagesTown',
                   ),
                   if (_state.vertices.length >= 3)
                     PolygonLayer(
@@ -234,6 +234,8 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                   MarkerLayer(
                     markers: _buildVertexMarkers(),
                   ),
+                  // OSM's tile policy requires the credit on the map.
+                  const SimpleAttributionWidget(source: Text('© OpenStreetMap contributors')),
                 ],
               ),
             ),
