@@ -1,4 +1,3 @@
-import 'game_manager.dart';
 import '../data/models/player_character.dart';
 import '../data/models/trade_good.dart';
 import '../data/models/village.dart';

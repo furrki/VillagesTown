@@ -22,4 +22,21 @@ void main() {
     expect(game.recruitToWarband(UnitType.militia, city), isTrue);
     expect(game.gold, before - cost);
   });
+  test('cityless player keeps, earns and spends gold', () {
+    SharedPreferences.setMockInitialValues({});
+    final game = GameManager.shared..resetGame();
+    game.setupGame(Nationality.ottomans);
+    game.initializeGame(characterName: 'Test');
+    for (final city in game.getPlayerVillages('player')) {
+      city.owner = 'other';
+    }
+    game.syncGlobalResources();
+    game.playerCharacter!.gold = 100;
+    game.absorbPurse();
+    game.awardGold(25);
+    expect(game.gold, 125);
+    expect(game.spendGold(30), isTrue);
+    expect(game.gold, 95);
+  });
+
 }
