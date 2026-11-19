@@ -12,6 +12,7 @@ class VillageMarker extends StatefulWidget {
   final bool hasThreat;
   final VoidCallback onTap;
   final double zoom;
+  final bool inVision;
 
   const VillageMarker({
     super.key,
@@ -21,6 +22,7 @@ class VillageMarker extends StatefulWidget {
     required this.armyCount,
     required this.hasThreat,
     required this.onTap,
+    required this.inVision,
     this.zoom = 5.0,
   });
 
@@ -70,10 +72,7 @@ class _VillageMarkerState extends State<VillageMarker>
   bool get isPlayerOwned => widget.village.owner == 'player';
 
   // Fog of war states
-  bool get isInVisionRange {
-    final game = GameManager.shared;
-    return game.isVillageInVisionRange(widget.village, 'player');
-  }
+  bool get isInVisionRange => widget.inVision;
 
   bool get isDiscoveredButOutOfRange {
     final game = GameManager.shared;

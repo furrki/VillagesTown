@@ -90,6 +90,7 @@ class _MapViewState extends State<MapView> {
         // Filter villages by visibility (fog of war)
         final visibleVillages = game.map.villages.where((v) => game.isVillageVisible(v, 'player')).toList();
         final visibleArmies = game.getVisibleArmies('player');
+        final inVisionIds = game.villageIdsInVisionRange('player');
 
         return FlutterMap(
           mapController: _mapController,
@@ -121,7 +122,7 @@ class _MapViewState extends State<MapView> {
 
             // Village markers
             MarkerLayer(
-              markers: _buildVillageMarkers(visibleVillages, game),
+              markers: _buildVillageMarkers(visibleVillages, game, inVisionIds),
             ),
 
             // Marching army markers (stationed armies now shown via village marker)
@@ -202,7 +203,7 @@ class _MapViewState extends State<MapView> {
     return (40, 40);
   }
 
-  List<Marker> _buildVillageMarkers(List<Village> villages, GameManager game) {
+  List<Marker> _buildVillageMarkers(List<Village> villages, GameManager game, Set<String> inVisionIds) {
     final (markerWidth, markerHeight) = _getMarkerDimensions();
 
     return villages.map((village) {
@@ -258,6 +259,7 @@ class _MapViewState extends State<MapView> {
                 hasThreat: _hasIncomingThreat(village, game.armies),
                 onTap: () => widget.onVillageSelected(village),
                 zoom: _currentZoom,
+                inVision: inVisionIds.contains(village.id),
               ),
             );
           },

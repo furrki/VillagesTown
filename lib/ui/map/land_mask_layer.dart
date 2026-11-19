@@ -48,7 +48,7 @@ class LandLayer extends StatelessWidget {
 }
 
 /// Simple Voronoi territory layer
-class LandMaskTerritoryLayer extends StatelessWidget {
+class LandMaskTerritoryLayer extends StatefulWidget {
   final List<Village> villages;
   final GameManager game;
 
@@ -59,9 +59,25 @@ class LandMaskTerritoryLayer extends StatelessWidget {
   });
 
   @override
+  State<LandMaskTerritoryLayer> createState() => _LandMaskTerritoryLayerState();
+}
+
+class _LandMaskTerritoryLayerState extends State<LandMaskTerritoryLayer> {
+  /// Rebuilt only when an owner, a custom border or the village list changes. The map rebuilds every tick.
+  List<Polygon> _polygons = const [];
+  String? _sig;
+
+  List<Village> get villages => widget.villages;
+  GameManager get game => widget.game;
+
+  @override
   Widget build(BuildContext context) {
-    final polygons = _computeTerritoryPolygons();
-    return PolygonLayer(polygons: polygons);
+    final sig = villages.map((v) => '${v.id}:${v.owner}:${v.customTerritory?.length ?? 0}').join('|');
+    if (sig != _sig) {
+      _sig = sig;
+      _polygons = _computeTerritoryPolygons();
+    }
+    return PolygonLayer(polygons: _polygons);
   }
 
   List<Polygon> _computeTerritoryPolygons() {

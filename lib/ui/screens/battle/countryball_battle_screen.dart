@@ -30,6 +30,11 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
     with TickerProviderStateMixin {
   late BattleSimulation simulation;
   late AnimationController _tickController;
+
+  /// Bumped every frame. The painters and the progress bar listen to it; the rest of the screen
+  /// rebuilds only when a number on it changes (see _lastSig).
+  final ValueNotifier<int> _frame = ValueNotifier(0);
+  (BattlePhase, int, int, int, int, double, double)? _lastSig;
   late AnimationController _shakeController;
   late AnimationController _zoomController;
   late Animation<double> _zoomAnimation;
@@ -189,7 +194,20 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
     _lastTick = now;
 
     simulation.update(dt);
-    setState(() {});
+    _frame.value++;
+    final sig = (
+      simulation.phase,
+      simulation.aliveAttackers,
+      simulation.aliveDefenders,
+      simulation.attackerLossesThisRound,
+      simulation.defenderLossesThisRound,
+      simulation.attackerMorale,
+      simulation.defenderMorale,
+    );
+    if (sig != _lastSig) {
+      _lastSig = sig;
+      setState(() {});
+    }
   }
 
   void _triggerShake() {
@@ -212,6 +230,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
 
   @override
   void dispose() {
+    _frame.dispose();
     _tickController.dispose();
     _shakeController.dispose();
     _zoomController.dispose();
@@ -910,32 +929,38 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
           ),
         );
       },
-      child: Stack(
-        children: [
-          // Battlefield background
-          CustomPaint(
-            painter: BattlefieldPainter(
-              terrain: simulation.terrain,
-              isSiege: simulation.isSiege,
-              time: simulation.totalTime,
-              particles: simulation.particles,
-              cityProgress: simulation.cityProgress,
-              flagRaiseProgress: simulation.flagRaiseProgress,
-              attackerColor: _attackerNationality!.color,
-              defenderColor: _defenderNationality!.color,
+      // Rebuilt each frame: the background painter takes time and city progress by value.
+      child: ValueListenableBuilder<int>(
+        valueListenable: _frame,
+        builder: (_, __, ___) => Stack(
+          children: [
+            // Battlefield background
+            CustomPaint(
+              painter: BattlefieldPainter(
+                terrain: simulation.terrain,
+                isSiege: simulation.isSiege,
+                time: simulation.totalTime,
+                particles: simulation.particles,
+                cityProgress: simulation.cityProgress,
+                flagRaiseProgress: simulation.flagRaiseProgress,
+                attackerColor: _attackerNationality!.color,
+                defenderColor: _defenderNationality!.color,
+                repaint: _frame,
+              ),
+              size: Size.infinite,
             ),
-            size: Size.infinite,
-          ),
-          // Battle units
-          CustomPaint(
-            painter: BattlePainter(
-              simulation: simulation,
-              factionImages: factionImages,
-              screenShake: _shakeController.value,
+            // Battle units
+            CustomPaint(
+              painter: BattlePainter(
+                simulation: simulation,
+                factionImages: factionImages,
+                screenShake: _shakeController.value,
+                repaint: _frame,
+              ),
+              size: Size.infinite,
             ),
-            size: Size.infinite,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -954,17 +979,20 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Progress bar showing battle intensity
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: (simulation.totalTime / 15).clamp(0.0, 1.0),
-              backgroundColor: Colors.white12,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                simulation.attackerMorale > simulation.defenderMorale
-                    ? _attackerNationality!.color
-                    : _defenderNationality!.color,
+          ValueListenableBuilder<int>(
+            valueListenable: _frame,
+            builder: (_, __, ___) => ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: (simulation.totalTime / 15).clamp(0.0, 1.0),
+                backgroundColor: Colors.white12,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  simulation.attackerMorale > simulation.defenderMorale
+                      ? _attackerNationality!.color
+                      : _defenderNationality!.color,
+                ),
+                minHeight: 6,
               ),
-              minHeight: 6,
             ),
           ),
           const SizedBox(height: 8),

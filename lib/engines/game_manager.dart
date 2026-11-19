@@ -1083,6 +1083,36 @@ class GameManager extends ChangeNotifier {
     return false;
   }
 
+  /// Ids of every village that isVillageInVisionRange would return true for. Vision sources are
+  /// built once per call, so the map can ask for the whole set each build.
+  Set<String> villageIdsInVisionRange(String playerId) {
+    final sources = <(GeoCoordinate, double)>[];
+    for (final pv in getPlayerVillages(playerId)) {
+      sources.add((pv.coordinates, _getEffectiveVisionRange(pv)));
+    }
+    for (final army in getArmiesFor(playerId)) {
+      if (army.stationedAt == null) continue;
+      final stationedVillage = getVillageById(army.stationedAt);
+      if (stationedVillage != null) {
+        sources.add((stationedVillage.coordinates, _getEffectiveVisionRange(stationedVillage)));
+      }
+    }
+    final ids = <String>{};
+    for (final village in map.villages) {
+      if (village.owner == playerId) {
+        ids.add(village.id);
+        continue;
+      }
+      for (final (coords, range) in sources) {
+        if (GeoCoordinate.distanceKm(coords, village.coordinates) <= range) {
+          ids.add(village.id);
+          break;
+        }
+      }
+    }
+    return ids;
+  }
+
   bool isVillageVisible(Village village, String playerId) {
     if (village.owner == playerId) return true;
 

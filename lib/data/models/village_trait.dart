@@ -34,7 +34,7 @@ enum VillageTrait {
         tradeCrossroads => 'assets/images/cities/trade_crossroads.jpeg',
         coastal => 'assets/images/cities/coastal.jpeg',
         strategic => 'assets/images/cities/strategic.jpeg',
-        none => 'assets/images/cities/none.jpeg',
+        none => 'assets/images/cities/trade_crossroads.jpeg',
       };
 
   /// Extra garrison regen rate multiplier for strategic trait.

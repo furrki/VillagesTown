@@ -33,6 +33,7 @@ class BattlefieldPainter extends CustomPainter {
     this.flagRaiseProgress = 0.0,
     this.attackerColor = Colors.red,
     this.defenderColor = Colors.blue,
+    super.repaint,
   });
 
   @override

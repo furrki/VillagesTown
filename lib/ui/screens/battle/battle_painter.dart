@@ -64,7 +64,30 @@ class BattlePainter extends CustomPainter {
     this.screenShake = 0,
     this.killPopups = const [],
     this.sparks = const [],
+    super.repaint,
   });
+
+  /// One blurred dark disc per flag radius, drawn once and reused for every flag and frame.
+  static final Map<int, ui.Image> _shadowSprites = {};
+
+  static ui.Image shadowSprite(double radius) {
+    final r = radius.round();
+    return _shadowSprites.putIfAbsent(r, () {
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      canvas.scale(2);
+      canvas.translate(r + 12.0, r + 12.0);
+      canvas.drawCircle(
+        Offset.zero,
+        r.toDouble(),
+        Paint()
+          ..color = Colors.black
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+      );
+      final w = (r + 12) * 2 * 2;
+      return recorder.endRecording().toImageSync(w, w);
+    });
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -152,10 +175,17 @@ class BattlePainter extends CustomPainter {
     final radius = circle.radius;
 
     // Shadow behind flag
-    final shadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.4 * circle.opacity)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
-    canvas.drawCircle(center + const Offset(1, 2), radius, shadowPaint);
+    final sprite = shadowSprite(radius);
+    final half = radius.round() + 12.0;
+    final shadowCenter = center + const Offset(1, 2);
+    canvas.drawImageRect(
+      sprite,
+      Rect.fromLTWH(0, 0, sprite.width.toDouble(), sprite.height.toDouble()),
+      Rect.fromCenter(center: shadowCenter, width: half * 2, height: half * 2),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.4 * circle.opacity)
+        ..filterQuality = FilterQuality.low,
+    );
 
     // Glow effect for at-stake circles
     if (circle.isAtStake && !circle.isDying) {
