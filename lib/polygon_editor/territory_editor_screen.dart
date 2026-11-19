@@ -107,7 +107,11 @@ class _TerritoryEditorScreenState extends State<TerritoryEditorScreen> {
   }
 
   // Use app container for sandboxed macOS app
-  static final _dataRoot = '${Platform.environment['HOME']}/Library/Containers/com.appgea.villagesTown/Data';
+  static final String _dataRoot = () {
+    final home = Platform.environment['HOME']!;
+    const container = '/Library/Containers/com.appgea.villagesTown/Data';
+    return home.endsWith(container) ? home : '$home$container';
+  }();
   static const _projectRoot = String.fromEnvironment('VILLAGES_PROJECT_ROOT');
 
   Future<void> _loadData() async {
@@ -161,6 +165,7 @@ class _TerritoryEditorScreenState extends State<TerritoryEditorScreen> {
       poly.map((p) => [p.longitude, p.latitude]).toList()
     ).toList();
     final file = File('$_dataRoot/land_boundary.json');
+    await file.parent.create(recursive: true);
     await file.writeAsString(const JsonEncoder.withIndent('  ').convert(data));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -180,6 +185,7 @@ class _TerritoryEditorScreenState extends State<TerritoryEditorScreen> {
 
     // Save to app container (sandboxed)
     final file = File('$_dataRoot/territories.json');
+    await file.parent.create(recursive: true);
     await file.writeAsString(jsonContent);
 
     // Try to save to assets folder for the game (may fail if sandboxed)
