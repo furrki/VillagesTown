@@ -1,8 +1,51 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../data/models/village.dart';
 import '../../engines/game_manager.dart';
+
+/// The map's base: land over the dark sea, drawn on the device. No web tiles, so the map
+/// needs no tile service, key or network. The coast is Natural Earth's 1:50m land, which
+/// is public domain. `tool/make_coast.py` clips and simplifies it into the asset.
+class LandLayer extends StatelessWidget {
+  const LandLayer({super.key});
+
+  static const land = Color(0xFF2B2B45);
+  static const coast = Color(0xFF4A4A6A);
+
+  /// Loaded once per run. Each entry is one landmass: its outer ring, then any inland
+  /// seas cut out of it, each ring as [lng, lat] pairs.
+  static final Future<List<Polygon<Object>>> _polygons = _load();
+
+  static List<LatLng> _ring(List ring) => [
+        for (final p in ring) LatLng((p[1] as num).toDouble(), (p[0] as num).toDouble()),
+      ];
+
+  static Future<List<Polygon<Object>>> _load() async {
+    final raw = jsonDecode(await rootBundle.loadString('assets/land_coast.json')) as List;
+    return [
+      for (final shape in raw.cast<List>())
+        Polygon<Object>(
+          points: _ring(shape.first as List),
+          holePointsList: [for (final hole in shape.skip(1)) _ring(hole as List)],
+          color: land,
+          borderColor: coast,
+          borderStrokeWidth: 1.5,
+        ),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Polygon<Object>>>(
+      future: _polygons,
+      builder: (context, snap) => PolygonLayer(polygons: snap.data ?? const <Polygon<Object>>[]),
+    );
+  }
+}
 
 /// Simple Voronoi territory layer
 class LandMaskTerritoryLayer extends StatelessWidget {

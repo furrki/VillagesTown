@@ -105,13 +105,8 @@ class _MapViewState extends State<MapView> {
             onMapEvent: _onMapEvent,
           ),
           children: [
-            // Dark map tiles
-            TileLayer(
-              urlTemplate: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png',
-              subdomains: const ['a', 'b', 'c', 'd'],
-              userAgentPackageName: 'com.appgea.villagesTown',
-              retinaMode: true,
-            ),
+            // The game's own land outline. No web tiles.
+            const LandLayer(),
 
             // Territory polygons
             LandMaskTerritoryLayer(
@@ -139,7 +134,7 @@ class _MapViewState extends State<MapView> {
               markers: _buildPlayerMarker(game),
             ),
 
-            // The tile data's credit. OSM and CARTO terms require it on the map.
+            // The territory shapes were traced over OpenStreetMap, so its credit stays.
             Padding(
               padding: EdgeInsets.only(bottom: widget.creditBottomInset),
               child: const MapCredit(),
@@ -397,9 +392,10 @@ class _MapViewState extends State<MapView> {
   }
 }
 
-/// The map tiles' credit: OpenStreetMap's data and CARTO's style. Both terms require it
-/// on the map. A small (i) button that opens the two links, shown open for a few seconds
-/// when the map first draws.
+/// The territories' credit. They were traced in the polygon editor over OpenStreetMap
+/// tiles, and OSM's licence asks for a credit on derived maps. The coast is Natural Earth,
+/// public domain, and needs none. A small (i) button that opens the
+/// link, shown open for a few seconds when the map first draws.
 class MapCredit extends StatelessWidget {
   const MapCredit({super.key});
 
@@ -418,7 +414,7 @@ class MapCredit extends StatelessWidget {
       popupBackgroundColor: const Color(0xFF1A1A1A),
       popupInitialDisplayDuration: const Duration(seconds: 4),
       showFlutterMapAttribution: false,
-      // The default button is a black icon, lost on the dark tiles.
+      // The default button is a black icon, lost on the dark map.
       openButton: (context, open) => IconButton(
         onPressed: open,
         tooltip: 'Map credits',
@@ -429,11 +425,6 @@ class MapCredit extends StatelessWidget {
           'OpenStreetMap contributors',
           textStyle: _linkStyle,
           onTap: () => _open('https://www.openstreetmap.org/copyright'),
-        ),
-        TextSourceAttribution(
-          'CARTO',
-          textStyle: _linkStyle,
-          onTap: () => _open('https://carto.com/attributions'),
         ),
       ],
     );
