@@ -9,6 +9,14 @@ import 'game_manager.dart';
 class RecruitmentEngine {
   static const _peasantUnits = {UnitType.militia, UnitType.spearman};
 
+  Map<Resource, int> recruitCost(UnitType type, int quantity) {
+    final cost = type.stats.cost.map((k, v) => MapEntry(k, v * quantity));
+    if (GameManager.shared.activeModifiers.contains(GameModifier.goldStandard) && cost.containsKey(Resource.gold)) {
+      cost[Resource.gold] = cost[Resource.gold]! * 2;
+    }
+    return cost;
+  }
+
   (bool can, String reason) canRecruit(UnitType unitType, int quantity, Village village) {
     final game = GameManager.shared;
 
@@ -33,15 +41,7 @@ class RecruitmentEngine {
       return (false, 'Insufficient population');
     }
 
-    // Check cost (with Gold Standard modifier)
-    final stats = unitType.stats;
-    var totalCost = stats.cost.map((k, v) => MapEntry(k, v * quantity));
-    if (game.activeModifiers.contains(GameModifier.goldStandard)) {
-      totalCost = Map.from(totalCost);
-      if (totalCost.containsKey(Resource.gold)) {
-        totalCost[Resource.gold] = totalCost[Resource.gold]! * 2;
-      }
-    }
+    final totalCost = recruitCost(unitType, quantity);
     if (!game.canAfford(village.owner, totalCost)) {
       return (false, 'Insufficient resources');
     }
@@ -54,14 +54,7 @@ class RecruitmentEngine {
     if (!can) return [];
 
     final game = GameManager.shared;
-    final stats = unitType.stats;
-    var totalCost = stats.cost.map((k, v) => MapEntry(k, v * quantity));
-    if (game.activeModifiers.contains(GameModifier.goldStandard)) {
-      totalCost = Map.from(totalCost);
-      if (totalCost.containsKey(Resource.gold)) {
-        totalCost[Resource.gold] = totalCost[Resource.gold]! * 2;
-      }
-    }
+    final totalCost = recruitCost(unitType, quantity);
 
     if (!game.spendResources(village.owner, totalCost)) return [];
 

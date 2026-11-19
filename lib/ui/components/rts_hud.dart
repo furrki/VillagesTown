@@ -34,7 +34,7 @@ class RtsHud extends StatelessWidget {
                 _badge(pc.name.isNotEmpty ? pc.name : pc.stageTitle, Colors.amber),
                 const SizedBox(width: 8),
                 // Gold
-                _stat('\u{1FA99}', '${pc.gold}', Colors.amber),
+                _stat('\u{1FA99}', '${game.gold}', Colors.amber),
                 const SizedBox(width: 8),
                 // Cargo
                 GestureDetector(

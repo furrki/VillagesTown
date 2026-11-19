@@ -151,11 +151,6 @@ class PlayerCharacter {
     }
   }
 
-  void earnGold(int amount) {
-    gold += amount;
-    totalGoldEarned += amount;
-  }
-
   double get tradeDiscount => tradeSkill * 0.02;
   double get combatBonus => combatSkill * 0.03;
   double get scoutingRange => 1.0 + scoutingSkill * 0.1;

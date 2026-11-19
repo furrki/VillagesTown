@@ -1,3 +1,4 @@
+import 'game_manager.dart';
 import '../data/models/player_character.dart';
 import '../data/models/trade_good.dart';
 import '../data/models/village.dart';
@@ -73,9 +74,7 @@ class TradeEngine {
     for (var i = 0; i < quantity; i++) {
       total += _buyAt(good, village, player, i * pressurePerUnit);
     }
-    if (player.gold < total) return false;
-
-    player.gold -= total;
+    if (!GameManager.shared.spendGold(total)) return false;
     player.addCargo(good, quantity);
     _push(good, village, quantity * pressurePerUnit);
     return true;
@@ -91,7 +90,7 @@ class TradeEngine {
     }
     player.removeCargo(good, quantity);
     _push(good, village, -quantity * pressurePerUnit);
-    player.earnGold(earned);
+    GameManager.shared.awardGold(earned);
     player.salesCompleted++;
     if (player.salesCompleted % 5 == 0) {
       player.tradeSkill = (player.tradeSkill + 1).clamp(1, 20);

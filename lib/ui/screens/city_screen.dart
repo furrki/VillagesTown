@@ -219,7 +219,7 @@ class _CityScreenState extends State<CityScreen>
       children: [
         // Gold & cargo bar
         _infoBar([
-          _infoPill(Icons.monetization_on, '${widget.player.gold}g',
+          _infoPill(Icons.monetization_on, '${GameManager.shared.gold}g',
               Colors.amber),
           _infoPill(
               Icons.inventory_2,
@@ -257,7 +257,7 @@ class _CityScreenState extends State<CityScreen>
                     child: _actionButton(
                       'Pack Mule  50g  (+15)',
                       Colors.blue,
-                      widget.player.gold >= 50
+                      GameManager.shared.gold >= 50
                           ? () {
                               if (game.buyPackMule()) {
                                 widget.showToast('Bought a pack mule!');
@@ -272,7 +272,7 @@ class _CityScreenState extends State<CityScreen>
                     child: _actionButton(
                       'Trade Wagon  200g  (+30)',
                       Colors.blue,
-                      widget.player.gold >= 200
+                      GameManager.shared.gold >= 200
                           ? () {
                               if (game.buyTradeWagon()) {
                                 widget.showToast('Bought a trade wagon!');
@@ -407,7 +407,7 @@ class _CityScreenState extends State<CityScreen>
               ),
               const Spacer(),
               Text(
-                '${widget.player.gold}g available',
+                '${GameManager.shared.gold}g available',
                 style: const TextStyle(color: Colors.amber, fontSize: 12),
               ),
             ],
@@ -428,9 +428,8 @@ class _CityScreenState extends State<CityScreen>
                   itemBuilder: (context, index) {
                     final unitType = available[index];
                     final stats = unitType.stats;
-                    final goldCost = stats.cost[Resource.gold] ?? 0;
-                    final canAfford = widget.player.gold >= goldCost ||
-                        GameManager.shared.treasuryPaysRecruits(widget.city, goldCost);
+                    final goldCost = recruitEngine.recruitCost(unitType, 1)[Resource.gold] ?? 0;
+                    final canAfford = GameManager.shared.gold >= goldCost;
                     final canFit = warbandSize < maxSize;
 
                     return Container(
@@ -549,15 +548,9 @@ class _CityScreenState extends State<CityScreen>
                 _actionButton(
                   'Heal All  ${healCost}g',
                   Colors.green,
-                  widget.player.gold >= healCost
+                  GameManager.shared.gold >= healCost
                       ? () {
-                          for (final unit in units) {
-                            if (unit.currentHP < unit.maxHP) {
-                              unit.currentHP = unit.maxHP;
-                            }
-                          }
-                          widget.player.gold -= healCost;
-                          game.notifyListeners();
+                          if (!game.healWarband(healCost)) return;
                           widget.showToast(
                               'Healed $woundedCount soldier${woundedCount == 1 ? '' : 's'}');
                           setState(() {});

@@ -483,6 +483,8 @@ class GameManager extends ChangeNotifier {
       packMules: (origin?.startsWithPackMule ?? false) ? 1 : 0,
     );
 
+    absorbPurse();
+
     // Create player's starting warband
     if (startCity != null) {
       final startingUnits = <Unit>[
@@ -599,6 +601,35 @@ class GameManager extends ChangeNotifier {
 
   Map<Resource, int> getGlobalResources(String playerId) {
     return globalResources[playerId] ?? {};
+  }
+
+  int get gold => getGlobalResources('player')[Resource.gold] ?? 0;
+
+  void awardGold(int n) {
+    modifyGlobalResource('player', Resource.gold, n);
+    playerCharacter!.totalGoldEarned += n;
+  }
+
+  bool spendGold(int n) {
+    if (gold < n) return false;
+    modifyGlobalResource('player', Resource.gold, -n);
+    return true;
+  }
+
+  void absorbPurse() {
+    final pc = playerCharacter;
+    if (pc == null) return;
+    modifyGlobalResource('player', Resource.gold, pc.gold);
+    pc.gold = 0;
+  }
+
+  bool healWarband(int cost) {
+    if (!spendGold(cost)) return false;
+    for (final unit in playerWarband?.units ?? <Unit>[]) {
+      unit.currentHP = unit.maxHP;
+    }
+    notifyListeners();
+    return true;
   }
 
   /// The treasury is only the sum of the faction's city stocks and is rebuilt from them every turn,
@@ -1447,14 +1478,7 @@ class GameManager extends ChangeNotifier {
           u.heal(max(1, u.maxHP ~/ 20));
         }
         final upkeepGold = warband.unitCount * warbandWagePerMan;
-        // The realm pays its lord's soldiers while it can. Without that the purse paid, and a simulated
-        // lord went broke and lost his men while 20,000 gold sat in his own treasury (tool/balance_sim.dart).
-        if ((getGlobalResources('player')[Resource.gold] ?? 0) >= upkeepGold) {
-          modifyGlobalResource('player', Resource.gold, -upkeepGold);
-        } else {
-          pc.gold -= upkeepGold;
-        }
-        if (pc.gold < 0) {
+        if (!spendGold(upkeepGold)) {
           // Desertion: remove 1 soldier if can't pay
           if (warband.units.isNotEmpty) {
             warband.units.removeLast();
@@ -1464,14 +1488,13 @@ class GameManager extends ChangeNotifier {
               updateArmy(warband);
             }
           }
-          pc.gold = 0;
         }
       }
     }
 
     // Game over check
     // Broke, alone and with nothing to sell. A lord who still holds a city can ride home and hire again.
-    if (pc.gold <= 0 &&
+    if (gold <= 0 &&
         (playerWarband == null || playerWarband!.units.isEmpty) &&
         pc.currentCargoCount == 0 &&
         getPlayerVillages('player').isEmpty) {
@@ -1604,7 +1627,7 @@ class GameManager extends ChangeNotifier {
   void _completeMission(Mission mission) {
     final pc = playerCharacter;
     if (pc == null) return;
-    if (mission.goldReward > 0) pc.earnGold(mission.goldReward);
+    if (mission.goldReward > 0) awardGold(mission.goldReward);
     if (mission.reputationReward > 0 && mission.reputationFactionId != null) {
       pc.addReputation(mission.reputationFactionId!, mission.reputationReward);
     }
@@ -1691,13 +1714,6 @@ class GameManager extends ChangeNotifier {
     pc.warbandId = army.id;
   }
 
-  /// Recruit a unit to the player's warband at the current city.
-  /// Pays from player's personal gold, not faction resources.
-  /// In the lord's own city the treasury pays for new men. Without this a lord whose men had
-  /// fled could not hire again while his treasury held thousands, and the game ended (tool/balance_sim.dart).
-  bool treasuryPaysRecruits(Village city, int goldCost) =>
-      city.owner == 'player' && (getGlobalResources('player')[Resource.gold] ?? 0) >= goldCost;
-
   bool recruitToWarband(UnitType unitType, Village city) {
     final pc = playerCharacter;
     if (pc == null || pc.currentCityId != city.id) return false;
@@ -1712,13 +1728,8 @@ class GameManager extends ChangeNotifier {
     final reqBuilding = recruitEngine.getRequiredBuilding(unitType);
     if (reqBuilding != null && !city.buildings.any((b) => b.name == reqBuilding)) return false;
 
-    final goldCost = unitType.stats.cost[Resource.gold] ?? 0;
-    if (treasuryPaysRecruits(city, goldCost)) {
-      modifyGlobalResource('player', Resource.gold, -goldCost);
-    } else {
-      if (pc.gold < goldCost) return false;
-      pc.gold -= goldCost;
-    }
+    final goldCost = recruitEngine.recruitCost(unitType, 1)[Resource.gold] ?? 0;
+    if (!spendGold(goldCost)) return false;
 
     _joinWarband([Unit.create(unitType, 'player', city.coordinates)]);
     notifyListeners();
@@ -1728,8 +1739,7 @@ class GameManager extends ChangeNotifier {
   bool buyPackMule() {
     final pc = playerCharacter;
     if (pc == null) return false;
-    if (pc.gold < 50) return false;
-    pc.gold -= 50;
+    if (!spendGold(50)) return false;
     pc.packMules++;
     notifyListeners();
     return true;
@@ -1738,8 +1748,7 @@ class GameManager extends ChangeNotifier {
   bool buyTradeWagon() {
     final pc = playerCharacter;
     if (pc == null) return false;
-    if (pc.gold < 200) return false;
-    pc.gold -= 200;
+    if (!spendGold(200)) return false;
     pc.tradeWagons++;
     notifyListeners();
     return true;
@@ -1788,7 +1797,7 @@ class GameManager extends ChangeNotifier {
     var cargoLost = 0;
     if (won) {
       goldGained = encounter.goldReward ?? 0;
-      pc.earnGold(goldGained);
+      awardGold(goldGained);
       pc.battlesWon++;
       // One skill level per three wins: intimidate opens at 3, and combat stays within the 1-10 skill range.
       if (pc.battlesWon % 3 == 0) pc.combatSkill = min(pc.combatSkill + 1, 10);
@@ -1798,8 +1807,8 @@ class GameManager extends ChangeNotifier {
       }
     } else {
       battlesLost++;
-      goldLost = (pc.gold * 0.3).round();
-      pc.gold -= goldLost;
+      goldLost = min((gold * 0.3).round(), 150);
+      spendGold(goldLost);
       for (final good in pc.cargo.keys.toList()) {
         final lost = (pc.cargoOf(good) * 0.3).ceil();
         cargoLost += lost;
@@ -1889,25 +1898,24 @@ class GameManager extends ChangeNotifier {
 
       case EncounterChoiceOutcome.payGold:
         final cost = choice.goldAmount ?? 0;
-        if (pc.gold < cost) return null;
-        pc.gold -= cost;
+        if (!spendGold(cost)) return null;
         dismissEncounter();
         notifyListeners();
         return choice.resultText;
 
       case EncounterChoiceOutcome.gainGold:
-        pc.earnGold(choice.goldAmount ?? 0);
+        awardGold(choice.goldAmount ?? 0);
         dismissEncounter();
         notifyListeners();
         return choice.resultText;
 
       case EncounterChoiceOutcome.gainCargo:
         final cost = choice.goldAmount ?? 0;
-        if (pc.gold < cost) return null;
+        if (gold < cost) return null;
         if (choice.tradeGood != null) {
           final space = pc.totalCargoCapacity - pc.currentCargoCount;
           if (space < (choice.tradeGoodAmount ?? 1)) return null;
-          pc.gold -= cost;
+          spendGold(cost);
           pc.addCargo(choice.tradeGood!, choice.tradeGoodAmount ?? 1);
         }
         dismissEncounter();
@@ -1932,7 +1940,7 @@ class GameManager extends ChangeNotifier {
 
       case EncounterChoiceOutcome.loseGold:
         final amount = choice.goldAmount ?? 0;
-        pc.gold = (pc.gold - amount).clamp(0, pc.gold);
+        spendGold(min(amount, gold));
         dismissEncounter();
         notifyListeners();
         return choice.resultText;

@@ -97,7 +97,7 @@ class TravelPanel extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                '\u{1FA99} ${player.gold} gold',
+                '\u{1FA99} ${GameManager.shared.gold} gold',
                 style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.w600),
               ),
             ],

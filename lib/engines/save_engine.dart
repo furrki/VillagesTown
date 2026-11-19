@@ -137,6 +137,7 @@ class SaveEngine {
     // Mark game as started and wire callbacks
     game.gameStarted = true;
     game.syncGlobalResources();
+    game.absorbPurse();
     game.gameLoop.onTick = game.onGameTickCallback;
     game.gameLoop.onArrival = game.onPlayerArrivalCallback;
     game.gameLoop.tickCount = data['tickCount'] as int? ?? 0;

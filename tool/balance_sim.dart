@@ -264,7 +264,7 @@ void _cityTurn(GameManager game, PlayerCharacter pc, Village city, Map<TradeGood
     // A sensible player keeps trade money: about one full load of a mid-priced good.
     final reserve = (size + 1) * 2 * 4 + 200;
     final cost = t.stats.cost[Resource.gold] ?? 0;
-    final byTreasury = game.treasuryPaysRecruits(city, cost + 300);
+    final byTreasury = city.owner == 'player' && game.gold >= cost + 300;
     if (size < pc.maxWarbandSize && (byTreasury || pc.gold >= cost + reserve)) {
       if (game.recruitToWarband(t, city)) s.recruited++;
       break;
