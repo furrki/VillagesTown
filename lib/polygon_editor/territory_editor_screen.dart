@@ -107,8 +107,8 @@ class _TerritoryEditorScreenState extends State<TerritoryEditorScreen> {
   }
 
   // Use app container for sandboxed macOS app
-  static const _dataRoot = '/Users/appgea/Library/Containers/com.appgea.villagesTown/Data';
-  static const _projectRoot = '/Users/appgea/Desktop/projects/appgea-apps/VillagesTown';
+  static final _dataRoot = '${Platform.environment['HOME']}/Library/Containers/com.appgea.villagesTown/Data';
+  static const _projectRoot = String.fromEnvironment('VILLAGES_PROJECT_ROOT');
 
   Future<void> _loadData() async {
     // Load land polygons
@@ -183,11 +183,13 @@ class _TerritoryEditorScreenState extends State<TerritoryEditorScreen> {
     await file.writeAsString(jsonContent);
 
     // Try to save to assets folder for the game (may fail if sandboxed)
-    try {
-      final assetsFile = File('$_projectRoot/assets/territories.json');
-      await assetsFile.writeAsString(jsonContent);
-    } catch (e) {
-      debugPrint('Could not save to assets (sandbox): $e');
+    if (_projectRoot.isNotEmpty) {
+      try {
+        final assetsFile = File('$_projectRoot/assets/territories.json');
+        await assetsFile.writeAsString(jsonContent);
+      } catch (e) {
+        debugPrint('Could not save to assets (sandbox): $e');
+      }
     }
 
     if (mounted) {

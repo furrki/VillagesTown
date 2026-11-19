@@ -515,6 +515,22 @@ class GameManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  Iterable<MissionObjective> unfinishedObjectivesFor(String playerId) sync* {
+    final character = playerCharacter;
+    if (playerId != 'player' || character == null) return;
+    for (final mission in character.activeMissions) {
+      if (mission.state == MissionState.active) {
+        yield* mission.objectives.where((objective) => !objective.completed);
+      }
+    }
+  }
+
+  String? goalCityIdFor(String playerId) => unfinishedObjectivesFor(playerId)
+      .where((objective) => objective.targetCityId != null &&
+          (objective.type == ObjectiveType.travelTo ||
+              objective.type == ObjectiveType.deliverGoods))
+      .firstOrNull?.targetCityId;
+
   void _createInitialMission(CharacterOrigin origin, String startCityId) {
     final neighbors = getNeighbors(startCityId);
     if (neighbors.isEmpty) return;

@@ -15,6 +15,7 @@ import 'army_visual_marker.dart';
 import 'land_mask_layer.dart';
 
 class MapView extends StatefulWidget {
+  final String? goalCityId;
   final Village? selectedVillage;
   final Army? selectedArmy;
   final void Function(Village) onVillageSelected;
@@ -26,6 +27,7 @@ class MapView extends StatefulWidget {
 
   const MapView({
     super.key,
+    this.goalCityId,
     this.selectedVillage,
     this.selectedArmy,
     required this.onVillageSelected,
@@ -89,6 +91,11 @@ class _MapViewState extends State<MapView> {
         final game = provider.gameManager;
         // Filter villages by visibility (fog of war)
         final visibleVillages = game.map.villages.where((v) => game.isVillageVisible(v, 'player')).toList();
+        // Paint the destination last so a neighboring marker cannot hide its pennant.
+        if (widget.goalCityId != null) {
+          final goal = visibleVillages.indexWhere((v) => v.id == widget.goalCityId);
+          if (goal >= 0) visibleVillages.add(visibleVillages.removeAt(goal));
+        }
         final visibleArmies = game.getVisibleArmies('player');
         final inVisionIds = game.villageIdsInVisionRange('player');
 
@@ -255,6 +262,7 @@ class _MapViewState extends State<MapView> {
                 village: village,
                 displayName: game.getVillageDisplayName(village),
                 isSelected: widget.selectedVillage?.id == village.id,
+                isGoal: village.id == widget.goalCityId,
                 armyCount: totalDefenders,
                 hasThreat: _hasIncomingThreat(village, game.armies),
                 onTap: () => widget.onVillageSelected(village),

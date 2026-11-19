@@ -7,6 +7,7 @@ import '../../engines/game_manager.dart';
 class VillageMarker extends StatefulWidget {
   final Village village;
   final String displayName;
+  final bool isGoal;
   final bool isSelected;
   final int armyCount;
   final bool hasThreat;
@@ -18,6 +19,7 @@ class VillageMarker extends StatefulWidget {
     super.key,
     required this.village,
     required this.displayName,
+    this.isGoal = false,
     required this.isSelected,
     required this.armyCount,
     required this.hasThreat,
@@ -338,6 +340,16 @@ class _VillageMarkerState extends State<VillageMarker>
                 ),
               ),
             ),
+          if (widget.isGoal)
+            const Positioned(
+              top: -2,
+              right: 3,
+              child: CustomPaint(
+                key: ValueKey('goal-pennant'),
+                size: Size(8, 10),
+                painter: _PennantPainter(),
+              ),
+            ),
         ],
       ),
     );
@@ -378,4 +390,21 @@ class _VillageMarkerState extends State<VillageMarker>
       ),
     );
   }
+}
+
+class _PennantPainter extends CustomPainter {
+  const _PennantPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final triangle = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, size.height / 2)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(triangle, Paint()..color = Colors.amber);
+  }
+
+  @override
+  bool shouldRepaint(_PennantPainter oldDelegate) => false;
 }

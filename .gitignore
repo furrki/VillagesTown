@@ -17,6 +17,8 @@ migrate_working_dir/
 *.ipr
 *.iws
 .idea/
+.claude/settings.local.json
+/BATTLE_SCREEN_PLAN_A.md
 
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line

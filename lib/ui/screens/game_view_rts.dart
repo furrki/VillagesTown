@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../data/models/player_character.dart';
 import '../../data/models/village.dart';
 import '../../engines/game_manager.dart';
+import '../../engines/victory_engine.dart';
 import '../../providers/game_provider.dart';
 import '../map/map_view.dart';
 import '../panels/cargo_panel.dart';
@@ -282,6 +283,7 @@ class _RtsGameViewState extends State<RtsGameView> {
       ),
       child: MapView(
         selectedVillage: game.playerCurrentCity,
+        goalCityId: game.goalCityIdFor('player'),
         onVillageSelected: _onVillageTapped,
         onArmySelected: (_) {},
         creditBottomInset: creditBottomInset,
@@ -327,41 +329,13 @@ class _RtsGameViewState extends State<RtsGameView> {
     );
   }
 
-  /// Hint bar when looking at map from city — tells player to tap a city
+  /// Opens the current city and shows the next campaign goal.
   Widget _buildMapHintBar(GameManager game) {
     final cityName = game.getVillageDisplayName(game.playerCurrentCity!);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A).withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => setState(() => _showCityPanel = true),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.location_city, color: Colors.amber, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  cityName,
-                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(width: 4),
-                const Icon(Icons.keyboard_arrow_up, color: Colors.white38, size: 18),
-              ],
-            ),
-          ),
-          const Spacer(),
-          Text(
-            'Tap a city to travel',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12, fontStyle: FontStyle.italic),
-          ),
-        ],
-      ),
+    return MapGoalHintBar(
+      game: game,
+      cityName: cityName,
+      openCity: () => setState(() => _showCityPanel = true),
     );
   }
 
@@ -419,5 +393,63 @@ class _RenderHeightReporter extends RenderProxyBox {
     if (height == _last) return;
     _last = height;
     WidgetsBinding.instance.addPostFrameCallback((_) => onHeight(height));
+  }
+}
+
+class MapGoalHintBar extends StatelessWidget {
+  final GameManager game;
+  final String cityName;
+  final VoidCallback openCity;
+
+  const MapGoalHintBar({super.key, required this.game, required this.cityName, required this.openCity});
+
+  String get _hint {
+    final objective = game.unfinishedObjectivesFor('player').firstOrNull;
+    if (objective != null) {
+      if (objective.targetAmount <= 1) return objective.description;
+      return '${objective.description} ${objective.currentAmount}/${objective.targetAmount}';
+    }
+    final best = VictoryEngine.getAllProgress(game, 'player')
+        .reduce((a, b) => a.progress >= b.progress ? a : b);
+    return '${best.type.emoji} ${best.type.displayName} ${(best.progress * 100).round()}%';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A).withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        children: [
+          Flexible(child: GestureDetector(
+            onTap: openCity,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.location_city, color: Colors.amber, size: 18),
+                const SizedBox(width: 8),
+                Flexible(child: Text(
+                  cityName,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                )),
+                const SizedBox(width: 4),
+                const Icon(Icons.keyboard_arrow_up, color: Colors.white38, size: 18),
+              ],
+            ),
+          )),
+          const SizedBox(width: 8),
+          Expanded(child: Text(
+            _hint,
+            textAlign: TextAlign.end,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          )),
+        ],
+      ),
+    );
   }
 }

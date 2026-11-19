@@ -30,11 +30,28 @@ android {
         versionName = flutter.versionName
     }
 
+    val signingNames = listOf("VILLAGESTOWN_KEYSTORE", "VILLAGESTOWN_STORE_PASSWORD", "VILLAGESTOWN_KEY_ALIAS", "VILLAGESTOWN_KEY_PASSWORD")
+    val signingValues = signingNames.associateWith { providers.environmentVariable(it).orNull }
+    val signingReady = signingValues.values.all { !it.isNullOrBlank() }
+    val signingMessage = "Release signing requires: ${signingNames.joinToString()}"
+    require(signingReady || signingValues.values.all { it == null }) { signingMessage }
+    if (!signingReady) {
+        gradle.taskGraph.whenReady {
+            require(!hasTask(":app:preReleaseBuild")) { signingMessage }
+        }
+    }
+    if (signingReady) {
+        signingConfigs.create("release") {
+            storeFile = rootProject.file(signingValues.getValue("VILLAGESTOWN_KEYSTORE")!!)
+            storePassword = signingValues.getValue("VILLAGESTOWN_STORE_PASSWORD")
+            keyAlias = signingValues.getValue("VILLAGESTOWN_KEY_ALIAS")
+            keyPassword = signingValues.getValue("VILLAGESTOWN_KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 }
