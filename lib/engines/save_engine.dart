@@ -19,6 +19,7 @@ import 'game_manager.dart';
 class SaveEngine {
   static const _saveKey = 'game_save_v1';
   static Future<bool>? _lastSave;
+  static ({String campaign, PlayerCharacter character, Future<bool> result})? _queuedSave;
 
   static Future<bool> hasSave() async {
     final prefs = await SharedPreferences.getInstance();
@@ -40,6 +41,11 @@ class SaveEngine {
     final character = game.playerCharacter;
     if (!game.gameStarted || character == null) return Future.value(false);
     final campaignId = game.campaignId;
+    final queued = _queuedSave;
+    if (gameEndRecorded == null && queued != null && queued.campaign == campaignId &&
+        identical(queued.character, character)) {
+      return queued.result;
+    }
     bool isCurrentCampaign() => game.gameStarted &&
         game.campaignId == campaignId &&
         identical(game.playerCharacter, character);
@@ -61,12 +67,20 @@ class SaveEngine {
     }
 
     final previous = _lastSave;
-    final writeResult = previous == null ? write() : previous.then((_) => write());
     late final Future<bool> result;
+    // Completion markers must keep their place between ordinary saves.
+    _queuedSave = null;
+    final writeResult = previous == null ? write() : previous.then((_) {
+      if (identical(_queuedSave?.result, result)) _queuedSave = null;
+      return write();
+    });
     result = writeResult.whenComplete(() {
       if (identical(_lastSave, result)) _lastSave = null;
     });
     _lastSave = result;
+    if (previous != null && gameEndRecorded == null) {
+      _queuedSave = (campaign: campaignId, character: character, result: result);
+    }
     return result;
   }
 

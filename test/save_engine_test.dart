@@ -118,6 +118,8 @@ void main() {
             character.travelOriginId = game.map.villages.first.id;
             character.travelDestinationId = game.map.villages[1].id;
             character.travelTotalTicks = 100;
+            // Avoid every encounter so the real travel tick always reaches its autosave.
+            character.scoutingSkill = 35;
             game.gameLoop.tickCount = 10;
             game.onGameTickCallback();
           case 'lifecycle':
@@ -167,12 +169,14 @@ void main() {
       game.currentTurn = 2;
       final queuedSave = SaveEngine.saveGame(game);
       game.currentTurn = 3;
+      final latestSave = SaveEngine.saveGame(game);
       await Future<void>.delayed(Duration.zero);
       expect(store.attemptedTurns, [1]);
 
       inFlight.complete(true);
       expect(await oldSave, isTrue);
       expect(await queuedSave, isTrue);
+      expect(await latestSave, isTrue);
       expect(store.attemptedTurns, [1, 3]);
       expect((await store.getAll()).keys, ['flutter.game_save_v1']);
       await (await SharedPreferences.getInstance()).reload();
