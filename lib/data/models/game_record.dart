@@ -9,6 +9,7 @@ class GameRecord {
   final int battlesWon;
   final int villagesControlled;
   final String? difficulty;
+  final String? campaignId;
 
   const GameRecord({
     required this.date,
@@ -19,6 +20,7 @@ class GameRecord {
     required this.battlesWon,
     required this.villagesControlled,
     this.difficulty,
+    this.campaignId,
   });
 
   bool get isVictory => victoryType != null;
@@ -32,6 +34,7 @@ class GameRecord {
         'battlesWon': battlesWon,
         'villagesControlled': villagesControlled,
         'difficulty': difficulty,
+        'campaignId': campaignId,
       };
 
   factory GameRecord.fromJson(Map<String, dynamic> json) {
@@ -50,6 +53,7 @@ class GameRecord {
       battlesWon: json['battlesWon'] as int? ?? 0,
       villagesControlled: json['villagesControlled'] as int? ?? 0,
       difficulty: json['difficulty'] as String? ?? 'normal',
+      campaignId: json['campaignId'] as String?,
     );
   }
 
