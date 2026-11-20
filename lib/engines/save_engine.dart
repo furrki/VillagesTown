@@ -27,8 +27,8 @@ class SaveEngine {
     await prefs.remove(_saveKey);
   }
 
-  static Future<void> saveGame(GameManager game) async {
-    if (!game.gameStarted || game.playerCharacter == null) return;
+  static Future<bool> saveGame(GameManager game) async {
+    if (!game.gameStarted || game.playerCharacter == null) return false;
 
     final data = <String, dynamic>{
       'nationalityId': game.playerNationality?.id,
@@ -53,9 +53,7 @@ class SaveEngine {
     };
 
     final prefs = await SharedPreferences.getInstance();
-    if (!await prefs.setString(_saveKey, json.encode(data))) {
-      throw StateError('Could not save campaign');
-    }
+    return prefs.setString(_saveKey, json.encode(data));
   }
 
   static Future<bool> loadGame(GameManager game) async {

@@ -19,7 +19,9 @@ import 'battle/countryball_battle_screen.dart';
 import 'victory_screen.dart';
 
 Future<void> saveAndReturnToMenu(GameManager game) async {
-  await SaveEngine.saveGame(game);
+  if (!await SaveEngine.saveGame(game)) {
+    throw StateError('Could not save campaign');
+  }
   game.resetGame();
 }
 

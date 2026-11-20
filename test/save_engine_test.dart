@@ -20,8 +20,9 @@ void main() {
 
   test('immediate menu exit saves a city action', () async {
     final game = started();
-    game.playerCharacter!.gold = 1234;
-    game.notifyListeners();
+    // Synchronize the treasury with the starting city stocks before spending.
+    game.awardGold(1);
+    expect(game.healWarband(25), isTrue);
     final gold = game.gold;
     await saveAndReturnToMenu(game);
     expect(await SaveEngine.loadGame(game), isTrue);
