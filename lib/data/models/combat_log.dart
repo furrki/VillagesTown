@@ -13,6 +13,32 @@ enum CombatPhase {
 
 /// Result of a single combat phase.
 class PhaseResult {
+
+  Map<String, dynamic> toJson() => {
+    'phase': phase.name,
+    'attackerLuckRoll': attackerLuckRoll,
+    'defenderLuckRoll': defenderLuckRoll,
+    'attackerLuckModifier': attackerLuckModifier,
+    'defenderLuckModifier': defenderLuckModifier,
+    'attackerKills': attackerKills,
+    'defenderKills': defenderKills,
+    'attackerCasualtiesByType': attackerCasualtiesByType.map((key, value) => MapEntry(key.name, value)),
+    'defenderCasualtiesByType': defenderCasualtiesByType.map((key, value) => MapEntry(key.name, value)),
+    'narration': narration,
+  };
+
+  factory PhaseResult.fromJson(Map<String, dynamic> json) => PhaseResult(
+    phase: CombatPhase.values.byName(json['phase'] as String),
+    attackerLuckRoll: json['attackerLuckRoll'] as int,
+    defenderLuckRoll: json['defenderLuckRoll'] as int,
+    attackerLuckModifier: (json['attackerLuckModifier'] as num).toDouble(),
+    defenderLuckModifier: (json['defenderLuckModifier'] as num).toDouble(),
+    attackerKills: json['attackerKills'] as int,
+    defenderKills: json['defenderKills'] as int,
+    attackerCasualtiesByType: (json['attackerCasualtiesByType'] as Map<String, dynamic>).map((key, value) => MapEntry(UnitCategory.values.byName(key), value as int)),
+    defenderCasualtiesByType: (json['defenderCasualtiesByType'] as Map<String, dynamic>).map((key, value) => MapEntry(UnitCategory.values.byName(key), value as int)),
+    narration: json['narration'] as String,
+  );
   final CombatPhase phase;
   final int attackerLuckRoll; // 1-100
   final int defenderLuckRoll; // 1-100
@@ -40,6 +66,26 @@ class PhaseResult {
 
 /// Legacy battle round (kept for compatibility).
 class BattleRound {
+
+  Map<String, dynamic> toJson() => {
+    'attackerRolls': attackerRolls,
+    'defenderRolls': defenderRolls,
+    'attackerBonus': attackerBonus,
+    'defenderBonus': defenderBonus,
+    'attackerLosses': attackerLosses,
+    'defenderLosses': defenderLosses,
+    'narration': narration,
+  };
+
+  factory BattleRound.fromJson(Map<String, dynamic> json) => BattleRound(
+    attackerRolls: (json['attackerRolls'] as List<dynamic>).cast<int>(),
+    defenderRolls: (json['defenderRolls'] as List<dynamic>).cast<int>(),
+    attackerBonus: json['attackerBonus'] as int,
+    defenderBonus: json['defenderBonus'] as int,
+    attackerLosses: json['attackerLosses'] as int,
+    defenderLosses: json['defenderLosses'] as int,
+    narration: json['narration'] as String,
+  );
   final List<int> attackerRolls;
   final List<int> defenderRolls;
   final int attackerBonus;
@@ -137,6 +183,24 @@ class FormationModifiers {
 /// city assault that follows it. The visual layer plays these in order so the
 /// player sees the field battle, then survivors push into the city.
 class BattleEngagement {
+
+  Map<String, dynamic> toJson() => {
+    'isCityAssault': isCityAssault,
+    'attackerStart': attackerStart,
+    'defenderStart': defenderStart,
+    'attackerSurvivors': attackerSurvivors,
+    'defenderSurvivors': defenderSurvivors,
+    'attackerWon': attackerWon,
+  };
+
+  factory BattleEngagement.fromJson(Map<String, dynamic> json) => BattleEngagement(
+    isCityAssault: json['isCityAssault'] as bool,
+    attackerStart: json['attackerStart'] as int,
+    defenderStart: json['defenderStart'] as int,
+    attackerSurvivors: json['attackerSurvivors'] as int,
+    defenderSurvivors: json['defenderSurvivors'] as int,
+    attackerWon: json['attackerWon'] as bool,
+  );
   final bool isCityAssault; // false = open field, true = inside-the-walls street fight
   final int attackerStart; // attackers entering this engagement
   final int defenderStart; // field: mobile defender army; city: garrison defenders
@@ -159,6 +223,68 @@ class BattleEngagement {
 
 /// Complete battle record with phase-based combat.
 class BattleRecord {
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'attackerName': attackerName,
+    'defenderName': defenderName,
+    'attackerId': attackerId,
+    'defenderId': defenderId,
+    'attackerOwnerId': attackerOwnerId,
+    'defenderOwnerId': defenderOwnerId,
+    'originVillageId': originVillageId,
+    'locationName': locationName,
+    'rounds': rounds.map((value) => value.toJson()).toList(),
+    'phases': phases.map((value) => value.toJson()).toList(),
+    'engagements': engagements.map((value) => value.toJson()).toList(),
+    'attackerWon': attackerWon,
+    'initialAttackerCount': initialAttackerCount,
+    'initialDefenderCount': initialDefenderCount,
+    'initialGarrisonCount': initialGarrisonCount,
+    'timestamp': timestamp.toIso8601String(),
+    'isPending': isPending,
+    'terrain': terrain?.name,
+    'attackerFormation': attackerFormation?.name,
+    'defenderFormation': defenderFormation?.name,
+    'formationBonus': formationBonus,
+    'attackerBarracksLevel': attackerBarracksLevel,
+    'attackerArcheryLevel': attackerArcheryLevel,
+    'attackerStablesLevel': attackerStablesLevel,
+    'defenderBarracksLevel': defenderBarracksLevel,
+    'defenderArcheryLevel': defenderArcheryLevel,
+    'defenderStablesLevel': defenderStablesLevel,
+  };
+
+  factory BattleRecord.fromJson(Map<String, dynamic> json) => BattleRecord(
+    id: json['id'] as String,
+    attackerName: json['attackerName'] as String,
+    defenderName: json['defenderName'] as String,
+    attackerId: json['attackerId'] as String,
+    defenderId: json['defenderId'] as String,
+    attackerOwnerId: json['attackerOwnerId'] as String,
+    defenderOwnerId: json['defenderOwnerId'] as String,
+    originVillageId: json['originVillageId'] as String?,
+    locationName: json['locationName'] as String,
+    rounds: (json['rounds'] as List<dynamic>).map((value) => BattleRound.fromJson(value as Map<String, dynamic>)).toList(),
+    phases: (json['phases'] as List<dynamic>).map((value) => PhaseResult.fromJson(value as Map<String, dynamic>)).toList(),
+    engagements: (json['engagements'] as List<dynamic>).map((value) => BattleEngagement.fromJson(value as Map<String, dynamic>)).toList(),
+    attackerWon: json['attackerWon'] as bool,
+    initialAttackerCount: json['initialAttackerCount'] as int,
+    initialDefenderCount: json['initialDefenderCount'] as int,
+    initialGarrisonCount: json['initialGarrisonCount'] as int,
+    timestamp: DateTime.parse(json['timestamp'] as String),
+    isPending: json['isPending'] as bool,
+    terrain: json['terrain'] == null ? null : BattleTerrain.values.byName(json['terrain'] as String),
+    attackerFormation: json['attackerFormation'] == null ? null : BattleFormation.values.byName(json['attackerFormation'] as String),
+    defenderFormation: json['defenderFormation'] == null ? null : BattleFormation.values.byName(json['defenderFormation'] as String),
+    formationBonus: (json['formationBonus'] as num).toDouble(),
+    attackerBarracksLevel: json['attackerBarracksLevel'] as int,
+    attackerArcheryLevel: json['attackerArcheryLevel'] as int,
+    attackerStablesLevel: json['attackerStablesLevel'] as int,
+    defenderBarracksLevel: json['defenderBarracksLevel'] as int,
+    defenderArcheryLevel: json['defenderArcheryLevel'] as int,
+    defenderStablesLevel: json['defenderStablesLevel'] as int,
+  );
   final String id;
   final String attackerName;
   final String defenderName;

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/models/army.dart';
 import '../data/models/building.dart';
+import '../data/models/combat_log.dart';
 import '../data/models/difficulty.dart';
 import '../data/models/game_modifier.dart';
 import '../data/models/victory_condition.dart';
@@ -47,6 +48,7 @@ class SaveEngine {
       'playerCharacter': game.playerCharacter!.toJson(),
       'villages': _serializeVillages(game),
       'armies': _serializeArmies(game),
+      'pendingBattles': game.pendingBattles.map((battle) => battle.toJson()).toList(),
       'tickCount': game.gameLoop.tickCount,
       'discoveredVillageIds': game.discoveredVillageIDs.toList(),
       'marketPressure': game.marketPressure.map((id, city) => MapEntry(id, city.map((g, v) => MapEntry(g.name, v)))),
@@ -131,6 +133,16 @@ class SaveEngine {
       game.playerCharacter = pc;
       if (game.playerWarband == null) pc.warbandId = _oldSaveWarband(game, pc)?.id;
     }
+    game.pendingBattles
+      ..clear()
+      ..addAll((data['pendingBattles'] as List<dynamic>? ?? []).map((entry) {
+        final battle = Map<String, dynamic>.from(entry as Map);
+        for (final key in ['defenderId', 'originVillageId']) {
+          final id = battle[key] as String?;
+          if (id != null) battle[key] = ids[id] ?? id;
+        }
+        return BattleRecord.fromJson(battle);
+      }));
     final capital = data['capitalVillageId'] as String?;
     if (capital != null) game.capitalVillageId = ids[capital] ?? capital;
 
