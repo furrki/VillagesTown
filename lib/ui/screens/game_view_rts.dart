@@ -6,6 +6,7 @@ import '../../data/models/village.dart';
 import '../../engines/game_manager.dart';
 import '../../engines/victory_engine.dart';
 import '../../providers/game_provider.dart';
+import '../../purchases/full_game.dart';
 import '../map/map_view.dart';
 import '../panels/cargo_panel.dart';
 import '../panels/travel_panel.dart';
@@ -43,7 +44,7 @@ class _RtsGameViewState extends State<RtsGameView> {
     });
   }
 
-  void _onVillageTapped(Village village) {
+  void _onVillageTapped(Village village) async {
     final game = GameManager.shared;
     final pc = game.playerCharacter;
     if (pc == null) return;
@@ -54,7 +55,8 @@ class _RtsGameViewState extends State<RtsGameView> {
         setState(() => _showCityPanel = !_showCityPanel);
       } else if (game.areNeighbors(pc.currentCityId!, village.id)) {
         // Tapped connected city — just go there, Bannerlord style
-        game.startTravel(village.id);
+        if (!await allowCity(context, pc, village.id) || !mounted) return;
+        if (!game.startTravel(village.id)) return;
         setState(() => _showCityPanel = false);
       } else {
         _showToast('No road to ${game.getVillageDisplayName(village)}');

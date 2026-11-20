@@ -15,6 +15,7 @@ class PlayerCharacter {
 
   PlayerState state;
   String? currentCityId;
+  final Set<String> trialCities;
   String? travelOriginId;
   String? travelDestinationId;
   double travelProgress;
@@ -53,6 +54,7 @@ class PlayerCharacter {
     this.origin,
     this.state = PlayerState.atCity,
     this.currentCityId,
+    Set<String>? trialCities,
     this.travelOriginId,
     this.travelDestinationId,
     this.travelProgress = 0.0,
@@ -78,7 +80,12 @@ class PlayerCharacter {
     this.battlesWon = 0,
     List<Mission>? activeMissions,
     List<Mission>? completedMissions,
-  })  : cargo = cargo ?? {},
+  })  : trialCities = trialCities ?? {
+          if (travelOriginId != null) travelOriginId,
+          if (travelDestinationId != null) travelDestinationId,
+          if (currentCityId != null) currentCityId,
+        },
+        cargo = cargo ?? {},
         reputation = reputation ?? {},
         activeMissions = activeMissions ?? [],
         completedMissions = completedMissions ?? [];
@@ -160,6 +167,7 @@ class PlayerCharacter {
     'origin': origin?.toJson(),
     'state': state.name,
     'currentCityId': currentCityId,
+    'trialCities': trialCities.toList(),
     'travelOriginId': travelOriginId,
     'travelDestinationId': travelDestinationId,
     'travelProgress': travelProgress,
@@ -195,6 +203,7 @@ class PlayerCharacter {
           : null,
       state: PlayerState.values.firstWhere((e) => e.name == json['state'], orElse: () => PlayerState.atCity),
       currentCityId: json['currentCityId'] as String?,
+      trialCities: (json['trialCities'] as List?)?.whereType<String>().toSet(),
       travelOriginId: json['travelOriginId'] as String?,
       travelDestinationId: json['travelDestinationId'] as String?,
       travelProgress: (json['travelProgress'] as num?)?.toDouble() ?? 0.0,

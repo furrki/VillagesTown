@@ -11,6 +11,7 @@ import '../../engines/game_manager.dart';
 import '../../engines/building_construction_engine.dart';
 import '../../engines/recruitment_engine.dart';
 import '../../providers/game_provider.dart';
+import '../../purchases/full_game.dart';
 import '../map/map_view.dart';
 import '../panels/side_info_panel.dart';
 import 'victory_screen.dart';
@@ -66,8 +67,11 @@ class _DesktopGameViewState extends State<DesktopGameView> {
     });
   }
 
-  void _selectVillage(Village village) {
+  void _selectVillage(Village village) async {
     final game = GameManager.shared;
+
+    final pc = game.playerCharacter;
+    if (pc != null && (!await allowCity(context, pc, village.id) || !mounted)) return;
 
     // If army is selected and tapped village is a valid march target, send the army
     if (_selectedArmy != null && _selectedArmy!.stationedAt != null) {
@@ -196,7 +200,9 @@ class _DesktopGameViewState extends State<DesktopGameView> {
                           selectedArmy: _selectedArmy,
                           onVillageSelected: _selectVillage,
                           onArmySelected: _selectArmy,
-                          onArmySent: (army, destination) {
+                          onArmySent: (army, destination) async {
+                            final pc = game.playerCharacter;
+                            if (pc != null && (!await allowCity(context, pc, destination.id) || !mounted)) return;
                             game.sendArmy(army.id, destination.id);
                           },
                         ),

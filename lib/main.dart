@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'data/models/nationality.dart';
 import 'engines/save_engine.dart';
 import 'providers/game_provider.dart';
+import 'purchases/full_game.dart';
 import 'ui/screens/character_creation_screen.dart';
 import 'ui/screens/nationality_selection_screen.dart';
 import 'ui/screens/origin_selection_screen.dart';
@@ -56,6 +57,7 @@ class _ContentViewState extends State<ContentView> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    FullGame.instance.start();
     _checkSave();
   }
 
@@ -68,6 +70,7 @@ class _ContentViewState extends State<ContentView> with WidgetsBindingObserver {
   // Leaving the foreground can end the app: save what was done since the last autosave.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) FullGame.instance.onResume();
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden ||
