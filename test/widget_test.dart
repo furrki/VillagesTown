@@ -6,8 +6,9 @@ import 'package:villages_town/main.dart';
 import 'package:villages_town/providers/game_provider.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   testWidgets('creation back controls preserve the name and allow starting', (tester) async {
-    SharedPreferences.setMockInitialValues({});
     final provider = GameProvider();
     await tester.pumpWidget(ChangeNotifierProvider.value(
       value: provider,
@@ -16,7 +17,7 @@ void main() {
     await tester.pumpAndSettle();
 
     Future<void> startNaming() async {
-      await tester.tap(find.text('Ottomans'));
+      await tester.tap(find.text('OTTOMANS'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('START CONQUEST'));
       await tester.tap(find.text('START CONQUEST'));
@@ -51,8 +52,12 @@ void main() {
     await tester.tap(find.text('Exiled Noble'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('BEGIN JOURNEY'));
-    await tester.pump();
     expect(provider.gameManager.gameStarted, isTrue);
+    await tester.pumpWidget(const SizedBox());
+    provider.dispose();
+    provider.gameManager.resetGame();
+    // Flush the city-save debounce started by the game before this fake clock ends.
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('App loads correctly', (WidgetTester tester) async {
