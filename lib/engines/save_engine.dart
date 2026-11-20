@@ -53,7 +53,9 @@ class SaveEngine {
     };
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_saveKey, json.encode(data));
+    if (!await prefs.setString(_saveKey, json.encode(data))) {
+      throw StateError('Could not save campaign');
+    }
   }
 
   static Future<bool> loadGame(GameManager game) async {

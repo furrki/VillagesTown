@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../data/models/player_character.dart';
 import '../../data/models/village.dart';
 import '../../engines/game_manager.dart';
+import '../../engines/save_engine.dart';
 import '../../engines/victory_engine.dart';
 import '../../providers/game_provider.dart';
 import '../../purchases/full_game.dart';
@@ -16,6 +17,11 @@ import '../components/rts_hud.dart';
 import '../components/game_over_overlay.dart';
 import 'battle/countryball_battle_screen.dart';
 import 'victory_screen.dart';
+
+Future<void> saveAndReturnToMenu(GameManager game) async {
+  await SaveEngine.saveGame(game);
+  game.resetGame();
+}
 
 class RtsGameView extends StatefulWidget {
   const RtsGameView({super.key});
@@ -82,10 +88,17 @@ class _RtsGameViewState extends State<RtsGameView> {
             ListTile(
               leading: const Icon(Icons.exit_to_app, color: Colors.red),
               title: const Text('Return to Menu', style: TextStyle(color: Colors.white)),
-              onTap: () {
-                Navigator.of(ctx).pop();
+              onTap: () async {
                 final game = GameManager.shared;
-                game.resetGame();
+                try {
+                  await saveAndReturnToMenu(game);
+                  if (!ctx.mounted) return;
+                  Navigator.of(ctx).pop();
+                } catch (_) {
+                  if (!ctx.mounted) return;
+                  Navigator.of(ctx).pop();
+                  _showToast('Could not save. Please try again.');
+                }
               },
             ),
           ],
