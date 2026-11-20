@@ -9,7 +9,7 @@
   ],
   "iosBundleId": "com.appgea.villagesTown",
   "androidPackageName": "com.appgea.villages_town",
-  "appStoreId": "6504364356",
+  "unreleased": true,
   "_lastDetection": "2026-01-19T17:15:04.577508",
   "techStack": {
     "projectType": "flutter",
@@ -48,12 +48,10 @@
     "stateManagement": "Riverpod",
     "architecture": "Clean Architecture with Freezed"
   },
-  "appStoreUrl": "https://apps.apple.com/app/id6504364356",
   "playStoreId": "com.appgea.villages_town",
-  "playStoreUrl": "https://play.google.com/store/apps/details?id=com.appgea.villages_town",
-  "description": "I can't access the VillagesTown project from this session\u2014I'm restricted to the AppgeaPanel directory. You'd need to either open a new Claude Code session for VillagesTown or provide the app's code files here.\n\nBased solely on what you've given me (the tech stack with flutter_map and latlong2), I can only infer it involves location/mapping features, but I can't write an accurate app store description without seeing the actual app functionality.",
+  "description": "A strategy RPG on a real medieval Eastern Mediterranean map: travel the cities, trade, build a warband, take a kingdom.",
   "screenshots": {
-    "enabled": true,
+    "enabled": false,
     "testFile": "integration_test/screenshot_test.dart",
     "locales": [
       "en-US"
