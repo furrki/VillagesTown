@@ -8,6 +8,8 @@ extension GameManagerRts on GameManager {
 
     for (final mission in pc.activeMissions) {
       if (mission.state != MissionState.active) continue;
+      mission.checkExpiry(gameLoop.tickCount);
+      if (mission.state != MissionState.active) continue;
 
       for (final obj in mission.objectives) {
         if (obj.completed) continue;
@@ -17,7 +19,7 @@ extension GameManagerRts on GameManager {
             if (arrivedCityId != null && obj.targetCityId == arrivedCityId) {
               // For delivery missions, check cargo requirement first
               final cargoObj = mission.objectives
-                  .where((o) => o.type == ObjectiveType.haveCargo && !o.completed)
+                  .where((o) => o.type == ObjectiveType.haveCargo)
                   .firstOrNull;
               if (cargoObj == null || _checkCargoObjective(cargoObj, pc)) {
                 obj.markComplete();
@@ -25,7 +27,12 @@ extension GameManagerRts on GameManager {
               }
             }
           case ObjectiveType.haveCargo:
-            _checkCargoObjective(obj, pc);
+            if (!mission.objectives.any((o) => o.type == ObjectiveType.travelTo)) {
+              _checkCargoObjective(obj, pc);
+            } else {
+              obj.currentAmount = pc.cargoOf(TradeGood.values.firstWhere((g) => g.name == obj.targetGoodName, orElse: () => TradeGood.grain));
+              obj.completed = false;
+            }
           case ObjectiveType.winBattles:
             if (pc.battlesWon >= obj.targetAmount) obj.markComplete();
           case ObjectiveType.recruitUnits:

@@ -4,6 +4,7 @@ import '../../data/models/player_character.dart';
 import '../../data/models/resource.dart';
 import '../../data/models/village.dart';
 import '../../engines/game_manager.dart';
+import '../../engines/contract_board.dart';
 import '../../engines/narrative_engine.dart';
 import '../../engines/recruitment_engine.dart';
 import '../../engines/trade_engine.dart';
@@ -508,6 +509,12 @@ class _CityScreenState extends State<CityScreen>
           ...widget.player.activeMissions.map(_buildMissionCard),
           const SizedBox(height: 12),
         ],
+        ...ContractBoard.offersFor(widget.city, GameManager.shared)
+            .where((offer) => !ContractBoard.alreadyAccepted(offer, GameManager.shared))
+            .map((offer) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _buildMissionCard(offer, offer: true),
+                )),
         // Rest section
         Container(
           padding: const EdgeInsets.all(14),
@@ -704,7 +711,7 @@ class _CityScreenState extends State<CityScreen>
     );
   }
 
-  Widget _buildMissionCard(Mission mission) {
+  Widget _buildMissionCard(Mission mission, {bool offer = false}) {
     final game = GameManager.shared;
     return Container(
       padding: const EdgeInsets.all(14),
@@ -794,6 +801,13 @@ class _CityScreenState extends State<CityScreen>
               ),
             );
           }),
+          if (offer) ...[
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: () => setState(() => ContractBoard.accept(mission, game)),
+              child: const Text('Accept contract'),
+            ),
+          ],
         ],
       ),
     );

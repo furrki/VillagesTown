@@ -1564,6 +1564,7 @@ class GameManager extends ChangeNotifier {
     // World simulation (every 5 ticks)
     if (gameLoop.tickCount % 5 == 0) {
       turnEngine.doTurn();
+      checkMissions();
     }
 
     // Auto-save every 10 ticks
