@@ -12,6 +12,8 @@ import '../../providers/game_provider.dart';
 import '../components/owner_flag_view.dart';
 import '../components/defender_strength_bar.dart';
 import '../../engines/game_manager.dart';
+import '../../engines/building_construction_engine.dart';
+import '../../engines/recruitment_engine.dart';
 import '../../engines/victory_engine.dart';
 
 class SideInfoPanel extends StatelessWidget {
@@ -532,8 +534,10 @@ class _BuildButton extends StatelessWidget {
 
   const _BuildButton({required this.building, required this.resources, required this.onTap});
 
+  Map<Resource, int> get cost => BuildingConstructionEngine().buildCost(building);
+
   bool get canAfford {
-    for (final entry in building.baseCost.entries) {
+    for (final entry in cost.entries) {
       if ((resources[entry.key] ?? 0) < entry.value) return false;
     }
     return true;
@@ -575,7 +579,7 @@ class _BuildButton extends StatelessWidget {
               const SizedBox(width: 6),
               Text(building.name, style: const TextStyle(fontSize: 12, color: Colors.white)),
               const SizedBox(width: 6),
-              Text('💰${building.baseCost[Resource.gold] ?? 0}', style: TextStyle(fontSize: 10, color: canAfford ? Colors.yellow : Colors.red)),
+              Text('💰${cost[Resource.gold] ?? 0}', style: TextStyle(fontSize: 10, color: canAfford ? Colors.yellow : Colors.red)),
             ],
           ),
         ),
@@ -592,7 +596,7 @@ class _UpgradeButton extends StatelessWidget {
   const _UpgradeButton({required this.building, required this.resources, required this.onTap});
 
   Map<Resource, int> get upgradeCost {
-    return building.baseCost.map((k, v) => MapEntry(k, (v * (building.level + 1) * 0.8).round()));
+    return BuildingConstructionEngine().upgradeCostFor(building);
   }
 
   bool get canUpgrade {
@@ -662,8 +666,10 @@ class _RecruitButton extends StatelessWidget {
 
   const _RecruitButton({required this.type, required this.resources, required this.onTap});
 
+  Map<Resource, int> get cost => RecruitmentEngine().recruitCost(type, 1);
+
   bool get canAfford {
-    for (final entry in type.cost.entries) {
+    for (final entry in cost.entries) {
       if ((resources[entry.key] ?? 0) < entry.value) return false;
     }
     return true;
@@ -689,7 +695,7 @@ class _RecruitButton extends StatelessWidget {
               const SizedBox(width: 6),
               Text(type.displayName, style: const TextStyle(fontSize: 12, color: Colors.white)),
               const SizedBox(width: 6),
-              Text('💰${type.cost[Resource.gold] ?? 0}', style: TextStyle(fontSize: 10, color: canAfford ? Colors.yellow : Colors.red)),
+              Text('💰${cost[Resource.gold] ?? 0}', style: TextStyle(fontSize: 10, color: canAfford ? Colors.yellow : Colors.red)),
             ],
           ),
         ),

@@ -5,6 +5,22 @@ import '../data/models/village.dart';
 import 'game_manager.dart';
 
 class BuildingConstructionEngine {
+  Map<Resource, int> buildCost(Building building) {
+    final cost = Map<Resource, int>.from(building.baseCost);
+    if (GameManager.shared.activeModifiers.contains(GameModifier.goldStandard) && cost.containsKey(Resource.gold)) {
+      cost[Resource.gold] = cost[Resource.gold]! * 2;
+    }
+    return cost;
+  }
+
+  Map<Resource, int> upgradeCostFor(Building building) {
+    final cost = getUpgradeCost(building);
+    if (GameManager.shared.activeModifiers.contains(GameModifier.goldStandard) && cost.containsKey(Resource.gold)) {
+      cost[Resource.gold] = cost[Resource.gold]! * 2;
+    }
+    return cost;
+  }
+
   (bool can, String reason) canBuild(Building building, Village village) {
     if (!village.canBuildMore) {
       return (false, 'No building slots available');
@@ -21,14 +37,7 @@ class BuildingConstructionEngine {
       return (false, 'Fortresses disabled');
     }
 
-    // Gold Standard modifier: double gold costs
-    var cost = building.baseCost;
-    if (game.activeModifiers.contains(GameModifier.goldStandard)) {
-      cost = Map.from(cost);
-      if (cost.containsKey(Resource.gold)) {
-        cost[Resource.gold] = (cost[Resource.gold]! * 2);
-      }
-    }
+    final cost = buildCost(building);
 
     if (!game.canAfford(village.owner, cost)) {
       return (false, 'Insufficient resources');
@@ -42,13 +51,7 @@ class BuildingConstructionEngine {
     if (!can) return false;
 
     final game = GameManager.shared;
-    var cost = building.baseCost;
-    if (game.activeModifiers.contains(GameModifier.goldStandard)) {
-      cost = Map.from(cost);
-      if (cost.containsKey(Resource.gold)) {
-        cost[Resource.gold] = (cost[Resource.gold]! * 2);
-      }
-    }
+    final cost = buildCost(building);
     game.spendResources(village.owner, cost);
     village.addBuilding(building.copyWith());
     game.updateVillage(village);
@@ -60,14 +63,8 @@ class BuildingConstructionEngine {
     if (building == null) return false;
     if (building.level >= 5) return false;
 
-    var cost = getUpgradeCost(building);
+    final cost = upgradeCostFor(building);
     final game = GameManager.shared;
-    if (game.activeModifiers.contains(GameModifier.goldStandard)) {
-      cost = Map.from(cost);
-      if (cost.containsKey(Resource.gold)) {
-        cost[Resource.gold] = (cost[Resource.gold]! * 2);
-      }
-    }
     return game.canAfford(village.owner, cost);
   }
 
@@ -78,14 +75,8 @@ class BuildingConstructionEngine {
     final building = village.buildings[buildingIndex];
     if (building.level >= 5) return false;
 
-    var cost = getUpgradeCost(building);
+    final cost = upgradeCostFor(building);
     final game = GameManager.shared;
-    if (game.activeModifiers.contains(GameModifier.goldStandard)) {
-      cost = Map.from(cost);
-      if (cost.containsKey(Resource.gold)) {
-        cost[Resource.gold] = (cost[Resource.gold]! * 2);
-      }
-    }
 
     if (!game.spendResources(village.owner, cost)) return false;
 
