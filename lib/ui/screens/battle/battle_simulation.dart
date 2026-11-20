@@ -385,16 +385,18 @@ class BattleSimulation {
   List<BattleCircle> get _activeDefenders =>
       (phase == BattlePhase.cityAssault || phase == BattlePhase.flagRaise) ? garrisonCircles : defenderCircles;
 
-  Offset _findEngagementTarget(BattleCircle unit, List<BattleCircle> enemies) {
-    final aliveEnemies = enemies.where((e) => e.isAlive && !e.isDying && !e.isRouting).toList();
-    if (aliveEnemies.isEmpty) {
+  List<BattleCircle> _eligibleTargets(List<BattleCircle> enemies) =>
+      enemies.where((e) => e.isAlive && !e.isDying && !e.isRouting).toList();
+
+  Offset _findEngagementTarget(BattleCircle unit, List<BattleCircle> eligibleEnemies) {
+    if (eligibleEnemies.isEmpty) {
       // No enemies in reach — push toward the gate during the assault.
       return phase == BattlePhase.advance ? _gatePoint : clashPoint;
     }
 
     BattleCircle? bestTarget;
     double bestScore = double.infinity;
-    for (final enemy in aliveEnemies) {
+    for (final enemy in eligibleEnemies) {
       final dx = (enemy.position.dx - unit.position.dx).abs();
       final dy = (enemy.position.dy - unit.position.dy).abs();
       final score = dx + dy * 2.0;
@@ -432,21 +434,25 @@ class BattleSimulation {
     arrows.removeWhere((a) => a.hasHit && a.progress >= 1.2);
 
     final isEngaging = isFighting;
-    final defenders = _activeDefenders;
+    final advancing = phase == BattlePhase.advance;
+    final defenderTargets = advancing ? const <BattleCircle>[] : _eligibleTargets(_activeDefenders);
 
     for (final c in attackerCircles) {
-      final target = phase == BattlePhase.advance
+      final target = advancing
           ? _gatePoint
-          : _findEngagementTarget(c, defenders);
+          : _findEngagementTarget(c, defenderTargets);
       c.update(dt, battleBounds, allCircles, target,
-          isAttacker: true, isEngaging: isEngaging || phase == BattlePhase.advance, isRegrouping: false);
+          isAttacker: true, isEngaging: isEngaging || advancing, isRegrouping: false);
     }
+    // Use the attackers' updated positions. Defender movement does not change
+    // attacker eligibility, so field defenders and the garrison share this list.
+    final attackerTargets = _eligibleTargets(attackerCircles);
     for (final c in defenderCircles) {
-      final target = _findEngagementTarget(c, attackerCircles);
+      final target = _findEngagementTarget(c, attackerTargets);
       c.update(dt, battleBounds, allCircles, target, isAttacker: false, isEngaging: phase == BattlePhase.field, isRegrouping: false);
     }
     for (final c in garrisonCircles) {
-      final target = _findEngagementTarget(c, attackerCircles);
+      final target = _findEngagementTarget(c, attackerTargets);
       c.update(dt, battleBounds, allCircles, target, isAttacker: false, isEngaging: phase == BattlePhase.cityAssault, isRegrouping: false);
     }
 

@@ -1,4 +1,6 @@
 import 'dart:math';
+import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../components/cloth_flag.dart';
 
@@ -10,11 +12,57 @@ enum TerrainType {
   coastal,
 }
 
+class BattlefieldSceneryCache {
+  (Size, TerrainType)? _key;
+  ui.Picture? _background;
+  ui.Picture? _coastalGround;
+  ui.Picture? _vignette;
+
+  @visibleForTesting
+  ui.Picture? get backgroundPicture => _background;
+
+  void _prepare(BattlefieldPainter painter, Size size) {
+    final key = (size, painter.terrain);
+    if (_key == key) return;
+    dispose();
+
+    final coastal = painter.terrain == TerrainType.coastal;
+    _background = _record((canvas) {
+      painter._drawSky(canvas, size);
+      painter._drawHorizon(canvas, size);
+      painter._drawMiddleGround(canvas, size);
+      if (!coastal) painter._drawGround(canvas, size);
+    });
+    if (coastal) {
+      _coastalGround = _record((canvas) => painter._drawGround(canvas, size));
+    }
+    _vignette = _record((canvas) => painter._drawVignette(canvas, size));
+    _key = key;
+  }
+
+  ui.Picture _record(void Function(Canvas) draw) {
+    final recorder = ui.PictureRecorder();
+    draw(Canvas(recorder));
+    return recorder.endRecording();
+  }
+
+  void dispose() {
+    _background?.dispose();
+    _coastalGround?.dispose();
+    _vignette?.dispose();
+    _background = null;
+    _coastalGround = null;
+    _vignette = null;
+    _key = null;
+  }
+}
+
 class BattlefieldPainter extends CustomPainter {
   final TerrainType terrain;
   final bool isSiege;
   final double time;
   final List<AtmosphericParticle> particles;
+  final BattlefieldSceneryCache? sceneryCache;
 
   /// 0 = open field, 1 = inside the city walls. Drives the scene morph.
   final double cityProgress;
@@ -29,6 +77,7 @@ class BattlefieldPainter extends CustomPainter {
     required this.isSiege,
     required this.time,
     required this.particles,
+    this.sceneryCache,
     this.cityProgress = 0.0,
     this.flagRaiseProgress = 0.0,
     this.attackerColor = Colors.red,
@@ -38,17 +87,23 @@ class BattlefieldPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Sky gradient
-    _drawSky(canvas, size);
-
-    // Distant mountains/horizon
-    _drawHorizon(canvas, size);
-
-    // Middle ground (terrain features)
-    _drawMiddleGround(canvas, size);
-
-    // Ground/battlefield
-    _drawGround(canvas, size);
+    final cache = sceneryCache;
+    final coastal = terrain == TerrainType.coastal;
+    if (cache == null) {
+      _drawSky(canvas, size);
+      _drawHorizon(canvas, size);
+      _drawMiddleGround(canvas, size);
+    } else {
+      cache._prepare(this, size);
+      canvas.drawPicture(cache._background!);
+    }
+    if (coastal) _drawWaves(canvas, size, size.height * 0.45);
+    // The ground covers the lower portion of the waves.
+    if (cache == null) {
+      _drawGround(canvas, size);
+    } else if (coastal) {
+      canvas.drawPicture(cache._coastalGround!);
+    }
 
     // City walls if siege
     if (isSiege || cityProgress > 0) {
@@ -66,7 +121,11 @@ class BattlefieldPainter extends CustomPainter {
     _drawParticles(canvas, size);
 
     // Vignette overlay
-    _drawVignette(canvas, size);
+    if (cache == null) {
+      _drawVignette(canvas, size);
+    } else {
+      canvas.drawPicture(cache._vignette!);
+    }
   }
 
   void _drawSky(Canvas canvas, Size size) {
@@ -204,8 +263,9 @@ class BattlefieldPainter extends CustomPainter {
       ],
     );
     canvas.drawRect(waterRect, Paint()..shader = waterGradient.createShader(waterRect));
+  }
 
-    // Wave lines
+  void _drawWaves(Canvas canvas, Size size, double baseY) {
     final wavePaint = Paint()
       ..color = const Color(0x40ffffff)
       ..strokeWidth = 1
@@ -446,6 +506,11 @@ class BattlefieldPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant BattlefieldPainter oldDelegate) =>
+      oldDelegate.terrain != terrain ||
+      oldDelegate.isSiege != isSiege ||
+      oldDelegate.attackerColor != attackerColor ||
+      oldDelegate.defenderColor != defenderColor ||
+      oldDelegate.sceneryCache != sceneryCache ||
       oldDelegate.time != time ||
       oldDelegate.particles.length != particles.length ||
       oldDelegate.cityProgress != cityProgress ||

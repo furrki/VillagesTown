@@ -43,6 +43,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
   Map<String, ui.Image?> factionImages = {};
   bool _initialized = false;
   bool _retreated = false;
+  final _sceneryCache = BattlefieldSceneryCache();
 
   Nationality? _attackerNationality;
   Nationality? _defenderNationality;
@@ -230,6 +231,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
 
   @override
   void dispose() {
+    _sceneryCache.dispose();
     _frame.dispose();
     _tickController.dispose();
     _shakeController.dispose();
@@ -937,6 +939,7 @@ class _CountryballBattleScreenState extends State<CountryballBattleScreen>
             // Battlefield background
             CustomPaint(
               painter: BattlefieldPainter(
+                sceneryCache: _sceneryCache,
                 terrain: simulation.terrain,
                 isSiege: simulation.isSiege,
                 time: simulation.totalTime,
