@@ -36,6 +36,7 @@ class _RtsGameViewState extends State<RtsGameView> {
   String? _toastMessage;
   bool _showWarband = false;
   bool _showCargo = false;
+  bool _returningToMenu = false;
   bool _showCityPanel = true;
   /// The travel panel's drawn height. It grows with an encounter, so it is measured.
   double _travelPanelHeight = 0;
@@ -79,6 +80,7 @@ class _RtsGameViewState extends State<RtsGameView> {
   }
 
   void _showMenuDialog() {
+    if (_returningToMenu) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -91,15 +93,16 @@ class _RtsGameViewState extends State<RtsGameView> {
               leading: const Icon(Icons.exit_to_app, color: Colors.red),
               title: const Text('Return to Menu', style: TextStyle(color: Colors.white)),
               onTap: () async {
-                final game = GameManager.shared;
+                if (_returningToMenu || ModalRoute.of(ctx)?.isCurrent != true) return;
+                _returningToMenu = true;
+                Navigator.of(ctx).pop();
                 try {
-                  await saveAndReturnToMenu(game);
-                  if (!ctx.mounted) return;
-                  Navigator.of(ctx).pop();
-                } catch (_) {
-                  if (!ctx.mounted) return;
-                  Navigator.of(ctx).pop();
-                  _showToast('Could not save. Please try again.');
+                  await saveAndReturnToMenu(GameManager.shared);
+                } catch (error) {
+                  debugPrint('Return to menu save failed: $error');
+                  if (mounted) _showToast('Could not save. Please try again.');
+                } finally {
+                  _returningToMenu = false;
                 }
               },
             ),
