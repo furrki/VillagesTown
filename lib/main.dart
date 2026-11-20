@@ -51,6 +51,7 @@ class _ContentViewState extends State<ContentView> with WidgetsBindingObserver {
   bool _hasSave = false;
   Nationality? _selectedNationality;
   String? _characterName;
+  String _nameDraft = '';
   bool _wasInGame = false;
 
   @override
@@ -112,6 +113,7 @@ class _ContentViewState extends State<ContentView> with WidgetsBindingObserver {
           _wasInGame = false;
           _selectedNationality = null;
           _characterName = null;
+          _nameDraft = '';
           // The game may have autosaved, so the menu must not trust the startup check.
           _checkingForSave = true;
           WidgetsBinding.instance.addPostFrameCallback((_) => _checkSave());
@@ -126,9 +128,15 @@ class _ContentViewState extends State<ContentView> with WidgetsBindingObserver {
 
         // Step 3: Origin selection
         if (_selectedNationality != null && _characterName != null) {
-          return OriginSelectionScreen(
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (!didPop) setState(() => _characterName = null);
+            },
+            child: OriginSelectionScreen(
             nationality: _selectedNationality!,
             characterName: _characterName!,
+            onBack: () => setState(() => _characterName = null),
             onSelect: (origin) {
               game.setupGame(_selectedNationality!);
               game.initializeGame(
@@ -136,16 +144,25 @@ class _ContentViewState extends State<ContentView> with WidgetsBindingObserver {
                 origin: origin,
               );
             },
+            ),
           );
         }
 
         // Step 2: Character naming
         if (_selectedNationality != null) {
-          return CharacterCreationScreen(
-            nationality: _selectedNationality!,
-            onNext: (name) {
-              setState(() => _characterName = name);
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (!didPop) setState(() => _selectedNationality = null);
             },
+            child: CharacterCreationScreen(
+            nationality: _selectedNationality!,
+            initialName: _nameDraft,
+            onBack: () => setState(() => _selectedNationality = null),
+            onNext: (name) {
+              setState(() { _nameDraft = name; _characterName = name; });
+            },
+            ),
           );
         }
 

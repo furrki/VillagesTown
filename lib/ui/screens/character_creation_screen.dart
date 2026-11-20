@@ -5,11 +5,15 @@ import '../components/countryball_avatar.dart';
 class CharacterCreationScreen extends StatefulWidget {
   final Nationality nationality;
   final void Function(String name) onNext;
+  final VoidCallback onBack;
+  final String initialName;
 
   const CharacterCreationScreen({
     super.key,
     required this.nationality,
     required this.onNext,
+    required this.onBack,
+    this.initialName = '',
   });
 
   @override
@@ -18,7 +22,7 @@ class CharacterCreationScreen extends StatefulWidget {
 }
 
 class _CharacterCreationScreenState extends State<CharacterCreationScreen> {
-  final _controller = TextEditingController();
+  late final _controller = TextEditingController(text: widget.initialName);
   final _focusNode = FocusNode();
 
   @override
@@ -44,6 +48,10 @@ class _CharacterCreationScreenState extends State<CharacterCreationScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
             children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: BackButton(onPressed: widget.onBack),
+              ),
               const Spacer(flex: 2),
 
               // Countryball avatar

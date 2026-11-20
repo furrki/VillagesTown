@@ -7,12 +7,14 @@ class OriginSelectionScreen extends StatefulWidget {
   final Nationality nationality;
   final String characterName;
   final void Function(CharacterOrigin origin) onSelect;
+  final VoidCallback onBack;
 
   const OriginSelectionScreen({
     super.key,
     required this.nationality,
     required this.characterName,
     required this.onSelect,
+    required this.onBack,
   });
 
   @override
@@ -34,6 +36,10 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: BackButton(onPressed: widget.onBack),
+            ),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
