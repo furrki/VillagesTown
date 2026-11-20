@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/achievement.dart';
 import '../../data/models/player.dart';
 import '../../data/models/victory_condition.dart';
@@ -19,8 +18,7 @@ class VictoryScreen extends StatefulWidget {
 
 class _VictoryScreenState extends State<VictoryScreen> {
   List<Achievement> _newAchievements = [];
-  bool _saving = false;
-  bool _failed = false;
+  bool _saved = false;
 
   @override
   void initState() {
@@ -29,37 +27,24 @@ class _VictoryScreenState extends State<VictoryScreen> {
   }
 
   Future<void> _saveAndCheckAchievements() async {
-    if (_saving) return;
+    if (_saved) return;
+    _saved = true;
     final game = GameManager.shared;
-    if (game.gameEndRecorded) {
-      if (mounted) setState(() => _newAchievements = game.pendingEndAchievements ?? []);
-      return;
-    }
-    if (mounted) setState(() { _saving = true; _failed = false; });
+    if (game.gameEndRecorded) return;
     final isVictory = widget.winner.isHuman;
-    final recording = game.gameEndRecording ??= () async {
-      await (await SharedPreferences.getInstance()).reload();
-      if (!await SaveEngine.saveGame(game, gameEndRecorded: false)) {
-        throw StateError('Could not save campaign snapshot');
-      }
-      final achievements = game.pendingEndAchievements ??=
-          await ProgressionEngine.onGameEnd(game, isVictory);
-      if (!await SaveEngine.saveGame(game, gameEndRecorded: true)) {
-        throw StateError('Could not save completion marker');
-      }
-      game.gameEndRecorded = true;
-      return achievements;
-    }();
+    final recording = game.gameEndRecording ??=
+        ProgressionEngine.onGameEnd(game, isVictory);
     try {
       final achievements = await recording;
       if (identical(game.gameEndRecording, recording)) {
+        game.gameEndRecorded = true;
         game.gameEndRecording = null;
+        await SaveEngine.saveGame(game);
       }
-      if (mounted) setState(() { _newAchievements = achievements; _saving = false; });
+      if (mounted) setState(() => _newAchievements = achievements);
     } catch (error, stack) {
       if (identical(game.gameEndRecording, recording)) game.gameEndRecording = null;
       debugPrint('Could not record game end: $error\n$stack');
-      if (mounted) setState(() { _saving = false; _failed = true; });
     }
   }
 
@@ -134,12 +119,8 @@ class _VictoryScreenState extends State<VictoryScreen> {
                 _buildScoreCard(score),
               ],
               const SizedBox(height: 48),
-              if (_failed) ...[
-                const Text('Couldn’t save this result.', style: TextStyle(color: Colors.white)),
-                TextButton(onPressed: _saveAndCheckAchievements, child: const Text('Try Again')),
-              ],
               ElevatedButton(
-                onPressed: game.gameEndRecorded && !_saving ? () => game.resetGame() : null,
+                onPressed: () => game.resetGame(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   padding: const EdgeInsets.symmetric(

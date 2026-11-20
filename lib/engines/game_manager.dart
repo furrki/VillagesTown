@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
@@ -85,8 +84,6 @@ class GameManager extends ChangeNotifier {
   VictoryType? achievedVictoryType;
   bool gameEndRecorded = false;
   Future<List<Achievement>>? gameEndRecording;
-  String campaignId = const Uuid().v4();
-  List<Achievement>? pendingEndAchievements;
 
   // World events
   List<GameEvent> activeEvents = [];
@@ -128,7 +125,6 @@ class GameManager extends ChangeNotifier {
   }
 
   void setupGame(Nationality nationality) {
-    campaignId = const Uuid().v4();
     playerNationality = nationality;
 
     // Set up player with chosen nationality
@@ -570,7 +566,6 @@ class GameManager extends ChangeNotifier {
     achievedVictoryType = null;
     gameEndRecorded = false;
     gameEndRecording = null;
-    pendingEndAchievements = null;
     activeEvents.clear();
     eventHistory.clear();
     difficulty = null;

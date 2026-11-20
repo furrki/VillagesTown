@@ -28,7 +28,7 @@ class SaveEngine {
     await prefs.remove(_saveKey);
   }
 
-  static Future<bool> saveGame(GameManager game, {bool? gameEndRecorded}) async {
+  static Future<bool> saveGame(GameManager game) async {
     if (!game.gameStarted || game.playerCharacter == null) return false;
 
     final data = <String, dynamic>{
@@ -36,8 +36,7 @@ class SaveEngine {
       'difficulty': game.difficulty?.name,
       'victoryType': game.selectedVictoryType?.name,
       'achievedVictoryType': game.achievedVictoryType?.name,
-      'gameEndRecorded': gameEndRecorded ?? game.gameEndRecorded,
-      'campaignId': game.campaignId,
+      'gameEndRecorded': game.gameEndRecorded,
       'modifiers': game.activeModifiers.map((m) => m.name).toList(),
       'visionRangeKm': game.visionRangeKm,
       'currentTurn': game.currentTurn,
@@ -86,7 +85,6 @@ class SaveEngine {
 
     // Rebuild the map from scratch with the saved nationality
     game.setupGame(nationality);
-    game.campaignId = data['campaignId'] as String? ?? game.campaignId;
     game.difficulty = Difficulty.values.where((d) => d.name == data['difficulty']).firstOrNull ?? game.difficulty;
     game.selectedVictoryType = VictoryType.values.where((v) => v.name == data['victoryType']).firstOrNull ?? game.selectedVictoryType;
     game.achievedVictoryType = VictoryType.values.where((v) => v.name == data['achievedVictoryType']).firstOrNull ?? game.achievedVictoryType;

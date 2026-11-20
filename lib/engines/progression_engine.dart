@@ -21,9 +21,7 @@ class ProgressionEngine {
 
   static Future<void> _saveAchievements(Set<String> ids) async {
     final prefs = await SharedPreferences.getInstance();
-    if (!await prefs.setStringList(_achievementsKey, ids.toList())) {
-      throw StateError('Could not save achievements');
-    }
+    await prefs.setStringList(_achievementsKey, ids.toList());
   }
 
   static Future<List<GameRecord>> getGameRecords() async {
@@ -37,21 +35,15 @@ class ProgressionEngine {
     }
   }
 
-  static Future<List<GameRecord>> _saveGameRecord(GameRecord record) async {
+  static Future<void> _saveGameRecord(GameRecord record) async {
     final records = await getGameRecords();
-    if (records.any((existing) => existing.campaignId == record.campaignId)) {
-      return records;
-    }
     records.add(record);
     // Keep last 50 records
     if (records.length > 50) {
       records.removeRange(0, records.length - 50);
     }
     final prefs = await SharedPreferences.getInstance();
-    if (!await prefs.setString(_gameRecordsKey, GameRecord.encodeList(records))) {
-      throw StateError('Could not save game record');
-    }
-    return records;
+    await prefs.setString(_gameRecordsKey, GameRecord.encodeList(records));
   }
 
   // --- Game Completion ---
@@ -71,9 +63,8 @@ class ProgressionEngine {
       battlesWon: game.battlesWon['player'] ?? 0,
       villagesControlled: game.getPlayerVillages('player').length,
       difficulty: game.difficulty?.name,
-      campaignId: game.campaignId,
     );
-    final allRecords = await _saveGameRecord(record);
+    await _saveGameRecord(record);
 
     // Check achievements
     final unlocked = await getUnlockedAchievements();
@@ -90,6 +81,7 @@ class ProgressionEngine {
       Achievement.earthquakeSurvivor,
     };
 
+    final allRecords = await getGameRecords();
     for (final achievement in Achievement.values) {
       if (unlocked.contains(achievement.name)) continue;
       if (!isVictory && !alwaysCheckable.contains(achievement)) continue;
