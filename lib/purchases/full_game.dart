@@ -4,7 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
-import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
+import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
+import 'legacy_store.dart';
 import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
 
 import '../data/models/player_character.dart';
@@ -18,6 +19,7 @@ class FullGame extends ChangeNotifier {
       (defaultTargetPlatform == TargetPlatform.iOS ||
           defaultTargetPlatform == TargetPlatform.android);
 
+  LegacyStore? _legacy;
   bool owned = false;
   bool busy = false;
   String message = '';
@@ -32,10 +34,14 @@ class FullGame extends ChangeNotifier {
   Future<void> _connect() async {
     if (!supported) return;
     try {
-      if (!_android) {
-        // The plugin chooses StoreKit 1 only on devices without StoreKit 2.
-        // ignore: deprecated_member_use
-        await InAppPurchaseStoreKitPlatform.enableStoreKit1();
+      if (!_android && !await SKRequestMaker.supportsStoreKit2()) {
+        _legacy = LegacyStore(fullGameId, (value) {
+          owned = value;
+          _status('');
+        }, _status);
+        await _legacy!.start();
+        await refresh();
+        return;
       }
       _subscription ??= _store.purchaseStream.listen(
         _updates,
@@ -53,7 +59,7 @@ class FullGame extends ChangeNotifier {
   }
 
   Future<void> onResume() async {
-    if (!supported || _subscription == null) return;
+    if (!supported || (_subscription == null && _legacy == null)) return;
     try {
       await refresh();
     } catch (_) {
@@ -62,13 +68,14 @@ class FullGame extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
-    if (!await _store.isAvailable()) {
-      _status('The store is unavailable. Try again.');
+    if (_legacy != null) {
+      product = await _legacy!.offer();
+      notifyListeners();
       return;
     }
     if (_android) {
       await _checkPlayOwnership();
-    } else if (InAppPurchaseStoreKitPlatform.isStoreKit2Enabled) {
+    } else {
       final purchases = await SK2Transaction.currentEntitlements();
       owned = purchases.any((p) => p.productId == fullGameId);
     }
@@ -114,7 +121,7 @@ class FullGame extends ChangeNotifier {
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:
           try {
-            if (!_android && InAppPurchaseStoreKitPlatform.isStoreKit2Enabled) {
+            if (!_android) {
               final entries = await SK2Transaction.currentEntitlements();
               if (!entries.any((entry) => entry.productId == fullGameId)) {
                 _status('The App Store could not confirm this purchase.');
@@ -145,6 +152,10 @@ class FullGame extends ChangeNotifier {
         _status('');
         return;
       }
+      if (_legacy != null) {
+        await _legacy!.buy();
+        return;
+      }
       final offer = product;
       if (offer == null ||
           !await _store.buyNonConsumable(
@@ -166,6 +177,8 @@ class FullGame extends ChangeNotifier {
         // Play restore marks even pending transactions restored. Query their
         // original billing state before delivering or acknowledging the unlock.
         await _checkPlayOwnership();
+      } else if (_legacy != null) {
+        await _legacy!.restore();
       } else {
         await _store.restorePurchases();
       }
@@ -185,14 +198,16 @@ Future<bool> allowCity(
   BuildContext context,
   PlayerCharacter pc,
   String city, {
+  required bool Function() travel,
   FullGame? billing,
 }) async {
   final store = billing ?? FullGame.instance;
-  if (!store.supported) return true;
+  if (!store.supported) return travel();
   if (!canEnterCity(pc, city, owned: store.owned)) {
     await store.start();
-    if (!context.mounted || ModalRoute.of(context)?.isCurrent != true)
+    if (!context.mounted || ModalRoute.of(context)?.isCurrent != true) {
       return false;
+    }
     if (!store.owned) {
       final bought = await showModalBottomSheet<bool>(
         context: context,
@@ -204,6 +219,7 @@ Future<bool> allowCity(
       if (bought != true) return false;
     }
   }
+  if (!context.mounted || !travel()) return false;
   if (pc.trialCities.length < 2) pc.trialCities.add(city);
   return true;
 }

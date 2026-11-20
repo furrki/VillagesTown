@@ -70,14 +70,11 @@ class _DesktopGameViewState extends State<DesktopGameView> {
   void _selectVillage(Village village) async {
     final game = GameManager.shared;
 
-    final pc = game.playerCharacter;
-    if (pc != null && (!await allowCity(context, pc, village.id) || !mounted)) return;
-
     // If army is selected and tapped village is a valid march target, send the army
     if (_selectedArmy != null && _selectedArmy!.stationedAt != null) {
       final armyOrigin = _selectedArmy!.stationedAt!;
       if (armyOrigin != village.id && game.areNeighbors(armyOrigin, village.id)) {
-        game.sendArmy(_selectedArmy!.id, village.id);
+        if (!await _march(_selectedArmy!, village) || !mounted) return;
         setState(() {
           _selectedArmy = null;
           _selectedVillage = game.map.villages.firstWhere((v) => v.id == armyOrigin);
@@ -90,6 +87,15 @@ class _DesktopGameViewState extends State<DesktopGameView> {
       _selectedVillage = village;
       _selectedArmy = null;
     });
+  }
+
+  Future<bool> _march(Army army, Village destination) async {
+    final game = GameManager.shared;
+    if (army.owner != 'player') return false;
+    bool move() => game.sendArmy(army.id, destination.id);
+    final pc = game.playerCharacter;
+    if (pc == null) return move();
+    return allowCity(context, pc, destination.id, travel: move);
   }
 
   void _selectArmy(Army army) {
@@ -200,11 +206,7 @@ class _DesktopGameViewState extends State<DesktopGameView> {
                           selectedArmy: _selectedArmy,
                           onVillageSelected: _selectVillage,
                           onArmySelected: _selectArmy,
-                          onArmySent: (army, destination) async {
-                            final pc = game.playerCharacter;
-                            if (pc != null && (!await allowCity(context, pc, destination.id) || !mounted)) return;
-                            game.sendArmy(army.id, destination.id);
-                          },
+                          onArmySent: _march,
                         ),
                       ),
                     ),

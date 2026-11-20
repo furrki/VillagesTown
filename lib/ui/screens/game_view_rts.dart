@@ -55,8 +55,9 @@ class _RtsGameViewState extends State<RtsGameView> {
         setState(() => _showCityPanel = !_showCityPanel);
       } else if (game.areNeighbors(pc.currentCityId!, village.id)) {
         // Tapped connected city — just go there, Bannerlord style
-        if (!await allowCity(context, pc, village.id) || !mounted) return;
-        if (!game.startTravel(village.id)) return;
+        final moved = await allowCity(context, pc, village.id,
+            travel: () => game.startTravel(village.id));
+        if (!mounted || !moved) return;
         setState(() => _showCityPanel = false);
       } else {
         _showToast('No road to ${game.getVillageDisplayName(village)}');

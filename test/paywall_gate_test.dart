@@ -36,6 +36,7 @@ void main() {
                           player,
                           city,
                           billing: billing,
+                          travel: () => true,
                         )) {
                           entered = city;
                         }
