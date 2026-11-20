@@ -9,7 +9,10 @@ extension GameManagerRts on GameManager {
     for (final mission in pc.activeMissions) {
       if (mission.state != MissionState.active) continue;
       mission.checkExpiry(gameLoop.tickCount);
-      if (mission.state != MissionState.active) continue;
+      if (mission.state != MissionState.active) {
+        pendingNotifications.add('Contract expired: ${mission.title}');
+        continue;
+      }
 
       for (final obj in mission.objectives) {
         if (obj.completed) continue;

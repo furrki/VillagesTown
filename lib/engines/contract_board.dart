@@ -46,6 +46,7 @@ class ContractBoard {
     if (player == null) return false;
     return [...player.activeMissions, ...player.completedMissions].any((m) =>
         m.type == MissionType.delivery && m.giverCityId == mission.giverCityId &&
-        m.id.startsWith('contract_') && m.id.endsWith('_${game.currentTurn}'));
+        m.id.startsWith('contract_') &&
+        (m.state == MissionState.active || m.id.endsWith('_${game.currentTurn}')));
   }
 }
