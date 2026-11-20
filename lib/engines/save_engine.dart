@@ -48,7 +48,9 @@ class SaveEngine {
       'playerCharacter': game.playerCharacter!.toJson(),
       'villages': _serializeVillages(game),
       'armies': _serializeArmies(game),
-      'pendingBattles': game.pendingBattles.map((battle) => battle.toJson()).toList(),
+      'pendingBattles': game.pendingBattles
+          .where((battle) => battle.attackerOwnerId == 'player' || battle.defenderOwnerId == 'player')
+          .map((battle) => battle.toJson()).toList(),
       'tickCount': game.gameLoop.tickCount,
       'discoveredVillageIds': game.discoveredVillageIDs.toList(),
       'marketPressure': game.marketPressure.map((id, city) => MapEntry(id, city.map((g, v) => MapEntry(g.name, v)))),
