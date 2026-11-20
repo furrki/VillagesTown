@@ -40,16 +40,30 @@ class _VictoryScreenState extends State<VictoryScreen> {
       _failed = false;
     });
     final isVictory = widget.winner.isHuman;
-    final recording = game.gameEndRecording ??= () async {
+    final campaignId = game.campaignId;
+    late final Future<List<Achievement>> recording;
+    void checkActiveCampaign() {
+      if (game.campaignId != campaignId ||
+          !identical(game.gameEndRecording, recording)) {
+        throw StateError('Campaign changed while saving its result');
+      }
+    }
+
+    recording = game.gameEndRecording ??= () async {
       await (await SharedPreferences.getInstance()).reload();
+      checkActiveCampaign();
       if (!await SaveEngine.saveGame(game, gameEndRecorded: false)) {
         throw StateError('Could not save campaign snapshot');
       }
-      final achievements = game.pendingEndAchievements ??=
+      checkActiveCampaign();
+      final achievements = game.pendingEndAchievements ??
           await ProgressionEngine.onGameEnd(game, isVictory);
+      checkActiveCampaign();
+      game.pendingEndAchievements = achievements;
       if (!await SaveEngine.saveGame(game, gameEndRecorded: true)) {
         throw StateError('Could not save completion marker');
       }
+      checkActiveCampaign();
       game.gameEndRecorded = true;
       return achievements;
     }();
