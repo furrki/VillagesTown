@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
 import 'package:provider/provider.dart';
 import 'data/models/nationality.dart';
+import 'engines/game_manager.dart';
 import 'engines/save_engine.dart';
 import 'providers/game_provider.dart';
 import 'purchases/full_game.dart';
@@ -46,6 +47,18 @@ class ContentView extends StatefulWidget {
   State<ContentView> createState() => _ContentViewState();
 }
 
+void handleCampaignSaveLifecycle(GameManager game, AppLifecycleState state) {
+  switch (state) {
+    case AppLifecycleState.resumed:
+      SaveEngine.retryPendingSave(game);
+    case AppLifecycleState.paused:
+    case AppLifecycleState.inactive:
+    case AppLifecycleState.hidden:
+    case AppLifecycleState.detached:
+      SaveEngine.saveGame(game);
+  }
+}
+
 class _ContentViewState extends State<ContentView> with WidgetsBindingObserver {
   bool _checkingForSave = true;
   bool _hasSave = false;
@@ -72,12 +85,7 @@ class _ContentViewState extends State<ContentView> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) FullGame.instance.onResume();
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.hidden ||
-        state == AppLifecycleState.detached) {
-      SaveEngine.saveGame(context.read<GameProvider>().gameManager);
-    }
+    handleCampaignSaveLifecycle(context.read<GameProvider>().gameManager, state);
   }
 
   Future<void> _checkSave() async {

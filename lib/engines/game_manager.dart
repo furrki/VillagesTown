@@ -86,6 +86,7 @@ class GameManager extends ChangeNotifier {
   bool gameEndRecorded = false;
   Future<List<Achievement>>? gameEndRecording;
   String campaignId = const Uuid().v4();
+  final campaignSaveFailed = ValueNotifier(false);
   List<Achievement>? pendingEndAchievements;
 
   // World events
@@ -550,6 +551,9 @@ class GameManager extends ChangeNotifier {
 
   void resetGame() {
     gameStarted = false;
+    _citySaveTimer?.cancel();
+    _citySaveTimer = null;
+    campaignSaveFailed.value = false;
     currentTurn = 0;
     currentPlayer = 'player';
     playerNationality = null;
@@ -1598,6 +1602,7 @@ class GameManager extends ChangeNotifier {
   @override
   void dispose() {
     _citySaveTimer?.cancel();
+    campaignSaveFailed.dispose();
     super.dispose();
   }
 

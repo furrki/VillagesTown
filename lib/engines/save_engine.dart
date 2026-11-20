@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/models/army.dart';
 import '../data/models/building.dart';
@@ -17,6 +18,7 @@ import 'game_manager.dart';
 
 class SaveEngine {
   static const _saveKey = 'game_save_v1';
+  static Future<bool>? _lastSave;
 
   static Future<bool> hasSave() async {
     final prefs = await SharedPreferences.getInstance();
@@ -28,8 +30,47 @@ class SaveEngine {
     await prefs.remove(_saveKey);
   }
 
-  static Future<bool> saveGame(GameManager game, {bool? gameEndRecorded}) async {
-    if (!game.gameStarted || game.playerCharacter == null) return false;
+  static void retryPendingSave(GameManager game) {
+    if (_lastSave != null || game.campaignSaveFailed.value) {
+      saveGame(game);
+    }
+  }
+
+  static Future<bool> saveGame(GameManager game, {bool? gameEndRecorded}) {
+    final character = game.playerCharacter;
+    if (!game.gameStarted || character == null) return Future.value(false);
+    final campaignId = game.campaignId;
+    bool isCurrentCampaign() => game.gameStarted &&
+        game.campaignId == campaignId &&
+        identical(game.playerCharacter, character);
+
+    Future<bool> write() async {
+      if (!isCurrentCampaign()) return false;
+      var saved = false;
+      try {
+        saved = await _writeGame(game, gameEndRecorded: gameEndRecorded);
+      } catch (error) {
+        debugPrint('Could not save campaign: $error');
+      }
+      if (isCurrentCampaign()) {
+        // A queued autosave must see the completion marker as soon as it is stored.
+        if (saved && gameEndRecorded == true) game.gameEndRecorded = true;
+        game.campaignSaveFailed.value = !saved;
+      }
+      return saved;
+    }
+
+    final previous = _lastSave;
+    final writeResult = previous == null ? write() : previous.then((_) => write());
+    late final Future<bool> result;
+    result = writeResult.whenComplete(() {
+      if (identical(_lastSave, result)) _lastSave = null;
+    });
+    _lastSave = result;
+    return result;
+  }
+
+  static Future<bool> _writeGame(GameManager game, {bool? gameEndRecorded}) async {
 
     final data = <String, dynamic>{
       'nationalityId': game.playerNationality?.id,
@@ -57,8 +98,9 @@ class SaveEngine {
       'marketPressure': game.marketPressure.map((id, city) => MapEntry(id, city.map((g, v) => MapEntry(g.name, v)))),
     };
 
+    final snapshot = json.encode(data);
     final prefs = await SharedPreferences.getInstance();
-    return prefs.setString(_saveKey, json.encode(data));
+    return prefs.setString(_saveKey, snapshot);
   }
 
   static Future<bool> loadGame(GameManager game) async {

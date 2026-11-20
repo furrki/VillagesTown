@@ -25,6 +25,47 @@ Future<void> saveAndReturnToMenu(GameManager game) async {
   game.resetGame();
 }
 
+class CampaignSaveWarning extends StatelessWidget {
+  const CampaignSaveWarning({super.key, required this.game});
+
+  final GameManager game;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: game.campaignSaveFailed,
+      builder: (context, failed, _) {
+        if (!failed) return const SizedBox.shrink();
+        final colors = Theme.of(context).colorScheme;
+        return Material(
+          color: colors.errorContainer,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      'Could not save campaign',
+                      style: TextStyle(color: colors.onErrorContainer),
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => SaveEngine.saveGame(game),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class RtsGameView extends StatefulWidget {
   const RtsGameView({super.key});
 
@@ -265,6 +306,13 @@ class _RtsGameViewState extends State<RtsGameView> {
 
               // Toast
               if (_toastMessage != null) _buildToast(),
+
+              Positioned(
+                top: MediaQuery.paddingOf(context).top + 40,
+                left: 16,
+                right: 16,
+                child: CampaignSaveWarning(game: game),
+              ),
 
               // Battle screen overlay
               if (game.pendingBattles.any((b) =>
