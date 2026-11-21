@@ -1420,7 +1420,7 @@ class GameManager extends ChangeNotifier {
 
     if (arrivedAt != null) {
       _onPlayerArrival(arrivedAt);
-    } else if (encounter != null) {
+    } else if (encounter != null && getWinner() == null) {
       currentEncounter = encounter;
       gameLoop.pause();
     }

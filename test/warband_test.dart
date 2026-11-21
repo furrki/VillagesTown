@@ -58,22 +58,24 @@ void main() {
     expect(game.playerWarband?.id, id);
   });
 
-  test('an arrival on a scheduled tick charges the 8g wage before the world turn', () {
-    final game = withFourTroops();
-    final pc = game.playerCharacter!;
-    game.spendGold(game.gold - 7);
-    setOnRoad(game, progress: 0.5, totalTicks: 2);
-    final destination = pc.travelDestinationId;
-    game.gameLoop.tickCount = 5;
-    final turn = game.currentTurn;
-    game.onGameTickCallback();
-    expect(game.currentTurn, turn + 1);
-    expect(game.playerWarband!.unitCount, 3);
-    expect(pc.state, PlayerState.atCity);
-    expect(pc.currentCityId, destination);
-    expect(game.gameLoop.speed, GameSpeed.paused);
-    expect(game.currentEncounter, isNull);
-  });
+  for (final gold in [7, 8]) {
+    test('an arrival on a scheduled tick with ${gold}g ${gold < 8 ? 'cannot pay' : 'pays'} the 8g wage', () {
+      final game = withFourTroops();
+      final pc = game.playerCharacter!;
+      game.spendGold(game.gold - gold);
+      setOnRoad(game, progress: 0.5, totalTicks: 2);
+      final destination = pc.travelDestinationId;
+      game.gameLoop.tickCount = 5;
+      final turn = game.currentTurn;
+      game.onGameTickCallback();
+      expect(game.currentTurn, turn + 1);
+      expect(game.playerWarband!.unitCount, gold < 8 ? 3 : 4);
+      expect(pc.state, PlayerState.atCity);
+      expect(pc.currentCityId, destination);
+      expect(game.gameLoop.speed, GameSpeed.paused);
+      expect(game.currentEncounter, isNull);
+    });
+  }
 
   test('an arrival off the schedule charges no wage and runs no world turn', () {
     final game = withFourTroops();
