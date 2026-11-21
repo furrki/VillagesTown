@@ -25,6 +25,7 @@ class FullGame extends ChangeNotifier {
   bool owned = false;
   bool busy = false;
   bool pending = false;
+  bool restoring = false;
   String message = '';
   ProductDetails? product;
   Future<void>? _startup;
@@ -89,7 +90,7 @@ class FullGame extends ChangeNotifier {
     try {
       await refresh();
     } catch (_) {
-      if (!busy) _status('The store is unavailable. Try again.');
+      if (!busy && !pending) _status('The store is unavailable. Try again.');
     }
   }
 
@@ -117,7 +118,7 @@ class FullGame extends ChangeNotifier {
   @visibleForTesting
   void legacyOwned(bool value) {
     owned = value;
-    _status('');
+    _status('', pending: value ? false : null);
   }
 
   @visibleForTesting
@@ -167,9 +168,9 @@ class FullGame extends ChangeNotifier {
     }
   }
 
-  void _status(String text, {bool waiting = false, bool pending = false}) {
+  void _status(String text, {bool waiting = false, bool? pending}) {
     busy = waiting;
-    this.pending = pending;
+    this.pending = pending ?? this.pending;
     message = text;
     notifyListeners();
   }
@@ -181,31 +182,37 @@ class FullGame extends ChangeNotifier {
         case PurchaseStatus.pending:
           _status('Waiting for store approval.', pending: true);
         case PurchaseStatus.canceled:
-          _status('');
+          _status('', pending: false);
         case PurchaseStatus.error:
-          _status('Purchase failed. You can try again.');
+          _status('Purchase failed. You can try again.', pending: false);
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:
           try {
             if (!_android) {
               if (!await storeKit2Owned()) {
-                _status('The App Store could not confirm this purchase.');
+                _status(
+                  'The App Store could not confirm this purchase.',
+                  pending: false,
+                );
                 continue;
               }
             }
             owned = true;
-            _status('');
+            _status('', pending: false);
             if (_android) await _cachePlayOwnership(true);
             if (p.pendingCompletePurchase) await completeStorePurchase(p);
           } catch (_) {
-            _status('The store could not finish confirming your purchase.');
+            _status(
+              'The store could not finish confirming your purchase.',
+              pending: false,
+            );
           }
       }
     }
   }
 
   Future<void> buy() async {
-    if (busy || pending) return;
+    if (busy || pending || restoring) return;
     _status('Contacting the store…', waiting: true);
     try {
       await start();
@@ -235,8 +242,9 @@ class FullGame extends ChangeNotifier {
   }
 
   Future<void> restore() async {
-    if (busy) return;
-    _status('Checking your purchases…', waiting: true, pending: pending);
+    if (busy || restoring) return;
+    restoring = true;
+    _status('Checking your purchases…', waiting: true);
     try {
       await start();
       if (_android) {
@@ -248,17 +256,19 @@ class FullGame extends ChangeNotifier {
         owned = await storeKit2Owned();
       }
       if (owned) {
-        _status('');
+        _status('', pending: false);
       } else if (pending) {
-        _status('Waiting for store approval.', pending: true);
+        _status('Waiting for store approval.');
       } else {
         _status('No full-game purchase found for this store account.');
       }
+    } on ConfirmationFailed {
+      _status('The store could not finish confirming your purchase.');
     } catch (_) {
-      _status(
-        'Restore failed. Check your connection and try again.',
-        pending: pending,
-      );
+      _status('Restore failed. Check your connection and try again.');
+    } finally {
+      restoring = false;
+      notifyListeners();
     }
   }
 }
@@ -347,7 +357,9 @@ class _FullGameSheetState extends State<_FullGameSheet> {
                   ),
                 const SizedBox(height: 16),
                 FilledButton(
-                  onPressed: store.busy || store.pending ? null : store.buy,
+                  onPressed: store.busy || store.pending || store.restoring
+                      ? null
+                      : store.buy,
                   child: Text(
                     store.product == null
                         ? 'Check price'
@@ -355,7 +367,9 @@ class _FullGameSheetState extends State<_FullGameSheet> {
                   ),
                 ),
                 TextButton(
-                  onPressed: store.busy ? null : store.restore,
+                  onPressed: store.busy || store.restoring
+                      ? null
+                      : store.restore,
                   child: const Text('Restore purchase'),
                 ),
               ],

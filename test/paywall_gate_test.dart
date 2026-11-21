@@ -100,6 +100,15 @@ void main() {
     expect(store.message, 'Waiting for store approval.');
   });
 
+  test('an empty StoreKit 1 restore keeps a pending approval', () {
+    final store = FakeStore();
+    store.legacyStatus('Waiting for store approval.', pending: true);
+    store.legacyOwned(false);
+    expect(store.pending, isTrue);
+    store.legacyOwned(true);
+    expect(store.pending, isFalse);
+  });
+
   test('a transaction callback does not allow a second restore', () async {
     final store = FakeStore();
     final gate = Completer<void>();
