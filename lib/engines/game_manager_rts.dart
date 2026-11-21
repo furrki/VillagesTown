@@ -1,7 +1,6 @@
 part of 'game_manager.dart';
 
 extension GameManagerRts on GameManager {
-  /// Check all active missions for objective completion.
   void checkMissions([String? arrivedCityId]) {
     final pc = playerCharacter;
     if (pc == null) return;
@@ -20,11 +19,14 @@ extension GameManagerRts on GameManager {
         switch (obj.type) {
           case ObjectiveType.travelTo:
             if (arrivedCityId != null && obj.targetCityId == arrivedCityId) {
-              // For delivery missions, check cargo requirement first
               final cargoObj = mission.objectives
                   .where((o) => o.type == ObjectiveType.haveCargo)
                   .firstOrNull;
               if (cargoObj == null || _checkCargoObjective(cargoObj, pc)) {
+                if (cargoObj != null) {
+                  final good = TradeGood.values.where((g) => g.name == cargoObj.targetGoodName).firstOrNull;
+                  if (good != null) pc.removeCargo(good, cargoObj.targetAmount);
+                }
                 obj.markComplete();
                 cargoObj?.markComplete();
               }
@@ -56,7 +58,6 @@ extension GameManagerRts on GameManager {
       }
     }
 
-    // Move completed/failed missions
     pc.activeMissions.removeWhere((m) =>
         m.state == MissionState.completed || m.state == MissionState.failed);
   }
@@ -88,7 +89,6 @@ extension GameManagerRts on GameManager {
     pendingNotifications.add('Mission complete: ${mission.title}$reward');
   }
 
-  /// Start traveling from current city to a connected city.
   bool startTravel(String destinationCityId) {
     final pc = playerCharacter;
     if (pc == null || pc.state != PlayerState.atCity) return false;
@@ -112,7 +112,6 @@ extension GameManagerRts on GameManager {
     currentEncounter = null;
     gameLoop.start();
 
-    // Move player's warband with them (unstation from origin)
     final warband = playerWarband;
     if (warband != null && warband.stationedAt == pc.travelOriginId) {
       warband.stationedAt = null;
@@ -123,7 +122,6 @@ extension GameManagerRts on GameManager {
     return true;
   }
 
-  /// Dismiss current encounter and resume travel.
   void dismissEncounter() {
     currentEncounter = null;
     lastBattleReport = null;
@@ -133,14 +131,12 @@ extension GameManagerRts on GameManager {
     notifyListeners();
   }
 
-  /// Get the village the player is currently at (or null if traveling).
   Village? get playerCurrentCity {
     final id = playerCharacter?.currentCityId;
     if (id == null) return null;
     return getVillageById(id);
   }
 
-  /// Get connected cities from the player's current location.
   List<Village> get travelDestinations {
     final id = playerCharacter?.currentCityId;
     if (id == null) return [];
@@ -148,7 +144,6 @@ extension GameManagerRts on GameManager {
   }
 
 
-  /// Adds [units] to the warband, or raises a new one where the character is when it was lost.
   void _joinWarband(List<Unit> units) {
     final pc = playerCharacter!;
     final warband = playerWarband;
@@ -166,12 +161,10 @@ extension GameManagerRts on GameManager {
     final pc = playerCharacter;
     if (pc == null || pc.currentCityId != city.id) return false;
 
-    // Check warband size limit
     final warband = playerWarband;
     final currentSize = warband?.unitCount ?? 0;
     if (currentSize >= pc.maxWarbandSize) return false;
 
-    // Check required building
     final recruitEngine = RecruitmentEngine();
     final reqBuilding = recruitEngine.getRequiredBuilding(unitType);
     if (reqBuilding != null && !city.buildings.any((b) => b.name == reqBuilding)) return false;
@@ -202,8 +195,6 @@ extension GameManagerRts on GameManager {
     return true;
   }
 
-  /// Fight an encounter's band. The warband keeps its wounds, loses its real dead, and a beaten
-  /// warband runs with its survivors instead of dying to the last man.
   EncounterBattleReport? resolveEncounterBattle(Encounter encounter, BattlePlan plan) {
     final pc = playerCharacter;
     final warband = playerWarband;
@@ -238,7 +229,6 @@ extension GameManagerRts on GameManager {
       goldGained = encounter.goldReward ?? 0;
       awardGold(goldGained);
       pc.battlesWon++;
-      // One skill level per three wins: intimidate opens at 3, and combat stays within the 1-10 skill range.
       if (pc.battlesWon % 3 == 0) pc.combatSkill = min(pc.combatSkill + 1, 10);
       battlesWon['player'] = (battlesWon['player'] ?? 0) + 1;
       for (final u in warband.units) {
@@ -279,19 +269,16 @@ extension GameManagerRts on GameManager {
     return lastBattleReport;
   }
 
-  /// Flee from encounter. Costs: -10 rep, lose 25% cargo, 1 soldier dies.
   void fleeEncounter() {
     final pc = playerCharacter;
     if (pc == null) return;
 
-    // Lose 25% of each cargo
     for (final good in pc.cargo.keys.toList()) {
       final amount = pc.cargo[good] ?? 0;
       final lost = (amount * 0.25).ceil();
       if (lost > 0) pc.removeCargo(good, lost);
     }
 
-    // Lose 1 soldier as rearguard
     final warband = playerWarband;
     if (warband != null && warband.units.isNotEmpty) {
       warband.units.last.takeDamage(9999);
@@ -306,15 +293,12 @@ extension GameManagerRts on GameManager {
     dismissEncounter();
   }
 
-  /// Resolve a narrative encounter choice.
-  /// Returns the result text to display, or null on failure.
   String? resolveEncounterChoice(Encounter encounter, EncounterChoice choice) {
     final pc = playerCharacter;
     if (pc == null) return null;
 
     switch (choice.outcome) {
       case EncounterChoiceOutcome.fight:
-        // Fight is handled separately via resolveEncounterBattle
         return null;
 
       case EncounterChoiceOutcome.flee:
@@ -379,14 +363,12 @@ extension GameManagerRts on GameManager {
         return choice.resultText;
 
       case EncounterChoiceOutcome.gainReputation:
-        // Could be wired to faction rep later
         dismissEncounter();
         notifyListeners();
         return choice.resultText;
     }
   }
 
-  /// Recruit a wounded soldier from encounter.
   bool recruitWoundedSoldier(Encounter encounter) {
     final pc = playerCharacter;
     if (pc == null) return false;
@@ -397,7 +379,6 @@ extension GameManagerRts on GameManager {
     if (currentSize >= pc.maxWarbandSize) return false;
 
     final unit = Unit.create(encounter.recruitableUnit!, 'player', const GeoCoordinate(0, 0));
-    // Wounded: half HP
     unit.takeDamage(unit.maxHP ~/ 2);
     _joinWarband([unit]);
     notifyListeners();
