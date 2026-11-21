@@ -7,10 +7,12 @@ import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
 import 'legacy_store.dart';
 import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/models/player_character.dart';
 
 const fullGameId = 'com.appgea.villages_town.full';
+const _playOwnedKey = 'com.appgea.villages_town.full.play_owned';
 
 class FullGame extends ChangeNotifier {
   static final instance = FullGame();
@@ -22,12 +24,38 @@ class FullGame extends ChangeNotifier {
   LegacyStore? _legacy;
   bool owned = false;
   bool busy = false;
+  bool pending = false;
   String message = '';
   ProductDetails? product;
   Future<void>? _startup;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   InAppPurchase get _store => InAppPurchase.instance;
-  bool get _android => defaultTargetPlatform == TargetPlatform.android;
+  bool get _android => platformIsAndroid;
+
+  @visibleForTesting
+  bool get platformIsAndroid => defaultTargetPlatform == TargetPlatform.android;
+
+  @visibleForTesting
+  Future<bool> storeKit2Owned() async =>
+      (await SK2Transaction.currentEntitlements()).any(
+        (p) => p.productId == fullGameId,
+      );
+
+  @visibleForTesting
+  Future<void> storeRestore() => _store.restorePurchases();
+
+  @visibleForTesting
+  Future<List<PurchaseDetails>> playPurchases() async {
+    final play = _store
+        .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
+    final result = await play.queryPastPurchases();
+    if (result.error != null) throw StateError('Play ownership check failed');
+    return result.pastPurchases;
+  }
+
+  @visibleForTesting
+  Future<void> completeStorePurchase(PurchaseDetails p) =>
+      _store.completePurchase(p);
 
   Future<void> start() => _startup ??= _connect();
 
@@ -35,16 +63,14 @@ class FullGame extends ChangeNotifier {
     if (!supported) return;
     try {
       if (!_android && !await SKRequestMaker.supportsStoreKit2()) {
-        _legacy = LegacyStore(fullGameId, (value) {
-          owned = value;
-          _status('');
-        }, _status);
+        _legacy = LegacyStore(fullGameId, legacyOwned, legacyStatus);
         await _legacy!.start();
         await refresh();
         return;
       }
+      if (_android && await _cachedPlayOwnership()) owned = true;
       _subscription ??= _store.purchaseStream.listen(
-        _updates,
+        handleUpdates,
         onError: (_) {
           _status(
             'The store could not confirm your purchase. Try Restore purchase.',
@@ -76,44 +102,84 @@ class FullGame extends ChangeNotifier {
     if (_android) {
       await _checkPlayOwnership();
     } else {
-      final purchases = await SK2Transaction.currentEntitlements();
-      owned = purchases.any((p) => p.productId == fullGameId);
+      owned = await storeKit2Owned();
     }
     notifyListeners();
     final response = await _store.queryProductDetails({fullGameId});
     product = response.productDetails
         .where((p) => p.id == fullGameId)
         .firstOrNull;
-    if (!busy) {
+    if (!busy && !pending) {
       _status(product == null ? 'The store could not load the price.' : '');
     }
   }
 
-  Future<void> _checkPlayOwnership() async {
-    final play = _store
-        .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
-    final result = await play.queryPastPurchases();
-    if (result.error != null) throw StateError('Play ownership check failed');
-    final purchases = result.pastPurchases.where(
-      (p) => p.productID == fullGameId && p.status == PurchaseStatus.purchased,
-    );
-    owned = purchases.isNotEmpty;
-    for (final p in purchases) {
-      if (p.pendingCompletePurchase) await _store.completePurchase(p);
+  @visibleForTesting
+  void legacyOwned(bool value) {
+    owned = value;
+    _status('');
+  }
+
+  @visibleForTesting
+  void legacyStatus(
+    String text, {
+    bool waiting = false,
+    bool pending = false,
+  }) => _status(text, waiting: waiting, pending: pending);
+
+  Future<bool> _cachedPlayOwnership() async {
+    try {
+      return (await SharedPreferences.getInstance()).getBool(_playOwnedKey) ??
+          false;
+    } catch (_) {
+      return false;
     }
   }
 
-  void _status(String text, {bool waiting = false}) {
+  Future<void> _cachePlayOwnership(bool value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (value) {
+        await prefs.setBool(_playOwnedKey, true);
+      } else {
+        await prefs.remove(_playOwnedKey);
+      }
+    } catch (_) {
+      return;
+    }
+  }
+
+  Future<void> _checkPlayOwnership() async {
+    final List<PurchaseDetails> past;
+    try {
+      past = await playPurchases();
+    } catch (_) {
+      if (await _cachedPlayOwnership()) owned = true;
+      rethrow;
+    }
+    final purchases = past.where(
+      (p) => p.productID == fullGameId && p.status == PurchaseStatus.purchased,
+    );
+    owned = purchases.isNotEmpty;
+    await _cachePlayOwnership(owned);
+    for (final p in purchases) {
+      if (p.pendingCompletePurchase) await completeStorePurchase(p);
+    }
+  }
+
+  void _status(String text, {bool waiting = false, bool pending = false}) {
     busy = waiting;
+    this.pending = pending;
     message = text;
     notifyListeners();
   }
 
-  Future<void> _updates(List<PurchaseDetails> updates) async {
+  @visibleForTesting
+  Future<void> handleUpdates(List<PurchaseDetails> updates) async {
     for (final p in updates.where((p) => p.productID == fullGameId)) {
       switch (p.status) {
         case PurchaseStatus.pending:
-          _status('Waiting for store approval.', waiting: true);
+          _status('Waiting for store approval.', pending: true);
         case PurchaseStatus.canceled:
           _status('');
         case PurchaseStatus.error:
@@ -122,15 +188,15 @@ class FullGame extends ChangeNotifier {
         case PurchaseStatus.restored:
           try {
             if (!_android) {
-              final entries = await SK2Transaction.currentEntitlements();
-              if (!entries.any((entry) => entry.productId == fullGameId)) {
+              if (!await storeKit2Owned()) {
                 _status('The App Store could not confirm this purchase.');
                 continue;
               }
             }
             owned = true;
             _status('');
-            if (p.pendingCompletePurchase) await _store.completePurchase(p);
+            if (_android) await _cachePlayOwnership(true);
+            if (p.pendingCompletePurchase) await completeStorePurchase(p);
           } catch (_) {
             _status('The store could not finish confirming your purchase.');
           }
@@ -139,7 +205,7 @@ class FullGame extends ChangeNotifier {
   }
 
   Future<void> buy() async {
-    if (busy) return;
+    if (busy || pending) return;
     _status('Contacting the store…', waiting: true);
     try {
       await start();
@@ -170,23 +236,29 @@ class FullGame extends ChangeNotifier {
 
   Future<void> restore() async {
     if (busy) return;
-    _status('Checking your purchases…', waiting: true);
+    _status('Checking your purchases…', waiting: true, pending: pending);
     try {
       await start();
       if (_android) {
-        // Play restore marks even pending transactions restored. Query their
-        // original billing state before delivering or acknowledging the unlock.
         await _checkPlayOwnership();
       } else if (_legacy != null) {
         await _legacy!.restore();
       } else {
-        await _store.restorePurchases();
+        await storeRestore();
+        owned = await storeKit2Owned();
       }
-      _status(
-        owned ? '' : 'No full-game purchase found for this store account.',
-      );
+      if (owned) {
+        _status('');
+      } else if (pending) {
+        _status('Waiting for store approval.', pending: true);
+      } else {
+        _status('No full-game purchase found for this store account.');
+      }
     } catch (_) {
-      _status('Restore failed. Check your connection and try again.');
+      _status(
+        'Restore failed. Check your connection and try again.',
+        pending: pending,
+      );
     }
   }
 }
@@ -275,7 +347,7 @@ class _FullGameSheetState extends State<_FullGameSheet> {
                   ),
                 const SizedBox(height: 16),
                 FilledButton(
-                  onPressed: store.busy ? null : store.buy,
+                  onPressed: store.busy || store.pending ? null : store.buy,
                   child: Text(
                     store.product == null
                         ? 'Check price'
