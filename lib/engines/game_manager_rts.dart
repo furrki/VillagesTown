@@ -23,7 +23,7 @@ extension GameManagerRts on GameManager {
                   .where((o) => o.type == ObjectiveType.haveCargo)
                   .firstOrNull;
               if (cargoObj == null || _checkCargoObjective(cargoObj, pc)) {
-                if (cargoObj != null) {
+                if (cargoObj != null && mission.type == MissionType.delivery) {
                   final good = TradeGood.values.where((g) => g.name == cargoObj.targetGoodName).firstOrNull;
                   if (good != null) pc.removeCargo(good, cargoObj.targetAmount);
                 }
