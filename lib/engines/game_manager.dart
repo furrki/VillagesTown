@@ -47,14 +47,11 @@ class GameManager extends ChangeNotifier {
     map = VirtualMap(villages: []);
   }
 
-  // Connection settings
   static const int maxNeighborsPerCity = 4; // K-nearest neighbors
   static const double maxConnectionDistanceKm = 500.0; // Hard cap to prevent sea crossings
 
-  // Pre-computed city connections (symmetric graph)
   Map<String, Set<String>> cityConnections = {};
 
-  // State
   late GameMap map;
   List<Player> players = Player.createPlayers();
   int currentTurn = 0;
@@ -70,16 +67,11 @@ class GameManager extends ChangeNotifier {
   List<BattleRecord> pendingBattles = [];
   Set<String> discoveredVillageIDs = {};
 
-  /// How far the player's own buying (+) and selling (-) has pushed each city's prices, by city id.
-  /// TradeEngine owns the rule.
   Map<String, Map<TradeGood, double>> marketPressure = {};
   double visionRangeKm = 400.0; // Vision range in kilometers
 
-  /// Cache of last-known info for discovered villages (stale data for fog of war).
-  /// Key: village ID, Value: (owner, garrison estimate, turn last seen)
   Map<String, DiscoveredVillageInfo> discoveredVillageCache = {};
 
-  // Victory tracking
   VictoryType? selectedVictoryType;
   Map<String, int> battlesWon = {};
   VictoryType? achievedVictoryType;
@@ -89,17 +81,13 @@ class GameManager extends ChangeNotifier {
   final campaignSaveFailed = ValueNotifier(false);
   List<Achievement>? pendingEndAchievements;
 
-  // World events
   List<GameEvent> activeEvents = [];
   List<GameEvent> eventHistory = [];
 
-  // Difficulty
   Difficulty? difficulty;
 
-  // Game Modifiers
   Set<GameModifier> activeModifiers = {};
 
-  // Achievement tracking (per-game stats)
   int battlesLost = 0;
   int peakGold = 0;
   int peakVillageCount = 0;
@@ -110,7 +98,6 @@ class GameManager extends ChangeNotifier {
   Map<String, int> previousTurnVillageCounts = {};
   String? capitalVillageId;
 
-  // RTS Character System
   PlayerCharacter? playerCharacter;
   final GameLoop gameLoop = GameLoop();
   Encounter? currentEncounter;
@@ -132,11 +119,8 @@ class GameManager extends ChangeNotifier {
     campaignId = const Uuid().v4();
     playerNationality = nationality;
 
-    // Set up player with chosen nationality
     players[0] = players[0].copyWith(nationality: nationality);
 
-    // Find which AI player matches the chosen nationality and eliminate them
-    // (player takes their faction slot)
     for (var i = 1; i < players.length; i++) {
       if (players[i].nationality.id == nationality.id) {
         players[i] = players[i].copyWith(isEliminated: true);
@@ -144,18 +128,14 @@ class GameManager extends ChangeNotifier {
       }
     }
 
-    // Build all cities
     final allVillages = _buildAllCities(nationality);
 
     map = VirtualMap(villages: allVillages);
 
-    // Load custom territories from asset
     _loadTerritories(allVillages);
 
-    // Build city connection graph
     _buildCityConnections();
 
-    // Update player village lists
     for (var i = 0; i < players.length; i++) {
       final playerID = players[i].id;
       players[i] = players[i].copyWith(
@@ -190,17 +170,14 @@ class GameManager extends ChangeNotifier {
   List<Village> _buildAllCities(Nationality playerNationality) {
     final villages = <Village>[];
 
-    // Helper to get owner ID for a nationality
     String getOwner(Nationality nat) {
       if (nat.id == playerNationality.id) return 'player';
-      // Match to AI player by nationality id
       for (final p in players) {
         if (!p.isHuman && p.nationality.id == nat.id) return p.id;
       }
       return 'neutral';
     }
 
-    // === MAJOR FACTION CAPITALS (stronger) ===
     villages.add(Village(
       name: 'Constantinople', nationality: Nationality.byzantines,
       coordinates: const GeoCoordinate(41.0082, 28.9784),
@@ -220,7 +197,6 @@ class GameManager extends ChangeNotifier {
       garrisonStrength: 20, garrisonMaxStrength: 30,
     ));
 
-    // === MINOR FACTION CAPITALS (weaker) ===
     villages.add(Village(
       name: 'Tarnovo', nationality: Nationality.bulgaria,
       coordinates: const GeoCoordinate(43.0757, 25.6172),
@@ -246,8 +222,6 @@ class GameManager extends ChangeNotifier {
       garrisonStrength: 15, garrisonMaxStrength: 25,
     ));
 
-    // === MAJOR FACTION SECONDARY CITIES ===
-    // Byzantine secondary cities
     villages.add(Village(
       name: 'Thessaloniki', nationality: Nationality.byzantines,
       coordinates: const GeoCoordinate(40.6401, 22.9444),
@@ -261,7 +235,6 @@ class GameManager extends ChangeNotifier {
       garrisonStrength: 10, garrisonMaxStrength: 18,
     ));
 
-    // Ottoman secondary cities
     villages.add(Village(
       name: 'Konya', nationality: Nationality.ottomans,
       coordinates: const GeoCoordinate(37.8714, 32.4846),
@@ -275,7 +248,6 @@ class GameManager extends ChangeNotifier {
       garrisonStrength: 10, garrisonMaxStrength: 18,
     ));
 
-    // Crusader secondary cities
     villages.add(Village(
       name: 'Jerusalem', nationality: Nationality.crusaders,
       coordinates: const GeoCoordinate(31.7683, 35.2137),
@@ -289,8 +261,6 @@ class GameManager extends ChangeNotifier {
       garrisonStrength: 10, garrisonMaxStrength: 18,
     ));
 
-    // === MINOR FACTION SECONDARY CITIES ===
-    // Bulgarian
     villages.add(Village(
       name: 'Sofia', nationality: Nationality.bulgaria,
       coordinates: const GeoCoordinate(42.6977, 23.3219),
@@ -298,7 +268,6 @@ class GameManager extends ChangeNotifier {
       garrisonStrength: 8, garrisonMaxStrength: 15,
     ));
 
-    // Serbian
     villages.add(Village(
       name: 'Nis', nationality: Nationality.serbia,
       coordinates: const GeoCoordinate(43.3209, 21.8954),
@@ -306,7 +275,6 @@ class GameManager extends ChangeNotifier {
       garrisonStrength: 8, garrisonMaxStrength: 15,
     ));
 
-    // Armenian
     villages.add(Village(
       name: 'Van', nationality: Nationality.armenia,
       coordinates: const GeoCoordinate(38.4891, 43.4089),
@@ -314,7 +282,6 @@ class GameManager extends ChangeNotifier {
       garrisonStrength: 8, garrisonMaxStrength: 15,
     ));
 
-    // Mamluk
     villages.add(Village(
       name: 'Alexandria', nationality: Nationality.mamluks,
       coordinates: const GeoCoordinate(31.2001, 29.9187),
@@ -328,33 +295,26 @@ class GameManager extends ChangeNotifier {
       garrisonStrength: 10, garrisonMaxStrength: 18,
     ));
 
-    // === NEUTRAL CITIES (contested territories) ===
-    // Anatolia
     villages.add(Village(name: 'Smyrna', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(38.4237, 27.1428), owner: 'neutral'));
     villages.add(Village(name: 'Trebizond', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(41.0027, 39.7168), owner: 'neutral'));
     villages.add(Village(name: 'Sinope', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(42.0231, 35.1531), owner: 'neutral'));
     villages.add(Village(name: 'Edirne', nationality: Nationality.ottomans, coordinates: const GeoCoordinate(41.6771, 26.5557), owner: 'neutral'));
     villages.add(Village(name: 'Erzurum', nationality: Nationality.armenia, coordinates: const GeoCoordinate(39.9043, 41.2679), owner: 'neutral'));
 
-    // Balkans
     villages.add(Village(name: 'Athens', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(37.9838, 23.7275), owner: 'neutral'));
     villages.add(Village(name: 'Skopje', nationality: Nationality.serbia, coordinates: const GeoCoordinate(41.9981, 21.4254), owner: 'neutral'));
     villages.add(Village(name: 'Plovdiv', nationality: Nationality.bulgaria, coordinates: const GeoCoordinate(42.1354, 24.7453), owner: 'neutral'));
 
-    // Levant
     villages.add(Village(name: 'Aleppo', nationality: Nationality.mamluks, coordinates: const GeoCoordinate(36.2021, 37.1343), owner: 'neutral'));
     villages.add(Village(name: 'Tripoli', nationality: Nationality.crusaders, coordinates: const GeoCoordinate(34.4367, 35.8497), owner: 'neutral'));
     villages.add(Village(name: 'Gaza', nationality: Nationality.mamluks, coordinates: const GeoCoordinate(31.5, 34.4667), owner: 'neutral'));
 
-    // Islands
     villages.add(Village(name: 'Rhodes', nationality: Nationality.crusaders, coordinates: const GeoCoordinate(36.4349, 28.2176), owner: 'neutral'));
     villages.add(Village(name: 'Crete', nationality: Nationality.byzantines, coordinates: const GeoCoordinate(35.2401, 24.8093), owner: 'neutral'));
     villages.add(Village(name: 'Cyprus', nationality: Nationality.crusaders, coordinates: const GeoCoordinate(35.1264, 33.4299), owner: 'neutral'));
 
-    // Caucasus
     villages.add(Village(name: 'Kars', nationality: Nationality.armenia, coordinates: const GeoCoordinate(40.6013, 43.0975), owner: 'neutral'));
 
-    // Assign village traits based on geography
     _assignVillageTraits(villages);
 
     return villages;
@@ -362,29 +322,24 @@ class GameManager extends ChangeNotifier {
 
   void _assignVillageTraits(List<Village> villages) {
     const traitMap = <String, VillageTrait>{
-      // Fertile: river valleys and plains
       'Cairo': VillageTrait.fertile,
       'Damascus': VillageTrait.fertile,
       'Alexandria': VillageTrait.fertile,
       'Thessaloniki': VillageTrait.fertile,
       'Gaza': VillageTrait.fertile,
-      // Forested: wooded regions
       'Sofia': VillageTrait.forested,
       'Tarnovo': VillageTrait.forested,
       'Belgrade': VillageTrait.forested,
       'Nis': VillageTrait.forested,
-      // Mountainous: highland/mountain regions
       'Van': VillageTrait.mountainous,
       'Kars': VillageTrait.mountainous,
       'Ani': VillageTrait.mountainous,
       'Erzurum': VillageTrait.mountainous,
       'Konya': VillageTrait.mountainous,
-      // Trade crossroads: major trade hubs
       'Constantinople': VillageTrait.tradeCrossroads,
       'Antioch': VillageTrait.tradeCrossroads,
       'Aleppo': VillageTrait.tradeCrossroads,
       'Bursa': VillageTrait.tradeCrossroads,
-      // Coastal: port cities
       'Acre': VillageTrait.coastal,
       'Smyrna': VillageTrait.coastal,
       'Trebizond': VillageTrait.coastal,
@@ -393,12 +348,10 @@ class GameManager extends ChangeNotifier {
       'Rhodes': VillageTrait.coastal,
       'Crete': VillageTrait.coastal,
       'Cyprus': VillageTrait.coastal,
-      // Strategic: defensible positions
       'Jerusalem': VillageTrait.strategic,
       'Nicaea': VillageTrait.strategic,
       'Ankara': VillageTrait.strategic,
       'Edirne': VillageTrait.strategic,
-      // Remaining get none by default
     };
 
     for (final village in villages) {
@@ -406,11 +359,9 @@ class GameManager extends ChangeNotifier {
     }
   }
 
-  /// Build K-nearest neighbor connections for all cities
   void _buildCityConnections() {
     cityConnections.clear();
 
-    // Step 1: For each city, find its K nearest neighbors (within max distance)
     for (final village in map.villages) {
       final candidates = <(Village, double)>[];
 
@@ -422,13 +373,11 @@ class GameManager extends ChangeNotifier {
         }
       }
 
-      // Sort by distance, take closest K
       candidates.sort((a, b) => a.$2.compareTo(b.$2));
       final neighbors = candidates.take(maxNeighborsPerCity).map((c) => c.$1.id).toSet();
       cityConnections[village.id] = neighbors;
     }
 
-    // Step 2: Ensure symmetry - if A connects to B, B must connect to A
     final symmetric = <String, Set<String>>{};
     for (final entry in cityConnections.entries) {
       symmetric[entry.key] ??= {};
@@ -451,19 +400,16 @@ class GameManager extends ChangeNotifier {
     syncGlobalResources();
     _createStartingArmies();
 
-    // Store capital village ID for achievement tracking
     final playerVillages = getPlayerVillages('player');
     if (playerVillages.isNotEmpty) {
       capitalVillageId = playerVillages.first.id;
     }
 
-    // Apply difficulty starting gold bonus
     final goldBonus = difficulty?.playerStartGoldBonus ?? 0;
     if (goldBonus != 0) {
       modifyGlobalResource('player', Resource.gold, goldBonus);
     }
 
-    // Apply modifier effects
     if (activeModifiers.contains(GameModifier.fogEternal)) {
       visionRangeKm = 200.0;
     }
@@ -474,7 +420,6 @@ class GameManager extends ChangeNotifier {
       }
     }
 
-    // Initialize player character at their capital city
     final startCity = getPlayerVillages('player').firstOrNull;
     final startGold = 150 + (origin?.bonusGold ?? 0);
     playerCharacter = PlayerCharacter(
@@ -492,7 +437,6 @@ class GameManager extends ChangeNotifier {
 
     absorbPurse();
 
-    // Create player's starting warband
     if (startCity != null) {
       final startingUnits = <Unit>[
         ...List.generate(
@@ -508,12 +452,10 @@ class GameManager extends ChangeNotifier {
       playerCharacter!.warbandId = createArmy(startingUnits, startCity.id, 'player').id;
     }
 
-    // Create initial story mission from origin
     if (origin != null && startCity != null) {
       _createInitialMission(origin, startCity.id);
     }
 
-    // Wire game loop callbacks
     gameLoop.onTick = _onGameTick;
     gameLoop.onArrival = _onPlayerArrival;
 
@@ -611,7 +553,6 @@ class GameManager extends ChangeNotifier {
 
   void refreshUI() => notifyListeners();
 
-  // Resource Management
   void syncGlobalResources() {
     for (final player in players) {
       final villages = getPlayerVillages(player.id);
@@ -668,8 +609,6 @@ class GameManager extends ChangeNotifier {
     return true;
   }
 
-  /// The treasury is only the sum of the faction's city stocks and is rebuilt from them every turn,
-  /// so a change has to land in the cities: income in the capital, costs from the richest city first.
   void modifyGlobalResource(String playerId, Resource resource, int amount) {
     final villages = getPlayerVillages(playerId);
     if (villages.isEmpty || amount == 0) return;
@@ -711,19 +650,16 @@ class GameManager extends ChangeNotifier {
     return true;
   }
 
-  // Get nationality for a player/owner ID
   Nationality? getNationality(String ownerId) {
     if (ownerId == 'neutral') return null;
     final player = getPlayerById(ownerId);
     return player?.nationality;
   }
 
-  // Get display name for a village based on current owner
   String getVillageDisplayName(Village village) {
     return village.displayName(getNationality(village.owner));
   }
 
-  // Village Management
   List<Village> getPlayerVillages(String playerId) {
     return map.villages.where((v) => v.owner == playerId).toList();
   }
@@ -767,12 +703,10 @@ class GameManager extends ChangeNotifier {
     }
   }
 
-  // Army Management
   List<Army> getArmiesAt(String villageId) {
     return armies.where((a) => a.stationedAt == villageId).toList();
   }
 
-  /// Get total defender count for a village (garrison + stationed army units)
   int getTotalDefenders(Village village) {
     final stationedArmies = getArmiesAt(village.id).where((a) => a.owner == village.owner);
     int armyUnits = 0;
@@ -794,12 +728,10 @@ class GameManager extends ChangeNotifier {
     return armies.where((a) => a.owner == playerId && a.state == ArmyState.stationed).toList();
   }
 
-  /// Get all armies currently besieging a village
   List<Army> getBesiegingArmiesAt(String villageId) {
     return armies.where((a) => a.stationedAt == villageId && a.state == ArmyState.besieging).toList();
   }
 
-  /// Get villages under siege by a specific player
   List<Village> getSiegedVillagesFor(String playerId) {
     return map.villages.where((v) {
       final besiegers = getBesiegingArmiesAt(v.id);
@@ -807,7 +739,6 @@ class GameManager extends ChangeNotifier {
     }).toList();
   }
 
-  /// Get villages owned by player that are under siege
   List<Village> getVillagesUnderSiegeFor(String playerId) {
     return map.villages.where((v) {
       return v.owner == playerId && getBesiegingArmiesAt(v.id).isNotEmpty;
@@ -816,7 +747,6 @@ class GameManager extends ChangeNotifier {
 
   Army createArmy(List<Unit> units, String villageId, String owner) {
     final village = getVillageById(villageId);
-    // Use OWNER's nationality for the army name, not village's
     final ownerPlayer = getPlayerById(owner);
     final army = Army(
       name: Army.generateName(
@@ -845,30 +775,24 @@ class GameManager extends ChangeNotifier {
   }
 
   void mergeArmiesAt(String villageId, String owner) {
-    // The warband travels with the character and never folds into a city's army.
     final armiesHere = armies
         .where((a) => a.stationedAt == villageId && a.owner == owner && a.id != playerCharacter?.warbandId)
         .toList();
     if (armiesHere.length <= 1) return;
 
-    // Sort by unit count descending - largest army keeps its name
     armiesHere.sort((a, b) => b.units.length.compareTo(a.units.length));
     final primary = armiesHere.first;
 
-    // Collect all units from other armies
     final unitsToAdd = <Unit>[];
     for (var i = 1; i < armiesHere.length; i++) {
       unitsToAdd.addAll(armiesHere[i].units);
       removeArmy(armiesHere[i].id);
     }
 
-    // Add units to primary army (preserves its name and ID)
     primary.units.addAll(unitsToAdd);
     updateArmy(primary);
   }
 
-  /// Defender sallies out to fight besiegers in the field (no fortress bonus)
-  /// Returns the battle record if sally was successful
   BattleRecord? sallyOut(String villageId) {
     final village = getVillageById(villageId);
     if (village == null) return null;
@@ -876,7 +800,6 @@ class GameManager extends ChangeNotifier {
     final besiegers = getBesiegingArmiesAt(villageId);
     if (besiegers.isEmpty) return null;
 
-    // Get all defenders (garrison + stationed armies)
     final defenderArmies = getArmiesAt(villageId)
         .where((a) => a.owner == village.owner && a.state == ArmyState.stationed)
         .toList();
@@ -889,11 +812,9 @@ class GameManager extends ChangeNotifier {
 
     if (allDefenders.isEmpty) return null;
 
-    // Combine all besieging armies
     final attackerUnits = besiegers.expand((a) => a.units).toList();
     if (attackerUnits.isEmpty) return null;
 
-    // Create a field battle (NO fortress bonus - sallyOut negates it)
     final combatEngine = CombatEngine();
     final result = combatEngine.resolveCombat(
       attackerName: besiegers.first.name,
@@ -914,13 +835,11 @@ class GameManager extends ChangeNotifier {
     if (result.rounds.isNotEmpty) {
       village.underSiege = false; // Battle resolving the siege
 
-      // Reset besiegers to stationed state (battle will determine outcome)
       for (final army in besiegers) {
         army.state = ArmyState.stationed;
         army.siegeTurns = 0;
       }
 
-      // Only queue player-involved battles for UI display; auto-resolve AI ones
       final playerInvolved = result.attackerOwnerId == 'player' ||
                              result.defenderOwnerId == 'player';
       if (playerInvolved) {
@@ -936,37 +855,29 @@ class GameManager extends ChangeNotifier {
     return null;
   }
 
-  /// Send army to intercept a marching enemy army
-  /// Returns true if interception was set up successfully
   bool interceptArmy(String interceptorId, String targetArmyId) {
     final interceptor = getArmyById(interceptorId);
     if (interceptor == null) return false;
 
-    // Interceptor must be stationed
     if (interceptor.state != ArmyState.stationed) return false;
     if (interceptor.stationedAt == null) return false;
 
     final target = getArmyById(targetArmyId);
     if (target == null) return false;
 
-    // Target must be marching and enemy
     if (!target.isMarching) return false;
     if (target.owner == interceptor.owner) return false;
 
-    // Check if interceptor can reach target's path
-    // Interceptor must be adjacent to target's destination
     final targetDest = target.destination;
     if (targetDest == null) return false;
     if (!areNeighbors(interceptor.stationedAt!, targetDest)) return false;
 
-    // Send interceptor to target's destination - they'll meet there
     final destination = getVillageById(targetDest);
     if (destination == null) return false;
 
     final originVillage = getVillageById(interceptor.stationedAt);
     if (originVillage == null) return false;
 
-    // Calculate turns to intercept (try to arrive same time or earlier)
     final turns = Army.calculateTravelTime(originVillage.coordinates, destination.coordinates);
     interceptor.marchTo(targetDest, min(turns, target.turnsUntilArrival), interceptor.stationedAt);
     updateArmy(interceptor);
@@ -976,12 +887,10 @@ class GameManager extends ChangeNotifier {
     return true;
   }
 
-  /// Check if two villages are neighbors (using pre-computed K-nearest graph)
   bool areNeighbors(String villageId1, String villageId2) {
     return cityConnections[villageId1]?.contains(villageId2) ?? false;
   }
 
-  /// Get all neighbors of a village (using pre-computed K-nearest graph)
   List<Village> getNeighbors(String villageId) {
     final neighborIds = cityConnections[villageId];
     if (neighborIds == null) return [];
@@ -998,7 +907,6 @@ class GameManager extends ChangeNotifier {
     final origin = armies[armyIndex].stationedAt;
     if (origin == null) return false;
 
-    // Check if destination is a neighbor
     if (!areNeighbors(origin, destinationVillageId)) return false;
 
     final originVillage = getVillageById(origin);
@@ -1006,20 +914,17 @@ class GameManager extends ChangeNotifier {
 
     final army = armies[armyIndex];
 
-    // Check for undefended village - instant capture
     if (destination.owner != army.owner) {
       final defendingArmies = getArmiesAt(destination.id).where((a) => a.owner == destination.owner).toList();
       final hasDefenders = destination.garrisonStrength > 0 || defendingArmies.isNotEmpty;
 
       if (!hasDefenders) {
-        // No defenders - instant capture (no siege needed)
         _captureUndefendedVillage(army, destination, origin);
         notifyListeners();
         return true;
       }
     }
 
-    // March to destination (friendly or enemy - siege mechanics handled by turn engine)
     var turns = Army.calculateTravelTime(originVillage.coordinates, destination.coordinates);
     turns += EventEngine.movementPenalty(this);
     army.marchTo(destinationVillageId, turns, origin);
@@ -1058,7 +963,6 @@ class GameManager extends ChangeNotifier {
     }
   }
 
-  // Turn Events
   void addTurnEvent(TurnEvent event) {
     turnEvents.add(event);
   }
@@ -1067,12 +971,9 @@ class GameManager extends ChangeNotifier {
     turnEvents.clear();
   }
 
-  // Fog of War
 
-  /// Get effective vision range for a village (base + light cavalry scouting bonus).
   double _getEffectiveVisionRange(Village village) {
     var range = visionRangeKm;
-    // Light Cavalry scouting: +200km vision (doesn't stack)
     final stationedArmies = getArmiesAt(village.id).where((a) => a.owner == village.owner);
     for (final army in stationedArmies) {
       if (army.units.any((u) => u.unitType == UnitType.lightCavalry)) {
@@ -1083,7 +984,6 @@ class GameManager extends ChangeNotifier {
     return range;
   }
 
-  /// Check if a village is currently in vision range (not just discovered).
   bool isVillageInVisionRange(Village village, String playerId) {
     if (village.owner == playerId) return true;
 
@@ -1108,8 +1008,6 @@ class GameManager extends ChangeNotifier {
     return false;
   }
 
-  /// Ids of every village that isVillageInVisionRange would return true for. Vision sources are
-  /// built once per call, so the map can ask for the whole set each build.
   Set<String> villageIdsInVisionRange(String playerId) {
     final sources = <(GeoCoordinate, double)>[];
     for (final pv in getPlayerVillages(playerId)) {
@@ -1143,7 +1041,6 @@ class GameManager extends ChangeNotifier {
 
     if (isVillageInVisionRange(village, playerId)) {
       discoveredVillageIDs.add(village.id);
-      // Update cache with current data
       discoveredVillageCache[village.id] = DiscoveredVillageInfo(
         owner: village.owner,
         garrisonEstimate: _roundToNearest(getTotalDefenders(village), 5),
@@ -1152,7 +1049,6 @@ class GameManager extends ChangeNotifier {
       return true;
     }
 
-    // Previously discovered but out of range = still visible (stale data)
     if (discoveredVillageIDs.contains(village.id)) return true;
 
     return false;
@@ -1190,7 +1086,6 @@ class GameManager extends ChangeNotifier {
     return false;
   }
 
-  /// Update vision cache for all villages in range at start of turn.
   void updateVisionCache(String playerId) {
     for (final village in map.villages) {
       if (village.owner == playerId) continue;
@@ -1217,7 +1112,6 @@ class GameManager extends ChangeNotifier {
     return armies.where((a) => isArmyVisible(a, playerId)).toList();
   }
 
-  /// Max conquests within any 5-turn window (for blitzkrieg achievement).
   int get conquestsInWindow {
     if (conquestTurns.length < 3) return 0;
     int maxInWindow = 0;
@@ -1233,19 +1127,15 @@ class GameManager extends ChangeNotifier {
     return maxInWindow;
   }
 
-  // Victory/Defeat
   Player? getWinner() {
-    // Check if player achieved a victory condition
     if (achievedVictoryType != null) {
       final humanPlayer = players.firstWhere((p) => p.isHuman);
       if (!humanPlayer.isEliminated) return humanPlayer;
     }
 
-    // Classic elimination: last player standing
     final activePlayers = players.where((p) => !p.isEliminated).toList();
     if (activePlayers.length == 1) return activePlayers.first;
 
-    // Human player defeated — return AI with most villages
     final humanPlayer = players.firstWhere((p) => p.isHuman);
     if (humanPlayer.isEliminated) {
       final activeAI = activePlayers.where((p) => !p.isHuman).toList();
@@ -1264,7 +1154,6 @@ class GameManager extends ChangeNotifier {
   }
 
   void finalizeBattle(BattleRecord record, int roundsPlayed, bool retreated) {
-    // 1. Get Participants
     final attacker = getArmyById(record.attackerId);
 
     Army? defenderArmy = getArmyById(record.defenderId);
@@ -1273,7 +1162,6 @@ class GameManager extends ChangeNotifier {
       defenderVillage = getVillageById(record.defenderId);
     }
 
-    // Verify participants exist - clean up stale battle if not
     if (attacker == null) {
       record.isPending = false;
       pendingBattles.removeWhere((b) => b.id == record.id);
@@ -1282,14 +1170,12 @@ class GameManager extends ChangeNotifier {
     }
 
     if (defenderArmy == null && defenderVillage == null) {
-      // Defender no longer exists - clean up
       record.isPending = false;
       pendingBattles.removeWhere((b) => b.id == record.id);
       notifyListeners();
       return;
     }
 
-    // Verify attacker still has units
     if (attacker.units.isEmpty) {
       record.isPending = false;
       pendingBattles.removeWhere((b) => b.id == record.id);
@@ -1298,7 +1184,6 @@ class GameManager extends ChangeNotifier {
       return;
     }
 
-    // 2. Calculate losses from rounds played
     int attLosses = 0;
     int defLosses = 0;
     for (var i = 0; i < roundsPlayed && i < record.rounds.length; i++) {
@@ -1306,10 +1191,8 @@ class GameManager extends ChangeNotifier {
       defLosses += record.rounds[i].defenderLosses;
     }
 
-    // Check cavalry-only BEFORE applying casualties
     final wasCavalryOnly = record.attackerOwnerId == 'player' && attacker.units.every((u) => u.unitType.category == 'Cavalry');
 
-    // 3. Apply Losses to armies and garrison
     _applyCasualtiesToArmy(attacker, attLosses);
 
     if (defenderArmy != null) {
@@ -1321,7 +1204,6 @@ class GameManager extends ChangeNotifier {
       }
     }
 
-    // Apply garrison casualties (garrison takes losses after army units)
     if (defenderVillage != null && record.initialGarrisonCount > 0) {
       final armyUnitCount = record.initialDefenderCount - record.initialGarrisonCount;
       final garrisonLosses = max(0, defLosses - armyUnitCount);
@@ -1330,7 +1212,6 @@ class GameManager extends ChangeNotifier {
       }
     }
 
-    // 4. Handle Retreat - attacker returns home
     if (retreated) {
       if (attacker.units.isNotEmpty && record.originVillageId != null) {
         attacker.station(record.originVillageId!);
@@ -1350,17 +1231,12 @@ class GameManager extends ChangeNotifier {
       return;
     }
 
-    // 5. Use combat engine's winner determination (authoritative)
-    // Defender wins if combat engine said so, or if attacker has no units left
     final defenderWins = !record.attackerWon || attacker.units.isEmpty;
 
-    // Determine if player was involved and their role
     final playerWasAttacker = record.attackerOwnerId == 'player';
     final playerWasDefender = record.defenderOwnerId == 'player';
 
-    // 6. Handle outcomes
     if (defenderWins) {
-      // Attacker lost - defender gets battle win credit
       battlesWon[record.defenderOwnerId] = (battlesWon[record.defenderOwnerId] ?? 0) + 1;
       if (playerWasAttacker) battlesLost++;
       removeArmy(attacker.id);
@@ -1368,27 +1244,21 @@ class GameManager extends ChangeNotifier {
         defenderVillage.underSiege = false;
         updateVillage(defenderVillage);
       }
-      // Event from player's perspective
       if (playerWasAttacker) {
         addTurnEvent(BattleLostEvent(location: record.locationName, casualties: attLosses));
       } else if (playerWasDefender) {
         addTurnEvent(BattleWonEvent(location: record.locationName, casualties: defLosses));
       }
     } else {
-      // Attacker won - attacker gets battle win credit
       battlesWon[record.attackerOwnerId] = (battlesWon[record.attackerOwnerId] ?? 0) + 1;
 
-      // Track cavalry-only win for achievement (checked before casualties)
       if (wasCavalryOnly) {
         hadCavalryOnlyBattleWin = true;
       }
       if (defenderVillage != null) {
-        // Siege victory - conquer (this also updates the army and adds event)
         _conquerVillage(attacker, defenderVillage);
       } else if (defenderArmy != null) {
-        // Field battle victory
         updateArmy(attacker);
-        // Event from player's perspective
         if (playerWasAttacker) {
           addTurnEvent(BattleWonEvent(location: record.locationName, casualties: attLosses));
         } else if (playerWasDefender) {
@@ -1398,7 +1268,6 @@ class GameManager extends ChangeNotifier {
       }
     }
 
-    // 7. Clean up record
     record.isPending = false;
     pendingBattles.removeWhere((b) => b.id == record.id);
     notifyListeners();
@@ -1425,18 +1294,14 @@ class GameManager extends ChangeNotifier {
       village.underSiege = false;
       updateVillage(village);
 
-      // Remove or rout any defender armies that were stationed here
       final defenderArmies = armies.where((a) => a.stationedAt == village.id && a.owner == oldOwner).toList();
       for (final army in defenderArmies) {
         removeArmy(army.id);
       }
 
-      // Station attacking army
       attacker.station(village.id);
       updateArmy(attacker);
 
-      // Clean up any other pending battles involving this village
-      // (e.g., multiple armies attacked same village, first one conquered it)
       pendingBattles.removeWhere((b) => b.defenderId == village.id && b.attackerId != attacker.id);
 
       if (attacker.owner == 'player') {
@@ -1446,7 +1311,6 @@ class GameManager extends ChangeNotifier {
         }
         addTurnEvent(VillageConqueredEvent(villageName: getVillageDisplayName(village)));
       } else if (oldOwner == 'player') {
-        // Check if player lost their capital
         if (village.id == capitalVillageId) {
           lostCapital = true;
         }
@@ -1454,23 +1318,19 @@ class GameManager extends ChangeNotifier {
       }
   }
 
-  /// Clean up stale battles where participants no longer exist
   void cleanupStaleBattles() {
     pendingBattles.removeWhere((battle) {
-      // Check if attacker army still exists and has units
       final attacker = getArmyById(battle.attackerId);
       if (attacker == null || attacker.units.isEmpty) {
         return true; // Remove this battle
       }
 
-      // Check if defender still exists (army or village)
       final defenderArmy = getArmyById(battle.defenderId);
       final defenderVillage = getVillageById(battle.defenderId);
       if (defenderArmy == null && defenderVillage == null) {
         return true; // Remove this battle
       }
 
-      // Check if village ownership changed (conquest already happened)
       if (defenderVillage != null && defenderVillage.owner == attacker.owner) {
         return true; // Remove - already conquered
       }
@@ -1479,12 +1339,10 @@ class GameManager extends ChangeNotifier {
     });
   }
 
-  /// Auto-finalize battles that don't involve the player
   void finalizeAIBattles() {
     final toFinalize = <BattleRecord>[];
 
     for (final battle in pendingBattles) {
-      // Use stored owner IDs from battle creation time (not current ownership!)
       final playerInvolved = battle.attackerOwnerId == 'player' ||
                              battle.defenderOwnerId == 'player';
 
@@ -1493,15 +1351,12 @@ class GameManager extends ChangeNotifier {
       }
     }
 
-    // Finalize all AI battles (play all rounds, no retreat)
     for (final battle in toFinalize) {
       finalizeBattle(battle, battle.rounds.length, false);
     }
   }
 
-  // --- RTS Game Loop Integration ---
 
-  // Public accessors for save/load rewiring
   void Function() get onGameTickCallback => _onGameTick;
   void Function(String) get onPlayerArrivalCallback => _onPlayerArrival;
 
@@ -1510,42 +1365,32 @@ class GameManager extends ChangeNotifier {
 
     final pc = playerCharacter!;
 
-    // Advance travel if traveling
+    String? arrivedAt;
+    Encounter? encounter;
     if (pc.state == PlayerState.traveling) {
       pc.travelProgress += 1.0 / pc.travelTotalTicks;
 
       if (pc.travelProgress >= 1.0) {
-        // Arrived
         pc.travelProgress = 1.0;
-        _onPlayerArrival(pc.travelDestinationId!);
-        return;
-      }
-
-      final encounter = EncounterEngine.rollEncounter(
-        playerWarband?.unitCount ?? 0,
-        gameLoop.tickCount,
-        tripTicks: pc.travelTotalTicks,
-        scoutingSkill: pc.scoutingSkill,
-      );
-      if (encounter != null) {
-        currentEncounter = encounter;
-        gameLoop.pause();
-        notifyListeners();
-        return;
+        arrivedAt = pc.travelDestinationId!;
+      } else {
+        encounter = EncounterEngine.rollEncounter(
+          playerWarband?.unitCount ?? 0,
+          gameLoop.tickCount,
+          tripTicks: pc.travelTotalTicks,
+          scoutingSkill: pc.scoutingSkill,
+        );
       }
     }
 
-    // Warband upkeep (every 5 ticks, same as world sim)
     if (gameLoop.tickCount % 5 == 0) {
       final warband = playerWarband;
       if (warband != null) {
-        // Wounds close slowly on the road. A city's healer does it at once, for a fee.
         for (final u in warband.units) {
           u.heal(max(1, u.maxHP ~/ 20));
         }
         final upkeepGold = warband.unitCount * warbandWagePerMan;
         if (!spendGold(upkeepGold)) {
-          // Desertion: remove 1 soldier if can't pay
           if (warband.units.isNotEmpty) {
             warband.units.removeLast();
             if (warband.units.isEmpty) {
@@ -1558,8 +1403,6 @@ class GameManager extends ChangeNotifier {
       }
     }
 
-    // Game over check
-    // Broke, alone and with nothing to sell. A lord who still holds a city can ride home and hire again.
     if (gold <= 0 &&
         (playerWarband == null || playerWarband!.units.isEmpty) &&
         pc.currentCargoCount == 0 &&
@@ -1570,13 +1413,18 @@ class GameManager extends ChangeNotifier {
       return;
     }
 
-    // World simulation (every 5 ticks)
     if (gameLoop.tickCount % 5 == 0) {
       turnEngine.doTurn();
-      checkMissions();
+      if (arrivedAt == null) checkMissions();
     }
 
-    // Auto-save every 10 ticks
+    if (arrivedAt != null) {
+      _onPlayerArrival(arrivedAt);
+    } else if (encounter != null) {
+      currentEncounter = encounter;
+      gameLoop.pause();
+    }
+
     if (gameLoop.tickCount % 10 == 0) {
       SaveEngine.saveGame(this);
     }
@@ -1586,8 +1434,6 @@ class GameManager extends ChangeNotifier {
 
   Timer? _citySaveTimer;
 
-  /// The loop is paused while the player is in a city, so the tick autosave never runs there.
-  /// Every city action ends in notifyListeners: save soon after, once for however many come together.
   @override
   void notifyListeners() {
     super.notifyListeners();
@@ -1615,7 +1461,6 @@ class GameManager extends ChangeNotifier {
     pc.travelProgress = 0.0;
     pc.travelTotalTicks = 0;
 
-    // Station warband at arrived city
     final warband = playerWarband;
     if (warband != null) {
       warband.station(cityId);
@@ -1624,16 +1469,12 @@ class GameManager extends ChangeNotifier {
 
     pc.checkProgression();
     checkMissions(cityId);
-    // Bannerlord-style: world is frozen while at city
     gameLoop.pause();
     notifyListeners();
   }
 
-  /// The army that travels with the character, or null once it was wiped out.
   Army? get playerWarband => getArmyById(playerCharacter?.warbandId);
 
-  /// Strength for the pre-battle odds: total blows per second times total health, the square law
-  /// of a melee where everyone fights. Only the ratio of two sides means anything.
   static double fightingPower(Iterable<Unit> units) {
     var attack = 0.0;
     var hp = 0;
@@ -1646,13 +1487,10 @@ class GameManager extends ChangeNotifier {
     return attack * hp;
   }
 
-  /// What the last road fight cost. The travel panel shows it until the player rides on.
   EncounterBattleReport? lastBattleReport;
 
-  /// A road band breaks and runs once two thirds of it is down; so does the warband.
   static const encounterRoutBelow = 0.34;
 
-  /// Gold each warband soldier costs every 5 ticks.
   static const warbandWagePerMan = 2;
 
 
@@ -1680,7 +1518,6 @@ class EncounterBattleReport {
   });
 }
 
-/// Cached info about a discovered village (for fog of war stale data).
 class DiscoveredVillageInfo {
   final String owner;
   final int garrisonEstimate;
