@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -23,6 +25,7 @@ class FakeStore extends FullGame {
   FakeStore({this.android = false});
   final bool android;
   int restores = 0;
+  Future<void>? gate;
   Future<bool> Function() sk2 = () async => false;
   Future<List<PurchaseDetails>> Function() play = () async => [];
   @override
@@ -34,7 +37,11 @@ class FakeStore extends FullGame {
   @override
   Future<bool> storeKit2Owned() => sk2();
   @override
-  Future<void> storeRestore() async => restores++;
+  Future<void> storeRestore() async {
+    restores++;
+    await gate;
+  }
+
   @override
   Future<List<PurchaseDetails>> playPurchases() => play();
 }
@@ -93,6 +100,21 @@ void main() {
     expect(store.message, 'Waiting for store approval.');
   });
 
+  test('a transaction callback does not allow a second restore', () async {
+    final store = FakeStore();
+    final gate = Completer<void>();
+    store.gate = gate.future;
+    final first = store.restore();
+    await Future<void>.delayed(Duration.zero);
+    await store.handleUpdates([playPurchase(PurchaseStatus.canceled)]);
+    expect(store.busy, isFalse);
+    await store.restore();
+    expect(store.restores, 1);
+    gate.complete();
+    await first;
+    expect(store.restoring, isFalse);
+  });
+
   test(
     'StoreKit 2 restore reports the entitlement result after the call',
     () async {
@@ -149,6 +171,8 @@ void main() {
     late List<String> statuses;
     late List<bool> pendingFlags;
     late int finished;
+    late bool saveOk;
+    late List<String> saved;
     late Future<String> Function() receipt;
     late void Function(LegacyStore) onRestore;
     late LegacyStore legacy;
@@ -158,6 +182,8 @@ void main() {
       statuses = [];
       pendingFlags = [];
       finished = 0;
+      saveOk = true;
+      saved = [];
       receipt = () async => 'R';
       onRestore = (_) {};
       legacy = LegacyStore(
@@ -169,6 +195,10 @@ void main() {
         },
         receipt: () => receipt(),
         finish: (_) async => finished++,
+        saveReceipt: (r) async {
+          if (saveOk) saved.add(r);
+          return saveOk;
+        },
         restoreTransactions: () async {
           onRestore(legacy);
           legacy.paymentQueueRestoreCompletedTransactionsFinished();
@@ -185,33 +215,51 @@ void main() {
     });
 
     test(
-      'a failed receipt save delivers nothing, restore then recovers',
+      'a rejected receipt save delivers nothing, restore then recovers',
       () async {
-        receipt = () async => '';
+        saveOk = false;
         await legacy.handleTransactions([
           tx(SKPaymentTransactionStateWrapper.purchased),
         ]);
         expect(owned, isFalse);
         expect(finished, 0);
         expect(statuses.single, startsWith('The store could not finish'));
-        expect(
-          (await SharedPreferences.getInstance()).getString(fullGameId),
-          isNull,
-        );
 
-        receipt = () async => 'R';
+        saveOk = true;
         onRestore = (l) => l.updatedTransactions(
           transactions: [tx(SKPaymentTransactionStateWrapper.restored)],
         );
         await legacy.restore();
         expect(owned, isTrue);
         expect(finished, 1);
+        expect(saved, ['R']);
+      },
+    );
+
+    test(
+      'restore keeps saved ownership and reports a failed confirmation',
+      () async {
+        SharedPreferences.setMockInitialValues({fullGameId: 'OLD'});
+        saveOk = false;
+        onRestore = (l) => l.updatedTransactions(
+          transactions: [tx(SKPaymentTransactionStateWrapper.restored)],
+        );
+        await expectLater(legacy.restore(), throwsA(isA<ConfirmationFailed>()));
         expect(
           (await SharedPreferences.getInstance()).getString(fullGameId),
-          'R',
+          'OLD',
         );
       },
     );
+
+    test('an empty receipt delivers nothing', () async {
+      receipt = () async => '';
+      await legacy.handleTransactions([
+        tx(SKPaymentTransactionStateWrapper.purchased),
+      ]);
+      expect(owned, isFalse);
+      expect(finished, 0);
+    });
 
     test(
       'restore waits for in-flight persistence before it completes',

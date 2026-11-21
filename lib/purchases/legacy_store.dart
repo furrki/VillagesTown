@@ -4,6 +4,8 @@ import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+class ConfirmationFailed implements Exception {}
+
 class LegacyStore implements SKTransactionObserverWrapper {
   LegacyStore(
     this.id,
@@ -12,9 +14,12 @@ class LegacyStore implements SKTransactionObserverWrapper {
     Future<String> Function()? receipt,
     Future<void> Function(SKPaymentTransactionWrapper)? finish,
     Future<void> Function()? restoreTransactions,
+    Future<bool> Function(String)? saveReceipt,
   }) : _receipt = receipt ?? SKReceiptManager.retrieveReceiptData,
        _finish = finish,
-       _restoreTransactions = restoreTransactions;
+       _restoreTransactions = restoreTransactions,
+       _saveReceipt = saveReceipt;
+  final Future<bool> Function(String)? _saveReceipt;
   final String id;
   final void Function(bool) onOwned;
   final void Function(String, {bool waiting, bool pending}) onStatus;
@@ -25,6 +30,7 @@ class LegacyStore implements SKTransactionObserverWrapper {
   final _inFlight = <Future<void>>{};
   Completer<void>? _restore;
   bool _found = false;
+  bool _confirmFailed = false;
 
   Future<void> start() async {
     final prefs = await SharedPreferences.getInstance();
@@ -55,6 +61,7 @@ class LegacyStore implements SKTransactionObserverWrapper {
 
   Future<void> restore() async {
     _found = false;
+    _confirmFailed = false;
     final result = Completer<void>();
     _restore = result;
     await (_restoreTransactions?.call() ?? queue.restoreTransactions());
@@ -62,6 +69,7 @@ class LegacyStore implements SKTransactionObserverWrapper {
     while (_inFlight.isNotEmpty) {
       await Future.wait(_inFlight.toList());
     }
+    if (!_found && _confirmFailed) throw ConfirmationFailed();
     if (!_found) {
       onOwned(false);
       await (await SharedPreferences.getInstance()).remove(id);
@@ -86,15 +94,17 @@ class LegacyStore implements SKTransactionObserverWrapper {
     for (final tx in transactions.where(
       (tx) => tx.payment.productIdentifier == id,
     )) {
+      var delivered = false;
       try {
         switch (tx.transactionState) {
           case SKPaymentTransactionStateWrapper.purchased:
           case SKPaymentTransactionStateWrapper.restored:
             final receipt = await _receipt();
             if (receipt.isEmpty) throw StateError('Receipt missing');
-            final saved = await (await SharedPreferences.getInstance())
-                .setString(id, receipt);
+            final saved =
+                await (_saveReceipt?.call(receipt) ?? _prefsSave(receipt));
             if (!saved) throw StateError('Receipt not saved');
+            delivered = true;
             _found = true;
             onOwned(true);
             await _finishTransaction(tx);
@@ -109,10 +119,20 @@ class LegacyStore implements SKTransactionObserverWrapper {
             break;
         }
       } catch (_) {
+        if (!delivered &&
+            (tx.transactionState ==
+                    SKPaymentTransactionStateWrapper.purchased ||
+                tx.transactionState ==
+                    SKPaymentTransactionStateWrapper.restored)) {
+          _confirmFailed = true;
+        }
         onStatus('The store could not finish confirming your purchase.');
       }
     }
   }
+
+  Future<bool> _prefsSave(String receipt) async =>
+      (await SharedPreferences.getInstance()).setString(id, receipt);
 
   Future<void> _finishTransaction(SKPaymentTransactionWrapper tx) =>
       _finish?.call(tx) ?? queue.finishTransaction(tx);
