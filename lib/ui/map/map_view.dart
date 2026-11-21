@@ -22,7 +22,6 @@ class MapView extends StatefulWidget {
   final void Function(Army) onArmySelected;
   final void Function(Army, Village)? onArmySent;
 
-  /// Lifts the map credit above a panel the screen draws over the map's bottom edge.
   final double creditBottomInset;
 
   const MapView({
@@ -45,7 +44,6 @@ class _MapViewState extends State<MapView> {
   double _currentZoom = 5.0;
   bool _hasCenteredOnPlayer = false;
 
-  // Map bounds for the Byzantine/Ottoman region
   static const _initialCenter = LatLng(38.5, 30.0);
   static const _initialZoom = 5.0;
   static const _minZoom = 4.0;
@@ -54,7 +52,6 @@ class _MapViewState extends State<MapView> {
   @override
   void didUpdateWidget(MapView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Center on player's village once at game start
     if (!_hasCenteredOnPlayer && widget.selectedVillage != null) {
       _hasCenteredOnPlayer = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -89,15 +86,15 @@ class _MapViewState extends State<MapView> {
     return Consumer<GameProvider>(
       builder: (context, provider, _) {
         final game = provider.gameManager;
-        // Filter villages by visibility (fog of war)
-        final visibleVillages = game.map.villages.where((v) => game.isVillageVisible(v, 'player')).toList();
-        // Paint the destination last so a neighboring marker cannot hide its pennant.
+        final inVisionIds = game.villageIdsInVisionRange('player');
+        final visibleVillages = game.map.villages
+            .where((v) => game.isVillageVisibleInVision(v, 'player', inVisionIds))
+            .toList();
         if (widget.goalCityId != null) {
           final goal = visibleVillages.indexWhere((v) => v.id == widget.goalCityId);
           if (goal >= 0) visibleVillages.add(visibleVillages.removeAt(goal));
         }
         final visibleArmies = game.getVisibleArmies('player');
-        final inVisionIds = game.villageIdsInVisionRange('player');
 
         return FlutterMap(
           mapController: _mapController,
@@ -113,36 +110,29 @@ class _MapViewState extends State<MapView> {
             onMapEvent: _onMapEvent,
           ),
           children: [
-            // The game's own land outline. No web tiles.
             const LandLayer(),
 
-            // Territory polygons
             LandMaskTerritoryLayer(
               villages: visibleVillages,
               game: game,
             ),
 
-            // March paths for moving armies
             PolylineLayer(
               polylines: _buildMarchPaths(visibleArmies, game),
             ),
 
-            // Village markers
             MarkerLayer(
               markers: _buildVillageMarkers(visibleVillages, game, inVisionIds),
             ),
 
-            // Marching army markers (stationed armies now shown via village marker)
             MarkerLayer(
               markers: _buildMarchingArmyMarkers(visibleArmies, game),
             ),
 
-            // Player character marker (while traveling)
             MarkerLayer(
               markers: _buildPlayerMarker(game),
             ),
 
-            // The territory shapes were traced over OpenStreetMap, so its credit stays.
             Padding(
               padding: EdgeInsets.only(bottom: widget.creditBottomInset),
               child: const MapCredit(),
@@ -177,7 +167,6 @@ class _MapViewState extends State<MapView> {
       ));
     }
 
-    // Player travel path
     final pc = game.playerCharacter;
     if (pc != null && pc.state == PlayerState.traveling) {
       final pOrigin = game.getVillageById(pc.travelOriginId);
@@ -199,8 +188,6 @@ class _MapViewState extends State<MapView> {
   }
 
   (double, double) _getMarkerDimensions() {
-    // Width just needs to fit circle + ring
-    // Height needs extra space for label when zoom >= 5.5
     final showLabel = _currentZoom >= 5.5;
     final labelHeight = showLabel ? 22.0 : 0.0;
 
@@ -216,7 +203,6 @@ class _MapViewState extends State<MapView> {
     return villages.map((village) {
       final totalDefenders = game.getTotalDefenders(village);
 
-      // Check if this village is a valid march target for selected army
       final bool isValidMarchTarget;
       if (widget.selectedArmy != null && widget.selectedArmy!.stationedAt != null) {
         isValidMarchTarget = widget.selectedArmy!.stationedAt != village.id &&
@@ -233,7 +219,6 @@ class _MapViewState extends State<MapView> {
           onWillAcceptWithDetails: (details) {
             final armyOrigin = details.data.stationedAt;
             if (armyOrigin == null || armyOrigin == village.id) return false;
-            // Only accept if villages are neighbors
             return game.areNeighbors(armyOrigin, village.id);
           },
           onAcceptWithDetails: (details) {
@@ -279,7 +264,6 @@ class _MapViewState extends State<MapView> {
   List<Marker> _buildMarchingArmyMarkers(List<Army> armies, GameManager game) {
     final markers = <Marker>[];
 
-    // Marching armies
     for (final army in armies.where((a) => a.isMarching)) {
       final origin = game.getVillageById(army.origin);
       final dest = game.getVillageById(army.destination);
@@ -313,14 +297,12 @@ class _MapViewState extends State<MapView> {
       ));
     }
 
-    // Besieging armies - show near the village they're besieging
     for (final army in armies.where((a) => a.isBesieging)) {
       final village = game.getVillageById(army.stationedAt);
       if (village == null) continue;
 
       final nationality = _getNationality(army.owner, game);
 
-      // Offset slightly from village center to show siege
       final offset = 0.03;
       markers.add(Marker(
         point: LatLng(
@@ -371,12 +353,10 @@ class _MapViewState extends State<MapView> {
       ];
     }
 
-    // Show at current city when stationed
     if (pc.state == PlayerState.atCity && pc.currentCityId != null) {
       final city = game.getVillageById(pc.currentCityId);
       if (city == null) return [];
 
-      // Offset slightly so it doesn't overlap the village marker
       return [
         Marker(
           point: LatLng(
@@ -402,10 +382,6 @@ class _MapViewState extends State<MapView> {
   }
 }
 
-/// The territories' credit. They were traced in the polygon editor over OpenStreetMap
-/// tiles, and OSM's licence asks for a credit on derived maps. The coast is Natural Earth,
-/// public domain, and needs none. A small (i) button that opens the
-/// link, shown open for a few seconds when the map first draws.
 class MapCredit extends StatelessWidget {
   const MapCredit({super.key});
 
@@ -424,7 +400,6 @@ class MapCredit extends StatelessWidget {
       popupBackgroundColor: const Color(0xFF1A1A1A),
       popupInitialDisplayDuration: const Duration(seconds: 4),
       showFlutterMapAttribution: false,
-      // The default button is a black icon, lost on the dark map.
       openButton: (context, open) => IconButton(
         onPressed: open,
         tooltip: 'Map credits',

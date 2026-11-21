@@ -1038,8 +1038,16 @@ class GameManager extends ChangeNotifier {
 
   bool isVillageVisible(Village village, String playerId) {
     if (village.owner == playerId) return true;
+    return _applyVillageVisibility(village, isVillageInVisionRange(village, playerId));
+  }
 
-    if (isVillageInVisionRange(village, playerId)) {
+  bool isVillageVisibleInVision(Village village, String playerId, Set<String> inVisionIds) {
+    if (village.owner == playerId) return true;
+    return _applyVillageVisibility(village, inVisionIds.contains(village.id));
+  }
+
+  bool _applyVillageVisibility(Village village, bool inVision) {
+    if (inVision) {
       discoveredVillageIDs.add(village.id);
       discoveredVillageCache[village.id] = DiscoveredVillageInfo(
         owner: village.owner,
