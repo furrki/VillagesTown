@@ -9,7 +9,9 @@ import 'legacy_store.dart';
 import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/constants/layout_constants.dart';
 import '../data/models/player_character.dart';
+import 'town_hero.dart';
 
 const fullGameId = 'com.appgea.villages_town.full';
 const _playOwnedKey = 'com.appgea.villages_town.full.play_owned';
@@ -298,7 +300,7 @@ Future<bool> allowCity(
         useSafeArea: true,
         builder: (_) => _FullGameSheet(store),
       );
-      if (bought != true) return false;
+      if (bought != true && !store.owned) return false;
     }
   }
   if (!context.mounted || !travel()) return false;
@@ -315,64 +317,134 @@ class _FullGameSheet extends StatefulWidget {
 
 class _FullGameSheetState extends State<_FullGameSheet> {
   bool closing = false;
+  bool _buying = false;
+  bool _won = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.store.addListener(_changed);
+  }
+
+  @override
+  void dispose() {
+    widget.store.removeListener(_changed);
+    super.dispose();
+  }
+
+  void _changed() {
+    final store = widget.store;
+    if (!_buying) return;
+    if (store.owned) {
+      _buying = false;
+      setState(() => _won = true);
+      _celebrate();
+    } else if (store.pending) {
+      _buying = false;
+    } else if (!store.busy) {
+      _buying = false;
+      if (store.message.isNotEmpty) _failed();
+    }
+  }
+
+  Future<void> _celebrate() async {
+    LayoutConstants.impactFeedback(style: HapticStyle.heavy);
+    await Future<void>.delayed(const Duration(milliseconds: 110));
+    LayoutConstants.impactFeedback(style: HapticStyle.medium);
+    await Future<void>.delayed(const Duration(milliseconds: 110));
+    LayoutConstants.impactFeedback(style: HapticStyle.heavy);
+  }
+
+  Future<void> _failed() async {
+    LayoutConstants.impactFeedback();
+    await Future<void>.delayed(const Duration(milliseconds: 90));
+    LayoutConstants.impactFeedback();
+  }
+
+  void _buy() {
+    LayoutConstants.impactFeedback(style: HapticStyle.medium);
+    _buying = true;
+    widget.store.buy();
+  }
+
+  void _close() {
+    if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+      Navigator.pop(context, true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final store = widget.store;
+    final still = MediaQuery.disableAnimationsOf(context);
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
-        if (store.owned && !closing) {
+        final won = _won && store.owned;
+        if (store.owned && !won && !_buying && !closing) {
           closing = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && ModalRoute.of(context)?.isCurrent == true) {
-              Navigator.pop(context, true);
-            }
-          });
+          WidgetsBinding.instance.addPostFrameCallback((_) => _close());
         }
-        return SafeArea(
-          top: false,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Travel beyond the first two cities',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Unlock every city with one purchase.',
-                  textAlign: TextAlign.center,
-                ),
-                if (store.message.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Semantics(
-                      liveRegion: true,
-                      child: Text(store.message, textAlign: TextAlign.center),
+        return PopScope(
+          canPop: !won,
+          onPopInvokedWithResult: (popped, _) {
+            if (!popped) Navigator.pop(context, true);
+          },
+          child: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TownHero(won: won, still: still),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Travel beyond the first two cities',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  if (!won) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Unlock every city with one purchase.',
+                      textAlign: TextAlign.center,
                     ),
-                  ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: store.busy || store.pending || store.restoring
-                      ? null
-                      : store.buy,
-                  child: Text(
-                    store.product == null
-                        ? 'Check price'
-                        : 'Unlock full game · ${store.product!.price}',
-                  ),
-                ),
-                TextButton(
-                  onPressed: store.busy || store.restoring
-                      ? null
-                      : store.restore,
-                  child: const Text('Restore purchase'),
-                ),
-              ],
+                  ],
+                  if (store.message.isNotEmpty && !won)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Semantics(
+                        liveRegion: true,
+                        child: Text(store.message, textAlign: TextAlign.center),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  if (won)
+                    FilledButton(
+                      onPressed: _close,
+                      child: const Text('Continue'),
+                    )
+                  else ...[
+                    FilledButton(
+                      onPressed: store.busy || store.pending || store.restoring
+                          ? null
+                          : _buy,
+                      child: Text(
+                        store.product == null
+                            ? 'Check price'
+                            : 'Unlock full game · ${store.product!.price}',
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: store.busy || store.restoring
+                          ? null
+                          : store.restore,
+                      child: const Text('Restore purchase'),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         );
